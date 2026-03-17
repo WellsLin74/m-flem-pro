@@ -11,15 +11,10 @@ import { useMemo } from 'react';
 
 export function Step3Init() {
   const { plant, setPlant, setStep } = useAppStore();
-  const { register, handleSubmit, watch } = useForm<PlantData>({
-    defaultValues: plant || {
-      lat: 0, lon: 0,
-      fabLength: 0, fabWidth: 0,
-      fabAl: 0, fabBl: 0,
-      cupLength: 0, cupWidth: 0,
-      cupAl: 0, cupBl: 0,
-      pdBuilding: 0, pdFacility: 0, pdTools: 0, pdFixture: 0, pdStock: 0, bi12m: 0
-    }
+  
+  // Use empty object as fallback to ensure inputs start blank if no plant data exists
+  const { register, handleSubmit, watch } = useForm<Partial<PlantData>>({
+    defaultValues: plant || {}
   });
 
   const values = watch();
@@ -52,25 +47,27 @@ export function Step3Init() {
     };
   }, [values]);
 
-  const onSubmit = (data: PlantData) => {
-    const numericData = {
-      ...data,
-      lat: Number(data.lat),
-      lon: Number(data.lon),
-      fabLength: Number(data.fabLength),
-      fabWidth: Number(data.fabWidth),
-      fabAl: Number(data.fabAl),
-      fabBl: Number(data.fabBl),
-      cupLength: Number(data.cupLength),
-      cupWidth: Number(data.cupWidth),
-      cupAl: Number(data.cupAl),
-      cupBl: Number(data.cupBl),
-      pdBuilding: Number(data.pdBuilding),
-      pdFacility: Number(data.pdFacility),
-      pdTools: Number(data.pdTools),
-      pdFixture: Number(data.pdFixture),
-      pdStock: Number(data.pdStock),
-      bi12m: Number(data.bi12m),
+  const onSubmit = (data: Partial<PlantData>) => {
+    // Convert all inputs to numbers before saving to store
+    const numericData: PlantData = {
+      company: plant?.company || '',
+      plantName: plant?.plantName || '',
+      lat: Number(data.lat) || 0,
+      lon: Number(data.lon) || 0,
+      fabLength: Number(data.fabLength) || 0,
+      fabWidth: Number(data.fabWidth) || 0,
+      fabAl: Number(data.fabAl) || 0,
+      fabBl: Number(data.fabBl) || 0,
+      cupLength: Number(data.cupLength) || 0,
+      cupWidth: Number(data.cupWidth) || 0,
+      cupAl: Number(data.cupAl) || 0,
+      cupBl: Number(data.cupBl) || 0,
+      pdBuilding: Number(data.pdBuilding) || 0,
+      pdFacility: Number(data.pdFacility) || 0,
+      pdTools: Number(data.pdTools) || 0,
+      pdFixture: Number(data.pdFixture) || 0,
+      pdStock: Number(data.pdStock) || 0,
+      bi12m: Number(data.bi12m) || 0,
     };
     setPlant(numericData);
     setStep(4);
@@ -93,11 +90,11 @@ export function Step3Init() {
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-muted-foreground uppercase">Latitude</Label>
-                <Input type="number" step="0.001" {...register('lat')} className="bg-white border-none font-mono" />
+                <Input type="number" step="0.001" {...register('lat')} placeholder="0.000" className="bg-white border-none font-mono" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-muted-foreground uppercase">Longitude</Label>
-                <Input type="number" step="0.001" {...register('lon')} className="bg-white border-none font-mono" />
+                <Input type="number" step="0.001" {...register('lon')} placeholder="0.000" className="bg-white border-none font-mono" />
               </div>
             </div>
 
@@ -109,11 +106,11 @@ export function Step3Init() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Length</Label>
-                  <Input type="number" {...register('fabLength')} className="bg-white border-none font-mono" />
+                  <Input type="number" {...register('fabLength')} placeholder="0" className="bg-white border-none font-mono" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Width</Label>
-                  <Input type="number" {...register('fabWidth')} className="bg-white border-none font-mono" />
+                  <Input type="number" {...register('fabWidth')} placeholder="0" className="bg-white border-none font-mono" />
                 </div>
               </div>
               <div className="flex items-center gap-2 text-primary pt-2">
@@ -123,11 +120,11 @@ export function Step3Init() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Above Ground</Label>
-                  <Input type="number" {...register('fabAl')} className="bg-white border-none font-mono" />
+                  <Input type="number" {...register('fabAl')} placeholder="0" className="bg-white border-none font-mono" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Below Ground</Label>
-                  <Input type="number" {...register('fabBl')} className="bg-white border-none font-mono" />
+                  <Input type="number" {...register('fabBl')} placeholder="0" className="bg-white border-none font-mono" />
                 </div>
               </div>
               <div className="pt-2 border-t border-primary/10 space-y-1">
@@ -150,11 +147,11 @@ export function Step3Init() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Length</Label>
-                  <Input type="number" {...register('cupLength')} className="bg-white border-none font-mono" />
+                  <Input type="number" {...register('cupLength')} placeholder="0" className="bg-white border-none font-mono" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Width</Label>
-                  <Input type="number" {...register('cupWidth')} className="bg-white border-none font-mono" />
+                  <Input type="number" {...register('cupWidth')} placeholder="0" className="bg-white border-none font-mono" />
                 </div>
               </div>
               <div className="flex items-center gap-2 text-primary pt-2">
@@ -164,11 +161,11 @@ export function Step3Init() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Above Ground</Label>
-                  <Input type="number" {...register('cupAl')} className="bg-white border-none font-mono" />
+                  <Input type="number" {...register('cupAl')} placeholder="0" className="bg-white border-none font-mono" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Below Ground</Label>
-                  <Input type="number" {...register('cupBl')} className="bg-white border-none font-mono" />
+                  <Input type="number" {...register('cupBl')} placeholder="0" className="bg-white border-none font-mono" />
                 </div>
               </div>
               <div className="pt-2 border-t border-primary/10 space-y-1">
@@ -202,27 +199,27 @@ export function Step3Init() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Building</Label>
-                    <Input type="number" {...register('pdBuilding')} className="bg-white border-none text-xs font-mono h-8" />
+                    <Input type="number" {...register('pdBuilding')} placeholder="0" className="bg-white border-none text-xs font-mono h-8" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Facility</Label>
-                    <Input type="number" {...register('pdFacility')} className="bg-white border-none text-xs font-mono h-8" />
+                    <Input type="number" {...register('pdFacility')} placeholder="0" className="bg-white border-none text-xs font-mono h-8" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Tools</Label>
-                    <Input type="number" {...register('pdTools')} className="bg-white border-none text-xs font-mono h-8" />
+                    <Input type="number" {...register('pdTools')} placeholder="0" className="bg-white border-none text-xs font-mono h-8" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Fixture</Label>
-                    <Input type="number" {...register('pdFixture')} className="bg-white border-none text-xs font-mono h-8" />
+                    <Input type="number" {...register('pdFixture')} placeholder="0" className="bg-white border-none text-xs font-mono h-8" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Stock</Label>
-                    <Input type="number" {...register('pdStock')} className="bg-white border-none text-xs font-mono h-8" />
+                    <Input type="number" {...register('pdStock')} placeholder="0" className="bg-white border-none text-xs font-mono h-8" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">BI (12M)</Label>
-                    <Input type="number" {...register('bi12m')} className="bg-white border-none text-xs font-mono h-8" />
+                    <Input type="number" {...register('bi12m')} placeholder="0" className="bg-white border-none text-xs font-mono h-8" />
                   </div>
                 </div>
               </div>
