@@ -1,0 +1,432 @@
+{
+  "entities": {
+    "Company": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Company",
+      "type": "object",
+      "description": "Represents an organization or company within the M-FLEM system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Company entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the company. This is used as a foreign key reference in other entities."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "UserPermission": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserPermission",
+      "type": "object",
+      "description": "Stores user authentication and authorization details, linking users to companies and roles.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserPermission entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user, used for sign-in.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The system role assigned to the user, defining their access level.",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Reference to the Company name this user is assigned to. (Relationship: Company 1:N UserPermission)"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "role",
+        "companyName"
+      ]
+    },
+    "Plant": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Plant",
+      "type": "object",
+      "description": "Represents a specific manufacturing or operational plant location belonging to a company.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Plant entity."
+        },
+        "plantName": {
+          "type": "string",
+          "description": "The unique name of the plant within its assigned company."
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Reference to the Company name this plant belongs to. (Relationship: Company 1:N Plant)"
+        }
+      },
+      "required": [
+        "id",
+        "plantName",
+        "companyName"
+      ]
+    },
+    "BuildingInformation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BuildingInformation",
+      "type": "object",
+      "description": "Stores geographical location and key structural dimensions for a specific plant.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the BuildingInformation entity."
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Reference to the Company name this building information is associated with. (Relationship: Company 1:N BuildingInformation)"
+        },
+        "plantName": {
+          "type": "string",
+          "description": "Reference to the Plant name this building information is associated with. (Relationship: Plant 1:N BuildingInformation)"
+        },
+        "latitude": {
+          "type": "number",
+          "description": "The geographical latitude of the plant location."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "The geographical longitude of the plant location."
+        },
+        "fabAboveGroundLevels": {
+          "type": "number",
+          "description": "Number of above-ground levels for the FAB (Factory Area Building)."
+        },
+        "fabBelowGroundLevels": {
+          "type": "number",
+          "description": "Number of below-ground levels for the FAB (Factory Area Building)."
+        },
+        "cupAboveGroundLevels": {
+          "type": "number",
+          "description": "Number of above-ground levels for the CUP (Central Utility Plant)."
+        },
+        "cupBelowGroundLevels": {
+          "type": "number",
+          "description": "Number of below-ground levels for the CUP (Central Utility Plant)."
+        }
+      },
+      "required": [
+        "id",
+        "companyName",
+        "plantName",
+        "latitude",
+        "longitude",
+        "fabAboveGroundLevels",
+        "fabBelowGroundLevels",
+        "cupAboveGroundLevels",
+        "cupBelowGroundLevels"
+      ]
+    },
+    "PlantInitialAssetValue": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlantInitialAssetValue",
+      "type": "object",
+      "description": "Stores the initial estimated monetary values (in USD Millions) for various asset categories within a plant.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the PlantInitialAssetValue entity."
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Reference to the Company name associated with these asset values. (Relationship: Company 1:N PlantInitialAssetValue)"
+        },
+        "plantName": {
+          "type": "string",
+          "description": "Reference to the Plant name associated with these asset values. (Relationship: Plant 1:N PlantInitialAssetValue)"
+        },
+        "buildingValue": {
+          "type": "number",
+          "description": "Initial estimated value of the building assets (USD Million)."
+        },
+        "facilityValue": {
+          "type": "number",
+          "description": "Initial estimated value of facility assets (USD Million)."
+        },
+        "toolsValue": {
+          "type": "number",
+          "description": "Initial estimated value of tools assets (USD Million)."
+        },
+        "fixtureValue": {
+          "type": "number",
+          "description": "Initial estimated value of fixture assets (USD Million)."
+        },
+        "stockValue": {
+          "type": "number",
+          "description": "Initial estimated value of stock assets (USD Million)."
+        },
+        "businessInterruption12mValue": {
+          "type": "number",
+          "description": "Initial estimated value for 12-month business interruption (USD Million)."
+        }
+      },
+      "required": [
+        "id",
+        "companyName",
+        "plantName",
+        "buildingValue",
+        "facilityValue",
+        "toolsValue",
+        "fixtureValue",
+        "stockValue",
+        "businessInterruption12mValue"
+      ]
+    },
+    "PlantCleanroomOccupancy": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlantCleanroomOccupancy",
+      "type": "object",
+      "description": "Records overall and floor-specific cleanroom ratios and related configuration for a plant.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the PlantCleanroomOccupancy entity."
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Reference to the Company name associated with these cleanroom occupancy details. (Relationship: Company 1:N PlantCleanroomOccupancy)"
+        },
+        "plantName": {
+          "type": "string",
+          "description": "Reference to the Plant name associated with these cleanroom occupancy details. (Relationship: Plant 1:N PlantCleanroomOccupancy)"
+        },
+        "floorData": {
+          "type": "array",
+          "description": "An array of objects, where each object defines facility and cleanroom ratios for a specific floor.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "totalFacilityRatio": {
+          "type": "number",
+          "description": "The sum of all floor-specific facility ratios."
+        },
+        "totalCleanroomRatio": {
+          "type": "number",
+          "description": "The sum of all floor-specific cleanroom ratios."
+        },
+        "overallFacilityCleanroomRatio": {
+          "type": "number",
+          "description": "The overall cleanroom ratio for the facility assets across the plant (0-1)."
+        },
+        "overallToolsCleanroomRatio": {
+          "type": "number",
+          "description": "The overall cleanroom ratio for the tools assets across the plant (0-1)."
+        }
+      },
+      "required": [
+        "id",
+        "companyName",
+        "plantName",
+        "floorData",
+        "totalFacilityRatio",
+        "totalCleanroomRatio",
+        "overallFacilityCleanroomRatio",
+        "overallToolsCleanroomRatio"
+      ]
+    },
+    "PlantAssetDistribution": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlantAssetDistribution",
+      "type": "object",
+      "description": "Stores the validated asset value distribution ratios per floor for a plant.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the PlantAssetDistribution entity."
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Reference to the Company name associated with these asset distribution ratios. (Relationship: Company 1:N PlantAssetDistribution)"
+        },
+        "plantName": {
+          "type": "string",
+          "description": "Reference to the Plant name associated with these asset distribution ratios. (Relationship: Plant 1:N PlantAssetDistribution)"
+        },
+        "status": {
+          "type": "string",
+          "description": "The validation status of the asset distribution ratios.",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "floorRatios": {
+          "type": "array",
+          "description": "An array of objects, each representing the asset value distribution ratios for a specific floor (including CUP).",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "companyName",
+        "plantName",
+        "status",
+        "floorRatios"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/user_permissions/{userId}",
+        "definition": {
+          "entityName": "UserPermission",
+          "schema": {
+            "$ref": "#/backend/entities/UserPermission"
+          },
+          "description": "Stores user authorization details including email, assigned company name, and role. The 'userId' directly corresponds to 'request.auth.uid'. This collection is critical for DBAC and provides the denormalized 'companyName' for subsequent authorization checks.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Authentication User ID (request.auth.uid) for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/companies/{companyName}",
+        "definition": {
+          "entityName": "Company",
+          "schema": {
+            "$ref": "#/backend/entities/Company"
+          },
+          "description": "Stores top-level company information. The 'companyName' field (from the schema) is used as the document ID to simplify authorization rules, allowing direct matching with the denormalized 'companyName' in child documents.",
+          "params": [
+            {
+              "name": "companyName",
+              "description": "The unique name of the company, used as the document ID for this company's record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/companies/{companyName}/plants/{plantName}",
+        "definition": {
+          "entityName": "Plant",
+          "schema": {
+            "$ref": "#/backend/entities/Plant"
+          },
+          "description": "Stores information for specific plant locations belonging to a company. The 'plantName' field (from the schema) is used as the document ID. Includes denormalized 'companyName' for authorization independence.",
+          "params": [
+            {
+              "name": "companyName",
+              "description": "The name of the parent company."
+            },
+            {
+              "name": "plantName",
+              "description": "The unique name of the plant within its company, used as the document ID for this plant's record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/companies/{companyName}/plants/{plantName}/buildingInformation/config",
+        "definition": {
+          "entityName": "BuildingInformation",
+          "schema": {
+            "$ref": "#/backend/entities/BuildingInformation"
+          },
+          "description": "Stores geographical and structural details for a specific plant. This is modeled as a singleton document ('config') within each plant's subcollection. Includes denormalized 'companyName' and 'plantName' for authorization independence.",
+          "params": [
+            {
+              "name": "companyName",
+              "description": "The name of the parent company."
+            },
+            {
+              "name": "plantName",
+              "description": "The name of the parent plant."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/companies/{companyName}/plants/{plantName}/initialAssetValue/current",
+        "definition": {
+          "entityName": "PlantInitialAssetValue",
+          "schema": {
+            "$ref": "#/backend/entities/PlantInitialAssetValue"
+          },
+          "description": "Stores the initial estimated monetary values for various asset categories within a plant. This is modeled as a singleton document ('current') within each plant's subcollection. Includes denormalized 'companyName' and 'plantName' for authorization independence.",
+          "params": [
+            {
+              "name": "companyName",
+              "description": "The name of the parent company."
+            },
+            {
+              "name": "plantName",
+              "description": "The name of the parent plant."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/companies/{companyName}/plants/{plantName}/cleanroomOccupancy/settings",
+        "definition": {
+          "entityName": "PlantCleanroomOccupancy",
+          "schema": {
+            "$ref": "#/backend/entities/PlantCleanroomOccupancy"
+          },
+          "description": "Records overall and floor-specific cleanroom ratios and related configuration for a plant. This is modeled as a singleton document ('settings') within each plant's subcollection. Includes denormalized 'companyName' and 'plantName' for authorization independence. Note: 'floorData' is expected to be an array of objects despite schema showing 'string' items.",
+          "params": [
+            {
+              "name": "companyName",
+              "description": "The name of the parent company."
+            },
+            {
+              "name": "plantName",
+              "description": "The name of the parent plant."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/companies/{companyName}/plants/{plantName}/assetDistribution/validated",
+        "definition": {
+          "entityName": "PlantAssetDistribution",
+          "schema": {
+            "$ref": "#/backend/entities/PlantAssetDistribution"
+          },
+          "description": "Stores the validated asset value distribution ratios per floor for a plant, including its status. This is modeled as a singleton document ('validated') within each plant's subcollection. Includes denormalized 'companyName' and 'plantName' for authorization independence. Note: 'floorRatios' is expected to be an array of objects despite schema showing 'string' items.",
+          "params": [
+            {
+              "name": "companyName",
+              "description": "The name of the parent company."
+            },
+            {
+              "name": "plantName",
+              "description": "The name of the parent plant."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed following the core principles of Authorization Independence, Structural Segregation, DBAC, and QAPs. Each entity's path is carefully constructed to reflect its ownership hierarchy, primarily nesting data under companies, then plants.\n\nAuthorization Independence is achieved by explicitly denormalizing 'companyName' and 'plantName' into every sub-document (e.g., BuildingInformation, PlantInitialAssetValue, etc.). This means that security rules can perform atomic checks on the `resource.data` (the document being accessed) against the authenticated user's `companyName` and `role` (retrieved from their '/user_permissions/{userId}' document), without needing expensive and non-atomic `get()` calls to parent documents. For instance, a rule for a Plant's BuildingInformation document would simply verify that `request.auth.companyName == resource.data.companyName` and `request.path[1] == resource.data.companyName` (and similarly for plantName).\n\nQAPs (Query as a Proxy) are supported through a combination of structural segregation and rule enforcement. By nesting all company-specific data under '/companies/{companyName}' and then plant-specific data under '/companies/{companyName}/plants/{plantName}', queries are naturally scoped. A user, after logging in, will have their 'companyName' associated with their session (via the '/user_permissions/{userId}' document). Client-side applications are expected to construct queries using this specific 'companyName' in the path (e.g., `db.collection('companies').doc(userCompany).collection('plants')`). Firestore security rules will then enforce that the 'companyName' in the requested path segment matches the 'companyName' from the user's /user_permissions document, effectively preventing unauthorized 'list' operations from retrieving data outside the user's assigned company. This ensures that rules are not used as filters but rather as enforcers of correctly scoped client queries."
+  }
+}

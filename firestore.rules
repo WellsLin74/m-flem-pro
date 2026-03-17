@@ -1,0 +1,175 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * DOCUMENTATION: M-FLEM System Security Model
+     * 
+     * Core Philosophy:
+     * This ruleset implements a Company-Based Access Control (CBAC) model. Access to data is 
+     * strictly partitioned by company membership. Users are assigned to a specific company 
+     * via their UserPermission document, and this assignment governs their access to all 
+     * organizational and plant-level data.
+     * 
+     * Data Structure:
+     * - /user_permissions/{userId}: Root collection for user metadata and company assignment.
+     * - /companies/{companyName}: Top-level company documents.
+     * - /companies/{companyName}/plants/{plantName}: Multi-tenant plant data nested under companies.
+     * - /companies/{companyName}/plants/{plantName}/{subcollection}/config: Singleton configuration documents.
+     * 
+     * Key Security Decisions:
+     * 1. DBAC (Document-Based Access Control): Authorization is derived from the user's 
+     *    assigned 'companyName' stored in their unique user_permissions document.
+     * 2. Relational Integrity: On creation of any company-related data, the rules enforce 
+     *    that the document's internal 'companyName' matches the URL path and the user's 
+     *    assigned company.
+     * 3. Immutability: Critical relational fields (like companyName and plantName) are 
+     *    enforced as immutable after creation to prevent data being "moved" between tenants.
+     * 4. Prototyping Flexibility: While authorization is strictly enforced, the specific 
+     *    schema (types and optional fields) of business data is not validated to allow 
+     *    for rapid front-end iteration.
+     */
+
+    // --- HELPER FUNCTIONS ---
+
+    /**
+     * @description Checks if the request is from an authenticated user.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user's UID matches the provided userId.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Retrieves the UserPermission document for the authenticated user.
+     */
+    function getUserPermission() {
+      return get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data;
+    }
+
+    /**
+     * @description Checks if the authenticated user belongs to the specified company.
+     */
+    function isMemberOf(companyName) {
+      return isSignedIn() && getUserPermission().companyName == companyName;
+    }
+
+    /**
+     * @description Helper for updates/deletes to ensure the document exists and the user has company access.
+     */
+    function isExistingMember(companyName) {
+      return resource != null && isMemberOf(companyName);
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Rules for user-specific permissions and company assignment.
+     * @path /user_permissions/{userId}
+     * @allow (get) If the user is requesting their own permission record.
+     * @deny (list) If a user tries to list all user permissions in the system.
+     * @principle Ownership: Users manage their own identity and assignment.
+     */
+    match /user_permissions/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId); // Users can only list/find their own permission doc.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Rules for top-level company data.
+     * @path /companies/{companyName}
+     * @allow (create) If the user's assigned company name matches the new company ID.
+     * @deny (get) If the user belongs to 'CompanyA' but tries to access 'CompanyB'.
+     * @principle Shared Access: Restricted to users assigned to the specific company.
+     */
+    match /companies/{companyName} {
+      allow get: if isMemberOf(companyName);
+      allow list: if isMemberOf(companyName);
+      allow create: if isMemberOf(companyName) && request.resource.data.name == companyName;
+      allow update: if isExistingMember(companyName) && request.resource.data.name == resource.data.name;
+      allow delete: if isExistingMember(companyName);
+
+      /**
+       * @description Rules for plants within a company.
+       * @path /companies/{companyName}/plants/{plantName}
+       * @allow (create) If the user belongs to the parent company and sets the internal companyName correctly.
+       * @deny (update) If the user attempts to change the plant's companyName association.
+       * @principle Relational Integrity: Ensures plant documents stay within their company's scope.
+       */
+      match /plants/{plantName} {
+        allow get: if isMemberOf(companyName);
+        allow list: if isMemberOf(companyName);
+        allow create: if isMemberOf(companyName) 
+                      && request.resource.data.companyName == companyName
+                      && request.resource.data.plantName == plantName;
+        allow update: if isExistingMember(companyName) 
+                      && request.resource.data.companyName == resource.data.companyName
+                      && request.resource.data.plantName == resource.data.plantName;
+        allow delete: if isExistingMember(companyName);
+
+        // Subcollections for Plant Details (Building, Assets, Cleanroom, Distribution)
+        // These are singleton-style documents (config, current, settings, validated)
+        
+        /**
+         * @description Rules for specific operational data components of a plant.
+         * @path /companies/{companyName}/plants/{plantName}/{collection}/{docId}
+         * @allow (get) If the user belongs to the company owning the plant.
+         * @deny (create) If the internal companyName/plantName fields do not match the path.
+         * @principle Authorization Independence: Uses denormalized fields for atomic verification.
+         */
+        match /buildingInformation/{docId} {
+          allow get, list: if isMemberOf(companyName);
+          allow create: if isMemberOf(companyName) 
+                        && request.resource.data.companyName == companyName 
+                        && request.resource.data.plantName == plantName;
+          allow update: if isExistingMember(companyName) 
+                        && request.resource.data.companyName == resource.data.companyName
+                        && request.resource.data.plantName == resource.data.plantName;
+          allow delete: if isExistingMember(companyName);
+        }
+
+        match /initialAssetValue/{docId} {
+          allow get, list: if isMemberOf(companyName);
+          allow create: if isMemberOf(companyName) 
+                        && request.resource.data.companyName == companyName 
+                        && request.resource.data.plantName == plantName;
+          allow update: if isExistingMember(companyName) 
+                        && request.resource.data.companyName == resource.data.companyName
+                        && request.resource.data.plantName == resource.data.plantName;
+          allow delete: if isExistingMember(companyName);
+        }
+
+        match /cleanroomOccupancy/{docId} {
+          allow get, list: if isMemberOf(companyName);
+          allow create: if isMemberOf(companyName) 
+                        && request.resource.data.companyName == companyName 
+                        && request.resource.data.plantName == plantName;
+          allow update: if isExistingMember(companyName) 
+                        && request.resource.data.companyName == resource.data.companyName
+                        && request.resource.data.plantName == resource.data.plantName;
+          allow delete: if isExistingMember(companyName);
+        }
+
+        match /assetDistribution/{docId} {
+          allow get, list: if isMemberOf(companyName);
+          allow create: if isMemberOf(companyName) 
+                        && request.resource.data.companyName == companyName 
+                        && request.resource.data.plantName == plantName;
+          allow update: if isExistingMember(companyName) 
+                        && request.resource.data.companyName == resource.data.companyName
+                        && request.resource.data.plantName == resource.data.plantName;
+          allow delete: if isExistingMember(companyName);
+        }
+      }
+    }
+  }
+}
