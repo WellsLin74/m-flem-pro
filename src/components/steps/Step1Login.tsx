@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldCheck, UserPlus, LogIn, Building } from 'lucide-react';
+import { ShieldCheck, UserPlus, LogIn, Building, AlertCircle } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
@@ -18,7 +18,7 @@ export function Step1Login() {
   const { setUser, setStep } = useAppStore();
   const [mode, setMode] = useState<'login' | 'add'>('login');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('password123'); // Simple default for demo
+  const [password, setPassword] = useState(''); // Default to empty to force user entry or show validation
   const [role, setRole] = useState<UserRole>('ADMIN');
   const [company, setCompany] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,18 +28,12 @@ export function Step1Login() {
   const { toast } = useToast();
 
   const handleLogin = async () => {
-    if (!email) {
-      setLoading(true);
-      signInAnonymously(auth)
-        .then(() => setStep(2))
-        .catch((err) => {
-          toast({
-            variant: "destructive",
-            title: "Anonymous Access Failed",
-            description: err.message,
-          });
-        })
-        .finally(() => setLoading(false));
+    if (!email || !password) {
+      toast({
+        variant: "destructive",
+        title: "Missing Information",
+        description: "Please enter both email and security key.",
+      });
       return;
     }
 
@@ -48,12 +42,19 @@ export function Step1Login() {
       await signInWithEmailAndPassword(auth, email, password);
       setStep(2);
     } catch (e: any) {
+      let message = "An unknown error occurred.";
+      if (e.code === 'auth/invalid-credential') {
+        message = "Invalid email or security key. If you haven't registered, please use 'Register New User' below.";
+      } else if (e.code === 'auth/user-not-found') {
+        message = "Account not found. Please register first.";
+      } else if (e.code === 'auth/wrong-password') {
+        message = "Incorrect security key.";
+      }
+      
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: e.code === 'auth/invalid-credential' 
-          ? "Invalid email or password. If you haven't registered, please use 'Register New User' below." 
-          : e.message,
+        description: message,
       });
     } finally {
       setLoading(false);
@@ -61,19 +62,32 @@ export function Step1Login() {
   };
 
   const handleAddUser = async () => {
-    if (!email || !company) {
+    // 1. Basic field validation
+    if (!email || !company || !password) {
       toast({
         variant: "destructive",
         title: "Missing Information",
-        description: "Please provide both an email and an assigned company.",
+        description: "Please fill in all fields including email, security key, and assigned company.",
       });
       return;
     }
+
+    // 2. Password length validation
+    if (password.length < 6) {
+      toast({
+        variant: "destructive",
+        title: "Security Key Too Short",
+        description: "Your Security Key must be at least 6 characters long.",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const userId = userCredential.user.uid;
       
+      // Persist permissions to Firestore
       const userPermRef = doc(db, 'user_permissions', userId);
       setDocumentNonBlocking(userPermRef, {
         id: userId,
@@ -87,12 +101,27 @@ export function Step1Login() {
         role,
         assignedCompany: company,
       });
+      
+      toast({
+        title: "Registration Successful",
+        description: `Welcome to M-FLEM Pro. Authorized as ${role}.`,
+      });
+      
       setStep(2);
     } catch (e: any) {
+      let message = e.message;
+      if (e.code === 'auth/email-already-in-use') {
+        message = "This email is already registered. Please login instead.";
+      } else if (e.code === 'auth/weak-password') {
+        message = "The security key is too weak. Please use at least 6 characters.";
+      } else if (e.code === 'auth/invalid-email') {
+        message = "Please enter a valid email address.";
+      }
+
       toast({
         variant: "destructive",
         title: "Registration Failed",
-        description: e.message,
+        description: message,
       });
     } finally {
       setLoading(false);
@@ -122,6 +151,7 @@ export function Step1Login() {
               <Label htmlFor="email" className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Email Address</Label>
               <Input 
                 id="email" 
+                type="email"
                 placeholder="analyst@mflem.com" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -130,7 +160,10 @@ export function Step1Login() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pass" className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Security Key</Label>
+              <div className="flex justify-between items-center">
+                <Label htmlFor="pass" className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Security Key</Label>
+                {mode === 'add' && <span className="text-[10px] font-bold text-muted-foreground/60 italic">Min. 6 chars</span>}
+              </div>
               <Input 
                 id="pass" 
                 type="password"
@@ -189,8 +222,11 @@ export function Step1Login() {
             
             <button 
               type="button"
-              className="w-full text-center text-sm font-bold text-muted-foreground hover:text-primary transition-colors"
-              onClick={() => setMode(mode === 'login' ? 'add' : 'login')}
+              className="w-full text-center text-sm font-bold text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-2"
+              onClick={() => {
+                setMode(mode === 'login' ? 'add' : 'login');
+                setPassword(''); // Clear password when switching modes
+              }}
             >
               {mode === 'login' ? 'Need to add a new user?' : 'Back to Secure Login'}
             </button>
