@@ -13,8 +13,9 @@ import { useState, useEffect, useMemo } from 'react';
 export function Step4Refinement() {
   const { plant, refinement, setRefinement, setStep } = useAppStore();
   
-  const [facCrRatio, setFacCrRatio] = useState(refinement?.facCrRatio ?? 0);
-  const [toolsCrRatio, setToolsCrRatio] = useState(refinement?.toolsCrRatio ?? 0);
+  // Defaulting Fac CR Ratio to 0.33 and Tools CR Ratio to 0.9 as requested
+  const [facCrRatio, setFacCrRatio] = useState(refinement?.facCrRatio ?? 0.33);
+  const [toolsCrRatio, setToolsCrRatio] = useState(refinement?.toolsCrRatio ?? 0.9);
   const [floorData, setFloorData] = useState<Record<string, { fac: number; cr: number }>>(
     refinement?.floorData || {}
   );
