@@ -8,10 +8,14 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { CheckCircle2, AlertTriangle, ChevronRight, ArrowLeft, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
+import { useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step5Validation() {
   const { plant, refinement, finalRatios, setFinalRatios, setIsValidated, isValidated, setStep } = useAppStore();
   const [localRatios, setLocalRatios] = useState<Record<string, FinalRatio>>({});
+  const db = useFirestore();
 
   const allFloors = useMemo(() => {
     const list: string[] = [];
@@ -42,12 +46,10 @@ export function Step5Validation() {
     const totalCupArea = cupFloorArea * cupLevels;
     const siteTotalArea = totalFabArea + totalCupArea;
 
-    // 計算 FAB 全棟 CR 總權重
     const totalFabCrSum = Object.keys(refinement.floorData)
       .filter(f => f.startsWith('FAB'))
       .reduce((sum, f) => sum + Number(refinement.floorData[f].cr), 0);
 
-    // 核心面積分母計算
     const totalFabCrArea = fabFloorArea * totalFabCrSum;
     const totalFabNonCrArea = totalFabArea - totalFabCrArea;
     const totalSiteNonCrArea = totalFabNonCrArea + totalCupArea;
@@ -60,11 +62,6 @@ export function Step5Validation() {
       const fData = refinement.floorData[f] || { fac: 0, cr: 0 }; 
       const crWeight = Number(fData.cr);
 
-      /**
-       * FACILITY 計算公式 (遵循使用者指定):
-       * FAB: 全局FacCR * (面積*CR比)/全棟CR面積 + (1-全局FacCR) * (面積*(1-CR比))/全區NonCR面積
-       * CUP: (1-全局FacCR) * 面積 / 全區NonCR面積
-       */
       let calcFac = 0;
       if (isFab) {
         const facCrPart = totalFabCrArea > 0 
@@ -80,12 +77,6 @@ export function Step5Validation() {
           : 0;
       }
 
-      /**
-       * TOOLS 計算公式 (遵循使用者最新要求):
-       * FAB CR 部分: 全局ToolsCR * (面積*CR權重) / FAB全棟CR面積
-       * FAB Non-CR 部分: (1-全局ToolsCR) * (面積*(1-CR權重)) / FAB全棟Non-CR面積
-       * CUP 樓層: 0
-       */
       let calcTool = 0;
       if (isFab) {
         const toolCrPart = totalFabCrArea > 0 
@@ -96,22 +87,11 @@ export function Step5Validation() {
           : 0;
         calcTool = toolCrPart + toolNonCrPart;
       } else {
-        calcTool = 0; // CUP 樓層數值為 0
+        calcTool = 0;
       }
 
-      /**
-       * BUILDING 計算: 樓層面積 / 全場總面積
-       */
       const bldgRatio = siteTotalArea > 0 ? floorArea / siteTotalArea : 0;
-
-      /**
-       * FIXTURE 計算: 平均分配於 FAB 樓層
-       */
       const fixRatio = isFab && fabFloors.length > 0 ? 1.0 / fabFloors.length : 0;
-
-      /**
-       * STOCK 計算: 預設 100% 在 FAB-L10
-       */
       const stockRatio = f === 'FAB-L10' ? 1.0 : 0.0;
 
       suggestions[f] = { bldg: bldgRatio, fac: calcFac, tool: calcTool, fix: fixRatio, stock: stockRatio };
@@ -157,6 +137,39 @@ export function Step5Validation() {
     setIsValidated(isOk);
     if (isOk) {
       setFinalRatios(localRatios);
+      
+      // Persist to Firestore
+      if (plant) {
+        const safeCompany = plant.company.replace(/\s+/g, '_');
+        const safePlant = plant.plantName.replace(/\s+/g, '_');
+        const ratioId = `${safeCompany}-${safePlant}-ratios`;
+
+        const ratioRef = doc(db, 'building_value_ratios', ratioId);
+        setDocumentNonBlocking(ratioRef, {
+          id: ratioId,
+          companyName: plant.company,
+          plantName: plant.plantName,
+          validationStatus: 'VALIDATED',
+          buildingValueFloorRatioIds: Object.keys(localRatios),
+        }, { merge: true });
+
+        Object.entries(localRatios).forEach(([floorId, ratios]) => {
+          const floorRef = doc(db, 'building_value_ratios', ratioId, 'floor_ratios', floorId);
+          setDocumentNonBlocking(floorRef, {
+            id: floorId,
+            buildingValueRatioId: ratioId,
+            floorIdentifier: floorId,
+            buildingRatio: ratios.bldg,
+            facilityRatio: ratios.fac,
+            toolsRatio: ratios.tool,
+            fixtureRatio: ratios.fix,
+            stockRatio: ratios.stock,
+            // Denormalized
+            companyName: plant.company,
+            plantName: plant.plantName,
+          }, { merge: true });
+        });
+      }
     }
   };
 

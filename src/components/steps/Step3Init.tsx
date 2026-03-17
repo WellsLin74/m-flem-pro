@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { MapPin, LayoutDashboard, Coins, ChevronRight, ArrowLeft, Maximize, Ruler } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -16,9 +16,16 @@ export function Step3Init() {
   const { plant, setPlant, setStep } = useAppStore();
   const db = useFirestore();
   
-  const { register, handleSubmit, watch } = useForm<Partial<PlantData>>({
+  const { register, handleSubmit, watch, reset } = useForm<Partial<PlantData>>({
     defaultValues: plant || {}
   });
+
+  // Sync form with store if plant loads late
+  useEffect(() => {
+    if (plant) {
+      reset(plant);
+    }
+  }, [plant, reset]);
 
   const values = watch();
   
@@ -71,10 +78,34 @@ export function Step3Init() {
       pdStock: Number(data.pdStock) || 0,
       bi12m: Number(data.bi12m) || 0,
     };
+
+    if (!numericData.company || !numericData.plantName) {
+      console.error("Missing company or plant name in P3");
+      return;
+    }
+
     setPlant(numericData);
 
-    // Persist to Firestore (PlantInitialValue)
-    const plantValId = `${numericData.company.replace(/\s+/g, '_')}-${numericData.plantName.replace(/\s+/g, '_')}-init`;
+    const safeCompany = numericData.company.replace(/\s+/g, '_');
+    const safePlant = numericData.plantName.replace(/\s+/g, '_');
+
+    // 1. Update Building Info (Physical Parameters)
+    const buildingInfoId = `${safeCompany}-${safePlant}`;
+    const buildingRef = doc(db, 'building_info', buildingInfoId);
+    setDocumentNonBlocking(buildingRef, {
+      id: buildingInfoId,
+      companyName: numericData.company,
+      plantName: numericData.plantName,
+      latitude: numericData.lat,
+      longitude: numericData.lon,
+      fabAboveLevel: numericData.fabAl,
+      fabBelowLevel: numericData.fabBl,
+      cupAboveLevel: numericData.cupAl,
+      cupBelowLevel: numericData.cupBl,
+    }, { merge: true });
+
+    // 2. Persist to Firestore (PlantInitialValue)
+    const plantValId = `${safeCompany}-${safePlant}-init`;
     const plantValRef = doc(db, 'plant_initial_values', plantValId);
     setDocumentNonBlocking(plantValRef, {
       id: plantValId,

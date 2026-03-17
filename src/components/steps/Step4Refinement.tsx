@@ -9,9 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Layers, Percent, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
+import { useFirestore } from '@/firebase';
+import { doc, collection } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step4Refinement() {
   const { plant, refinement, setRefinement, setStep } = useAppStore();
+  const db = useFirestore();
   
   const [facCrRatio, setFacCrRatio] = useState(refinement?.facCrRatio ?? 0.33);
   const [toolsCrRatio, setToolsCrRatio] = useState(refinement?.toolsCrRatio ?? 0.9);
@@ -50,7 +54,41 @@ export function Step4Refinement() {
   };
 
   const handleNext = () => {
-    setRefinement({ facCrRatio, toolsCrRatio, floorData });
+    const data = { facCrRatio, toolsCrRatio, floorData };
+    setRefinement(data);
+
+    if (plant) {
+      const safeCompany = plant.company.replace(/\s+/g, '_');
+      const safePlant = plant.plantName.replace(/\s+/g, '_');
+      const occupancyId = `${safeCompany}-${safePlant}-occupancy`;
+
+      // 1. Save main document
+      const occupancyRef = doc(db, 'fab_cleanroom_occupancy', occupancyId);
+      setDocumentNonBlocking(occupancyRef, {
+        id: occupancyId,
+        companyName: plant.company,
+        plantName: plant.plantName,
+        overallFacilityCleanroomRatio: facCrRatio,
+        overallToolsCleanroomRatio: toolsCrRatio,
+        fabCleanroomFloorRatioIds: Object.keys(floorData),
+      }, { merge: true });
+
+      // 2. Save floor ratios subcollection
+      Object.entries(floorData).forEach(([floorId, ratios]) => {
+        const floorRef = doc(db, 'fab_cleanroom_occupancy', occupancyId, 'floor_ratios', floorId);
+        setDocumentNonBlocking(floorRef, {
+          id: floorId,
+          fabCleanroomOccupancyId: occupancyId,
+          floorIdentifier: floorId,
+          facilityOccupancyRatio: ratios.fac,
+          cleanroomOccupancyRatio: ratios.cr,
+          // Denormalized for rules
+          companyName: plant.company,
+          plantName: plant.plantName,
+        }, { merge: true });
+      });
+    }
+
     setStep(5);
   };
 
