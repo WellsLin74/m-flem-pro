@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAppStore } from '@/lib/store';
@@ -7,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { generateFloodRiskInsights } from '@/ai/flows/generate-flood-risk-insights';
-import { TrendingDown, Waves, Sparkles, ArrowLeft, Download, Building2, Factory, Image as ImageIcon } from 'lucide-react';
+import { TrendingDown, Waves, Sparkles, ArrowLeft, Building2, Factory, Image as ImageIcon, Download } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -364,7 +363,7 @@ export function Step6Estimation() {
                 <span className="text-xs font-black uppercase tracking-widest">Intelligent Risk Narrative</span>
               </div>
               <CardTitle className="font-headline font-black text-2xl text-primary">Analyst Insight Report</CardTitle>
-            </Header>
+            </CardHeader>
             <CardContent className="p-0">
               <ScrollArea className="h-[400px] p-8">
                 <div className="prose prose-blue max-w-none text-muted-foreground whitespace-pre-line font-medium leading-relaxed">
