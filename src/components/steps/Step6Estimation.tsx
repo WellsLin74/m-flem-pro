@@ -30,11 +30,18 @@ export function Step6Estimation() {
     if (!plant || !refinement) return null;
 
     const floors: string[] = [];
-    for (let i = plant.fabBl; i >= 1; i--) floors.push(`BL${i}0`);
-    for (let j = 1; j <= plant.fabAl; j++) floors.push(`L${j}0`);
+    // FAB Floors
+    for (let i = plant.fabBl; i >= 1; i--) floors.push(`FAB-BL${i}0`);
+    for (let j = 1; j <= plant.fabAl; j++) floors.push(`FAB-L${j}0`);
+    // CUP Floors
+    for (let i = plant.cupBl; i >= 1; i--) floors.push(`CUP-BL${i}0`);
+    for (let j = 1; j <= plant.cupAl; j++) floors.push(`CUP-L${j}0`);
 
     const totalFacSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.fac, 0);
     const totalCrSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.cr, 0);
+
+    const fabFloors = floors.filter(f => f.startsWith('FAB'));
+    const cupFloors = floors.filter(f => f.startsWith('CUP'));
 
     const calculateRatiosForFloors = (floorFilter: (f: string) => boolean) => {
       let bldgRatio = 0, facRatio = 0, toolRatio = 0, fixRatio = 0;
@@ -45,8 +52,12 @@ export function Step6Estimation() {
         const fData = refinement.floorData[f];
         if (!fData) return;
 
-        // Building Ratio (0.9 total for Fab floors)
-        bldgRatio += (0.9 / floors.length);
+        // Building Ratio
+        if (f.startsWith('FAB')) {
+          bldgRatio += (0.9 / fabFloors.length);
+        } else if (f.startsWith('CUP')) {
+          bldgRatio += (0.1 / cupFloors.length);
+        }
         
         // Facility Ratio
         const facCrPart = totalCrSum > 0 ? (fData.cr / totalCrSum) * refinement.facCrRatio : 0;
@@ -58,18 +69,15 @@ export function Step6Estimation() {
         const toolNonCrPart = totalFacSum > 0 ? (fData.fac / totalFacSum) * (1 - refinement.toolsCrRatio) : 0;
         toolRatio += (toolCrPart + toolNonCrPart);
 
-        // Fixture Ratio (Even distribution)
+        // Fixture Ratio
         fixRatio += (1.0 / floors.length);
       });
 
       return { bldgRatio, facRatio, toolRatio, fixRatio };
     };
 
-    const bsDist = calculateRatiosForFloors(f => f.startsWith('BL'));
-    const l10Dist = calculateRatiosForFloors(f => f.startsWith('L'));
-
-    // Note: CUP (10% Building) is usually added to one of the sections or treated separately. 
-    // For this calculation, we assume CUP is protected/static unless explicitly modeled.
+    const bsDist = calculateRatiosForFloors(f => f.includes('BL'));
+    const l10Dist = calculateRatiosForFloors(f => f.includes('-L'));
 
     return { bsDist, l10Dist };
   }, [plant, refinement]);
@@ -93,7 +101,6 @@ export function Step6Estimation() {
     est += (plant.pdTools * l10Dist.toolRatio * (ratios.toolL10 / 100));
     
     // Facility, Fixture, Stock (FFS) Loss
-    // Stock and Facility usually follow the Facility distribution
     const facAssets = plant.pdFacility + plant.pdStock;
     est += (facAssets * bsDist.facRatio * (ratios.ffsBs / 100));
     est += (facAssets * l10Dist.facRatio * (l10Dynamic / 100));
@@ -130,7 +137,6 @@ export function Step6Estimation() {
       });
       setAiInsights(result);
     } catch (err) {
-      // Error handling via Firebase Studio patterns is preferred, but for this utility flow:
       console.error(err);
     } finally {
       setLoadingAi(false);
@@ -223,7 +229,7 @@ export function Step6Estimation() {
                   </div>
                   <div className="space-y-1 relative z-10">
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Consolidated Estimation</p>
-                    <h3 className="text-5xl font-headline font-black tracking-tighter tabular-nums">NTD {totalLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M <span className="text-xl font-medium opacity-50 uppercase ml-2">TWD</span></h3>
+                    <h3 className="text-5xl font-headline font-black tracking-tighter tabular-nums">NTD {totalLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M <span className="text-xl font-medium opacity-50 uppercase ml-2">NTD</span></h3>
                   </div>
                   <Button 
                     onClick={getAiInsights}

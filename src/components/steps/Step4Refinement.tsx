@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Layers, Percent, ChevronRight, ArrowLeft } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 export function Step4Refinement() {
   const { plant, refinement, setRefinement, setStep } = useAppStore();
@@ -19,17 +19,32 @@ export function Step4Refinement() {
     refinement?.floorData || {}
   );
 
-  const floors: string[] = [];
-  if (plant) {
-    for (let i = plant.fabBl; i >= 1; i--) floors.push(`BL${i}0`);
-    for (let j = 1; j <= plant.fabAl; j++) floors.push(`L${j}0`);
-  }
+  const floors = useMemo(() => {
+    const list: string[] = [];
+    if (!plant) return list;
+
+    // FAB Floors
+    for (let i = plant.fabBl; i >= 1; i--) list.push(`FAB-BL${i}0`);
+    for (let j = 1; j <= plant.fabAl; j++) list.push(`FAB-L${j}0`);
+    
+    // CUP Floors
+    for (let i = plant.cupBl; i >= 1; i--) list.push(`CUP-BL${i}0`);
+    for (let j = 1; j <= plant.cupAl; j++) list.push(`CUP-L${j}0`);
+    
+    return list;
+  }, [plant]);
 
   useEffect(() => {
-    if (Object.keys(floorData).length === 0) {
-      const initial: Record<string, { fac: number; cr: number }> = {};
+    if (Object.keys(floorData).length === 0 || Object.keys(floorData).length !== floors.length) {
+      const initial: Record<string, { fac: number; cr: number }> = { ...floorData };
       floors.forEach(f => {
-        initial[f] = { fac: 1, cr: f.startsWith('L') ? 1 : 0.5 };
+        if (!initial[f]) {
+          const isBasement = f.includes('BL');
+          initial[f] = { 
+            fac: 1, 
+            cr: isBasement ? 0.2 : 1.0 // Lower cleanroom probability in basements
+          };
+        }
       });
       setFloorData(initial);
     }
@@ -55,7 +70,7 @@ export function Step4Refinement() {
         <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
           <Layers className="w-6 h-6 text-accent" /> Spatial Value Distribution
         </CardTitle>
-        <CardDescription>Refine cleanroom occupancy ratios across the vertical facility profile.</CardDescription>
+        <CardDescription>Refine cleanroom occupancy ratios across the vertical profiles of FAB and CUP.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8 pb-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -87,13 +102,13 @@ export function Step4Refinement() {
 
           <div className="space-y-4">
             <h3 className="font-headline font-bold text-sm text-primary uppercase tracking-widest flex items-center gap-2">
-              <Layers className="w-4 h-4" /> Vertical Distribution Matrix (FAB)
+              <Layers className="w-4 h-4" /> Vertical Distribution Matrix
             </h3>
-            <div className="border rounded-xl bg-white overflow-hidden shadow-sm">
+            <div className="border rounded-xl bg-white overflow-hidden shadow-sm h-[400px] overflow-y-auto">
               <Table>
-                <TableHeader className="bg-muted/50">
+                <TableHeader className="bg-muted/50 sticky top-0 z-10">
                   <TableRow>
-                    <TableHead className="text-[10px] font-black uppercase">Floor</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase">Building-Floor</TableHead>
                     <TableHead className="text-[10px] font-black uppercase">Facility Part</TableHead>
                     <TableHead className="text-[10px] font-black uppercase">CR Part</TableHead>
                   </TableRow>
@@ -101,8 +116,8 @@ export function Step4Refinement() {
                 <TableBody>
                   {floors.map(floor => (
                     <TableRow key={floor} className="hover:bg-muted/20">
-                      <TableCell className="font-mono text-xs font-bold py-2">
-                        <Badge variant={floor.startsWith('BL') ? 'secondary' : 'default'} className="rounded-md">
+                      <TableCell className="font-mono text-[10px] font-bold py-2">
+                        <Badge variant={floor.includes('BL') ? 'secondary' : (floor.startsWith('FAB') ? 'default' : 'outline')} className="rounded-md text-[9px]">
                           {floor}
                         </Badge>
                       </TableCell>

@@ -10,13 +10,19 @@ import { useMemo, useState } from 'react';
 
 export function Step5Validation() {
   const { plant, refinement, setIsValidated, isValidated, setStep } = useAppStore();
-  const [matrix, setMatrix] = useState<any[]>([]);
 
   const floors = useMemo(() => {
-    if (!plant) return [];
-    const list = [];
-    for (let i = plant.fabBl; i >= 1; i--) list.push(`BL${i}0`);
-    for (let j = 1; j <= plant.fabAl; j++) list.push(`L${j}0`);
+    const list: string[] = [];
+    if (!plant) return list;
+
+    // FAB Floors
+    for (let i = plant.fabBl; i >= 1; i--) list.push(`FAB-BL${i}0`);
+    for (let j = 1; j <= plant.fabAl; j++) list.push(`FAB-L${j}0`);
+    
+    // CUP Floors
+    for (let i = plant.cupBl; i >= 1; i--) list.push(`CUP-BL${i}0`);
+    for (let j = 1; j <= plant.cupAl; j++) list.push(`CUP-L${j}0`);
+    
     return list;
   }, [plant]);
 
@@ -26,9 +32,13 @@ export function Step5Validation() {
     const totalFacSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.fac, 0);
     const totalCrSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.cr, 0);
 
+    const fabFloors = floors.filter(f => f.startsWith('FAB'));
+    const cupFloors = floors.filter(f => f.startsWith('CUP'));
+
     const rows = floors.map(f => {
       const fData = refinement.floorData[f];
       
+      // Asset Distribution Logic
       const facCrPart = totalCrSum > 0 ? (fData.cr / totalCrSum) * refinement.facCrRatio : 0;
       const facNonCrPart = totalFacSum > 0 ? (fData.fac / totalFacSum) * (1 - refinement.facCrRatio) : 0;
       const calcFac = facCrPart + facNonCrPart;
@@ -37,14 +47,18 @@ export function Step5Validation() {
       const toolNonCrPart = totalFacSum > 0 ? (fData.fac / totalFacSum) * (1 - refinement.toolsCrRatio) : 0;
       const calcTool = toolCrPart + toolNonCrPart;
 
-      const bldgRatio = 0.9 / floors.length;
+      // Building Distribution: FAB (90% total), CUP (10% total)
+      let bldgRatio = 0;
+      if (f.startsWith('FAB')) {
+        bldgRatio = 0.9 / fabFloors.length;
+      } else if (f.startsWith('CUP')) {
+        bldgRatio = 0.1 / cupFloors.length;
+      }
+
       const fixRatio = 1.0 / floors.length;
 
       return { floor: f, bldg: bldgRatio, fac: calcFac, tool: calcTool, fix: fixRatio };
     });
-
-    // Add CUP
-    rows.push({ floor: 'CUP Total', bldg: 0.1, fac: 0, tool: 0, fix: 0 });
 
     const sums = rows.reduce((acc, r) => ({
       bldg: acc.bldg + r.bldg,
@@ -72,7 +86,7 @@ export function Step5Validation() {
         <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
           <ShieldCheck className="w-6 h-6 text-accent" /> Asset Distribution Matrix
         </CardTitle>
-        <CardDescription>Final verification of normalized financial ratios across site assets.</CardDescription>
+        <CardDescription>Final verification of normalized financial ratios across FAB and CUP site assets.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 pb-10">
         {!isValidated ? (
@@ -93,11 +107,11 @@ export function Step5Validation() {
           </Alert>
         )}
 
-        <div className="border rounded-2xl overflow-hidden shadow-sm bg-white">
+        <div className="border rounded-2xl overflow-hidden shadow-sm bg-white max-h-[500px] overflow-y-auto">
           <Table>
-            <TableHeader className="bg-muted/50">
+            <TableHeader className="bg-muted/50 sticky top-0 z-10">
               <TableRow>
-                <TableHead className="text-[10px] font-black uppercase">Facility/Floor</TableHead>
+                <TableHead className="text-[10px] font-black uppercase">Building/Floor</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-right">Building</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-right">Facility (Auto)</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-right">Tools (Auto)</TableHead>
@@ -106,8 +120,8 @@ export function Step5Validation() {
             </TableHeader>
             <TableBody>
               {calculatedData.rows.map(r => (
-                <TableRow key={r.floor} className={r.floor === 'CUP Total' ? 'bg-blue-50/50' : ''}>
-                  <TableCell className="font-mono text-xs font-bold">{r.floor}</TableCell>
+                <TableRow key={r.floor} className={r.floor.startsWith('CUP') ? 'bg-blue-50/30' : ''}>
+                  <TableCell className="font-mono text-[10px] font-bold">{r.floor}</TableCell>
                   <TableCell className="text-right font-mono text-xs">{r.bldg.toFixed(4)}</TableCell>
                   <TableCell className="text-right font-mono text-xs">{r.fac.toFixed(4)}</TableCell>
                   <TableCell className="text-right font-mono text-xs">{r.tool.toFixed(4)}</TableCell>
@@ -115,13 +129,13 @@ export function Step5Validation() {
                 </TableRow>
               ))}
             </TableBody>
-            <TableFooter className="bg-primary/5">
+            <TableFooter className="bg-primary/5 sticky bottom-0">
               <TableRow className="font-black text-primary">
-                <TableCell>TOTAL SUM</TableCell>
-                <TableCell className="text-right font-mono">{calculatedData.sums.bldg.toFixed(4)}</TableCell>
-                <TableCell className="text-right font-mono">{calculatedData.sums.fac.toFixed(4)}</TableCell>
-                <TableCell className="text-right font-mono">{calculatedData.sums.tools.toFixed(4)}</TableCell>
-                <TableCell className="text-right font-mono">{calculatedData.sums.fix.toFixed(4)}</TableCell>
+                <TableCell className="text-[10px]">TOTAL SUM</TableCell>
+                <TableCell className="text-right font-mono text-xs">{calculatedData.sums.bldg.toFixed(4)}</TableCell>
+                <TableCell className="text-right font-mono text-xs">{calculatedData.sums.fac.toFixed(4)}</TableCell>
+                <TableCell className="text-right font-mono text-xs">{calculatedData.sums.tools.toFixed(4)}</TableCell>
+                <TableCell className="text-right font-mono text-xs">{calculatedData.sums.fix.toFixed(4)}</TableCell>
               </TableRow>
             </TableFooter>
           </Table>
