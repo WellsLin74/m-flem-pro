@@ -6,10 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { generateFloodRiskInsights } from '@/ai/flows/generate-flood-risk-insights';
-import { TrendingDown, Waves, Sparkles, ArrowLeft, Building2, Factory, Image as ImageIcon, Download } from 'lucide-react';
+import { TrendingDown, Waves, Sparkles, ArrowLeft, Building2, Factory, Image as ImageIcon } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toJpeg } from 'html-to-image';
 import { useFirestore } from '@/firebase';
@@ -174,22 +173,24 @@ export function Step6Estimation() {
   };
 
   const CellContent = ({ assetValue, ratioKey }: { assetValue: number, ratioKey: keyof typeof ratios }) => (
-    <div className="flex flex-col items-center justify-center space-y-1 py-2">
-      <span className="text-[11px] font-mono font-medium text-muted-foreground">{formatNum(assetValue)}M</span>
-      <div className="flex flex-col items-center">
-        <div className="relative">
+    <div className="flex flex-col items-center justify-center space-y-1 py-2 text-center w-full">
+      <span className="text-sm font-mono font-bold text-primary">{formatNum(assetValue)}M</span>
+      <div className="flex flex-col items-center w-full px-2">
+        <div className="relative w-full flex justify-center">
           <Input 
             type="number" 
             step="0.1" 
             value={ratios[ratioKey]} 
             onChange={(e) => handleRatioChange(ratioKey, e.target.value)} 
-            className="h-7 w-20 text-center font-mono font-bold border-none bg-muted/30 text-xs px-1" 
+            className="h-9 w-24 text-center font-mono font-black border-none bg-muted/30 text-sm" 
           />
-          <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground/50">%</span>
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-black text-muted-foreground/50">%</span>
         </div>
-        <span className="text-[10px] font-mono font-black text-destructive mt-1">
-          {formatNum((ratios[ratioKey] / 100) * assetValue)}M
-        </span>
+        <div className="mt-1 w-full flex justify-center">
+          <span className="text-sm font-mono font-black text-destructive">
+            {formatNum((ratios[ratioKey] / 100) * assetValue)}M
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -203,9 +204,9 @@ export function Step6Estimation() {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
-                  <Waves className="w-6 h-6 text-accent" /> Environmental Impact Modeling
+                  <Waves className="w-6 h-6 text-accent" /> Environmental Risk Simulation
                 </CardTitle>
-                <CardDescription>Simulate flood events and analyze financial impact (NTD Million).</CardDescription>
+                <CardDescription>Simulate flood events based on vertical asset distribution profiles.</CardDescription>
               </div>
               <Button 
                 variant="outline" 
@@ -218,98 +219,106 @@ export function Step6Estimation() {
             </div>
           </CardHeader>
           <CardContent className="space-y-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-2xl bg-primary/5 border border-primary/10">
-              <div className="space-y-2 text-center">
-                <Label className="text-xs font-bold text-muted-foreground uppercase">L10 Critical Height (m)</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 rounded-3xl bg-primary/5 border border-primary/10 shadow-inner">
+              <div className="space-y-3 text-center">
+                <Label className="text-xs font-black text-primary uppercase tracking-[0.2em]">L10 Critical Height (m)</Label>
                 <Input 
                   type="number" step="0.1" 
                   value={l10Height || ''} 
                   onChange={(e) => setL10Height(parseFloat(e.target.value) || 0)}
-                  className="bg-white border-none font-mono text-lg font-bold text-center"
+                  className="bg-white border-2 border-primary/10 font-mono text-2xl font-black text-center h-16 rounded-2xl focus-visible:ring-accent"
                 />
               </div>
-              <div className="space-y-2 text-center">
-                <Label className="text-xs font-bold text-muted-foreground uppercase">Simulated Flood Height AGL (m)</Label>
+              <div className="space-y-3 text-center">
+                <Label className="text-xs font-black text-accent uppercase tracking-[0.2em]">Flood Height AGL (m)</Label>
                 <Input 
                   type="number" step="0.1" 
                   value={floodHeight || ''} 
                   onChange={(e) => setFloodHeight(parseFloat(e.target.value) || 0)}
-                  className="bg-white border-none font-mono text-lg font-bold text-accent text-center"
+                  className="bg-white border-2 border-accent/30 font-mono text-2xl font-black text-accent text-center h-16 rounded-2xl focus-visible:ring-accent"
                 />
               </div>
               <Button 
                 onClick={calculate} 
-                className="md:col-span-2 bg-accent hover:bg-accent/80 text-primary font-black py-6 text-lg shadow-lg shadow-accent/20"
+                className="md:col-span-2 bg-primary hover:bg-primary/90 text-white font-black py-8 text-xl rounded-2xl shadow-xl shadow-primary/20 transition-all hover:scale-[1.01] active:scale-95"
               >
-                Run Simulation Engine
+                Execute Analysis Engine
               </Button>
             </div>
 
             {plant && assetDistribution && (
-              <div className="space-y-10 animate-in fade-in slide-in-from-top-4 duration-500">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 text-primary border-b border-primary/10 pb-4">
-                    <Factory className="w-6 h-6" />
-                    <h3 className="text-xl font-headline font-black uppercase tracking-tight">FAB Building Analysis</h3>
+              <div className="space-y-12 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 text-primary border-b-2 border-primary/10 pb-4">
+                    <Factory className="w-8 h-8 text-accent" />
+                    <h3 className="text-2xl font-headline font-black uppercase tracking-tight">FAB Building Loss Matrix</h3>
                   </div>
-                  <div className="border rounded-2xl overflow-hidden shadow-sm bg-white overflow-x-auto">
+                  <div className="border-2 rounded-[2rem] overflow-hidden shadow-2xl bg-white">
                     <Table>
-                      <TableHeader className="bg-primary/5">
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="w-[120px] text-[10px] font-black uppercase text-center">Location</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Building</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Tools</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Facility</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Fixture</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Stock</TableHead>
+                      <TableHeader className="bg-muted/50">
+                        <TableRow className="hover:bg-transparent border-b-2">
+                          <TableHead className="w-[140px] text-xs font-black uppercase text-center border-r-2 text-primary">Analysis Level</TableHead>
+                          <TableHead className="text-xs font-black uppercase text-center">Building</TableHead>
+                          <TableHead className="text-xs font-black uppercase text-center">Tools</TableHead>
+                          <TableHead className="text-xs font-black uppercase text-center">Facility</TableHead>
+                          <TableHead className="text-xs font-black uppercase text-center">Fixture</TableHead>
+                          <TableHead className="text-xs font-black uppercase text-center">Stock</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         <TableRow className="hover:bg-muted/5">
-                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center bg-muted/10">Basement</TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdBuilding * assetDistribution.fabBs.bldgRatio} ratioKey="fabBldgBs" /></TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdTools * assetDistribution.fabBs.toolRatio} ratioKey="fabToolBs" /></TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdFacility * assetDistribution.fabBs.facRatio} ratioKey="fabFacBs" /></TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdFixture * assetDistribution.fabBs.fixRatio} ratioKey="fabFixBs" /></TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdStock * assetDistribution.fabBs.stockRatio} ratioKey="fabStockBs" /></TableCell>
+                          <TableCell className="text-xs font-black text-muted-foreground uppercase text-center bg-muted/10 border-r-2 py-8">
+                            Basement
+                          </TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdBuilding * assetDistribution.fabBs.bldgRatio} ratioKey="fabBldgBs" /></TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdTools * assetDistribution.fabBs.toolRatio} ratioKey="fabToolBs" /></TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdFacility * assetDistribution.fabBs.facRatio} ratioKey="fabFacBs" /></TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdFixture * assetDistribution.fabBs.fixRatio} ratioKey="fabFixBs" /></TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdStock * assetDistribution.fabBs.stockRatio} ratioKey="fabStockBs" /></TableCell>
                         </TableRow>
-                        <TableRow className="hover:bg-muted/5 border-t">
-                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center bg-muted/10">L10 Floor</TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdBuilding * assetDistribution.fabL10Floor.bldgRatio} ratioKey="fabBldgL10" /></TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdTools * assetDistribution.fabL10Floor.toolRatio} ratioKey="fabToolL10" /></TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdFacility * assetDistribution.fabL10Floor.facRatio} ratioKey="fabFacL10" /></TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdFixture * assetDistribution.fabL10Floor.fixRatio} ratioKey="fabFixL10" /></TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdStock * assetDistribution.fabL10Floor.stockRatio} ratioKey="fabStockL10" /></TableCell>
+                        <TableRow className="hover:bg-muted/5 border-t-2">
+                          <TableCell className="text-xs font-black text-accent uppercase text-center bg-accent/5 border-r-2 py-8">
+                            L10 Level
+                          </TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdBuilding * assetDistribution.fabL10Floor.bldgRatio} ratioKey="fabBldgL10" /></TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdTools * assetDistribution.fabL10Floor.toolRatio} ratioKey="fabToolL10" /></TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdFacility * assetDistribution.fabL10Floor.facRatio} ratioKey="fabFacL10" /></TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdFixture * assetDistribution.fabL10Floor.fixRatio} ratioKey="fabFixL10" /></TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdStock * assetDistribution.fabL10Floor.stockRatio} ratioKey="fabStockL10" /></TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 text-primary border-b border-primary/10 pb-4">
-                    <Building2 className="w-6 h-6" />
-                    <h3 className="text-xl font-headline font-black uppercase tracking-tight">CUP Building Analysis</h3>
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 text-primary border-b-2 border-primary/10 pb-4">
+                    <Building2 className="w-8 h-8 text-accent" />
+                    <h3 className="text-2xl font-headline font-black uppercase tracking-tight">CUP Building Loss Matrix</h3>
                   </div>
-                  <div className="border rounded-2xl overflow-hidden shadow-sm bg-white overflow-x-auto">
+                  <div className="border-2 rounded-[2rem] overflow-hidden shadow-2xl bg-white">
                     <Table>
-                      <TableHeader className="bg-primary/5">
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="w-[120px] text-[10px] font-black uppercase text-center">Location</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Building</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Facility</TableHead>
+                      <TableHeader className="bg-muted/50">
+                        <TableRow className="hover:bg-transparent border-b-2">
+                          <TableHead className="w-[140px] text-xs font-black uppercase text-center border-r-2 text-primary">Analysis Level</TableHead>
+                          <TableHead className="text-xs font-black uppercase text-center">Building</TableHead>
+                          <TableHead className="text-xs font-black uppercase text-center">Facility</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         <TableRow className="hover:bg-muted/5">
-                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center bg-muted/10">Basement</TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdBuilding * assetDistribution.cupBs.bldgRatio} ratioKey="cupBldgBs" /></TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdFacility * assetDistribution.cupBs.facRatio} ratioKey="cupFacBs" /></TableCell>
+                          <TableCell className="text-xs font-black text-muted-foreground uppercase text-center bg-muted/10 border-r-2 py-8">
+                            Basement
+                          </TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdBuilding * assetDistribution.cupBs.bldgRatio} ratioKey="cupBldgBs" /></TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdFacility * assetDistribution.cupBs.facRatio} ratioKey="cupFacBs" /></TableCell>
                         </TableRow>
-                        <TableRow className="hover:bg-muted/5 border-t">
-                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center bg-muted/10">L10 Floor</TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdBuilding * assetDistribution.cupL10Floor.bldgRatio} ratioKey="cupBldgL10" /></TableCell>
-                          <TableCell className="p-0"><CellContent assetValue={plant.pdFacility * assetDistribution.cupL10Floor.facRatio} ratioKey="cupFacL10" /></TableCell>
+                        <TableRow className="hover:bg-muted/5 border-t-2">
+                          <TableCell className="text-xs font-black text-accent uppercase text-center bg-accent/5 border-r-2 py-8">
+                            L10 Level
+                          </TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdBuilding * assetDistribution.cupL10Floor.bldgRatio} ratioKey="cupBldgL10" /></TableCell>
+                          <TableCell className="p-4"><CellContent assetValue={plant.pdFacility * assetDistribution.cupL10Floor.facRatio} ratioKey="cupFacL10" /></TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
@@ -317,20 +326,20 @@ export function Step6Estimation() {
                 </div>
 
                 {totalLoss !== null && (
-                  <div className="p-8 rounded-3xl bg-primary text-primary-foreground flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl shadow-primary/30 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-10">
-                      <TrendingDown className="w-40 h-40" />
+                  <div className="p-10 rounded-[2.5rem] bg-primary text-primary-foreground flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-primary/40 relative overflow-hidden transition-all hover:shadow-primary/50">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                      <TrendingDown className="w-64 h-64" />
                     </div>
-                    <div className="space-y-1 relative z-10">
-                      <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Total Site Loss Estimation</p>
-                      <h3 className="text-5xl font-headline font-black tracking-tighter tabular-nums text-center md:text-left">NTD {formatNum(totalLoss)}M</h3>
+                    <div className="space-y-2 relative z-10 text-center md:text-left">
+                      <p className="text-sm font-black uppercase tracking-[0.4em] text-accent">Cumulative Site Financial Impact</p>
+                      <h3 className="text-6xl font-headline font-black tracking-tighter tabular-nums">NTD {formatNum(totalLoss)}M</h3>
                     </div>
                     <Button 
                       onClick={getAiInsights}
                       disabled={loadingAi}
-                      className="bg-accent hover:bg-accent/90 text-primary font-black px-8 py-6 rounded-2xl gap-2 shadow-xl relative z-10"
+                      className="bg-accent hover:bg-accent/90 text-primary font-black px-10 py-8 rounded-2xl gap-3 shadow-2xl relative z-10 text-lg transition-all hover:scale-105"
                     >
-                      {loadingAi ? 'Analyzing Data...' : <><Sparkles className="w-5 h-5" /> Generate AI Insights</>}
+                      {loadingAi ? 'Synthesizing Data...' : <><Sparkles className="w-6 h-6 fill-current" /> Generate AI Insights</>}
                     </Button>
                   </div>
                 )}
@@ -340,33 +349,28 @@ export function Step6Estimation() {
         </Card>
 
         {aiInsights && (
-          <Card className="border-none shadow-2xl bg-white overflow-hidden animate-in zoom-in-95 duration-500">
-            <CardHeader className="bg-primary/5 pb-2">
+          <Card className="border-none shadow-2xl bg-white overflow-hidden animate-in zoom-in-95 duration-500 rounded-[2.5rem]">
+            <CardHeader className="bg-primary/5 pb-4 border-b">
               <div className="flex items-center gap-2 text-accent mb-2">
                 <Sparkles className="w-5 h-5 fill-current" />
-                <span className="text-xs font-black uppercase tracking-widest">Intelligent Risk Narrative</span>
+                <span className="text-xs font-black uppercase tracking-[0.3em]">Advanced Analytical Narrative</span>
               </div>
-              <CardTitle className="font-headline font-black text-2xl text-primary">Analyst Insight Report</CardTitle>
+              <CardTitle className="font-headline font-black text-3xl text-primary">Expert Risk Assessment Report</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[400px] p-8">
-                <div className="prose prose-blue max-w-none text-muted-foreground whitespace-pre-line font-medium leading-relaxed">
+              <ScrollArea className="h-[500px] p-10">
+                <div className="prose prose-blue max-w-none text-muted-foreground whitespace-pre-line font-medium text-lg leading-relaxed">
                   {aiInsights}
                 </div>
               </ScrollArea>
-              <div className="bg-muted/30 p-4 flex justify-end gap-4 border-t">
-                <Button variant="ghost" className="font-bold text-xs uppercase gap-2">
-                  <Download className="w-4 h-4" /> Export Report
-                </Button>
-              </div>
             </CardContent>
           </Card>
         )}
       </div>
 
-      <div className="flex justify-between">
-        <Button variant="ghost" onClick={() => setStep(5)} className="font-bold text-muted-foreground gap-2">
-          <ArrowLeft className="w-4 h-4" /> Matrix Validation
+      <div className="flex justify-between px-2">
+        <Button variant="ghost" onClick={() => setStep(5)} className="font-bold text-muted-foreground gap-2 hover:bg-primary/5">
+          <ArrowLeft className="w-4 h-4" /> Return to Validation Matrix
         </Button>
       </div>
     </div>
