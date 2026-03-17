@@ -172,27 +172,47 @@ export function Step6Estimation() {
     setRatios(prev => ({ ...prev, [key]: parseFloat(val) || 0 }));
   };
 
-  const CellContent = ({ assetValue, ratioKey }: { assetValue: number, ratioKey: keyof typeof ratios }) => (
-    <div className="flex flex-col items-center justify-center space-y-1 py-2 text-center w-full">
-      <span className="text-sm font-mono font-bold text-primary">{formatNum(assetValue)}M</span>
-      <div className="flex flex-col items-center w-full px-2">
-        <div className="relative w-full flex justify-center">
-          <Input 
-            type="number" 
-            step="0.1" 
-            value={ratios[ratioKey]} 
-            onChange={(e) => handleRatioChange(ratioKey, e.target.value)} 
-            className="h-9 w-24 text-center font-mono font-black border-none bg-muted/30 text-sm" 
-          />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-black text-muted-foreground/50">%</span>
-        </div>
-        <div className="mt-1 w-full flex justify-center">
-          <span className="text-sm font-mono font-black text-destructive">
-            {formatNum((ratios[ratioKey] / 100) * assetValue)}M
-          </span>
-        </div>
-      </div>
-    </div>
+  const AnalysisRow = ({ 
+    level, 
+    metric, 
+    data 
+  }: { 
+    level?: string, 
+    metric: 'VALUE' | 'RATIO' | 'LOSS', 
+    data: Record<string, { value: number, ratioKey?: keyof typeof ratios }> 
+  }) => (
+    <TableRow className="hover:bg-transparent">
+      {level && <TableCell rowSpan={3} className="text-xs font-black text-primary uppercase text-center bg-muted/10 border-r-2 border-b-2">{level}</TableCell>}
+      <TableCell className={`text-[10px] font-black uppercase text-center border-r-2 ${metric === 'LOSS' ? 'border-b-2' : ''} bg-muted/5`}>
+        {metric === 'VALUE' ? 'Asset Value' : metric === 'RATIO' ? 'Loss %' : 'Loss Value'}
+      </TableCell>
+      {Object.entries(data).map(([key, item]) => (
+        <TableCell key={key} className={`text-center py-2 px-4 ${metric === 'LOSS' ? 'border-b-2' : ''}`}>
+          <div className="flex justify-center items-center h-full w-full">
+            {metric === 'VALUE' && (
+              <span className="text-sm font-mono font-bold text-primary">{formatNum(item.value)}M</span>
+            )}
+            {metric === 'RATIO' && item.ratioKey && (
+              <div className="relative inline-flex items-center">
+                <Input 
+                  type="number" 
+                  step="0.1" 
+                  value={ratios[item.ratioKey]} 
+                  onChange={(e) => handleRatioChange(item.ratioKey!, e.target.value)} 
+                  className="h-8 w-24 text-center font-mono font-black border-none bg-muted/30 text-sm focus-visible:ring-accent" 
+                />
+                <span className="absolute -right-4 text-[10px] font-black text-muted-foreground/50">%</span>
+              </div>
+            )}
+            {metric === 'LOSS' && item.ratioKey && (
+              <span className="text-sm font-mono font-black text-destructive">
+                {formatNum((ratios[item.ratioKey] / 100) * item.value)}M
+              </span>
+            )}
+          </div>
+        </TableCell>
+      ))}
+    </TableRow>
   );
 
   return (
@@ -251,13 +271,14 @@ export function Step6Estimation() {
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 text-primary border-b-2 border-primary/10 pb-4">
                     <Factory className="w-8 h-8 text-accent" />
-                    <h3 className="text-2xl font-headline font-black uppercase tracking-tight">FAB Building Loss Matrix</h3>
+                    <h3 className="text-2xl font-headline font-black uppercase tracking-tight">FAB Building Loss Analysis</h3>
                   </div>
-                  <div className="border-2 rounded-[2rem] overflow-hidden shadow-2xl bg-white">
+                  <div className="border-2 rounded-2xl overflow-hidden shadow-2xl bg-white">
                     <Table>
                       <TableHeader className="bg-muted/50">
                         <TableRow className="hover:bg-transparent border-b-2">
-                          <TableHead className="w-[140px] text-xs font-black uppercase text-center border-r-2 text-primary">Analysis Level</TableHead>
+                          <TableHead className="w-[120px] text-xs font-black uppercase text-center border-r-2 text-primary">Level</TableHead>
+                          <TableHead className="w-[100px] text-xs font-black uppercase text-center border-r-2 text-primary">Metric</TableHead>
                           <TableHead className="text-xs font-black uppercase text-center">Building</TableHead>
                           <TableHead className="text-xs font-black uppercase text-center">Tools</TableHead>
                           <TableHead className="text-xs font-black uppercase text-center">Facility</TableHead>
@@ -266,26 +287,49 @@ export function Step6Estimation() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow className="hover:bg-muted/5">
-                          <TableCell className="text-xs font-black text-muted-foreground uppercase text-center bg-muted/10 border-r-2 py-8">
-                            Basement
-                          </TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdBuilding * assetDistribution.fabBs.bldgRatio} ratioKey="fabBldgBs" /></TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdTools * assetDistribution.fabBs.toolRatio} ratioKey="fabToolBs" /></TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdFacility * assetDistribution.fabBs.facRatio} ratioKey="fabFacBs" /></TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdFixture * assetDistribution.fabBs.fixRatio} ratioKey="fabFixBs" /></TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdStock * assetDistribution.fabBs.stockRatio} ratioKey="fabStockBs" /></TableCell>
-                        </TableRow>
-                        <TableRow className="hover:bg-muted/5 border-t-2">
-                          <TableCell className="text-xs font-black text-accent uppercase text-center bg-accent/5 border-r-2 py-8">
-                            L10 Level
-                          </TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdBuilding * assetDistribution.fabL10Floor.bldgRatio} ratioKey="fabBldgL10" /></TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdTools * assetDistribution.fabL10Floor.toolRatio} ratioKey="fabToolL10" /></TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdFacility * assetDistribution.fabL10Floor.facRatio} ratioKey="fabFacL10" /></TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdFixture * assetDistribution.fabL10Floor.fixRatio} ratioKey="fabFixL10" /></TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdStock * assetDistribution.fabL10Floor.stockRatio} ratioKey="fabStockL10" /></TableCell>
-                        </TableRow>
+                        <AnalysisRow level="Basement" metric="VALUE" data={{
+                          bldg: { value: plant.pdBuilding * assetDistribution.fabBs.bldgRatio },
+                          tool: { value: plant.pdTools * assetDistribution.fabBs.toolRatio },
+                          fac: { value: plant.pdFacility * assetDistribution.fabBs.facRatio },
+                          fix: { value: plant.pdFixture * assetDistribution.fabBs.fixRatio },
+                          stock: { value: plant.pdStock * assetDistribution.fabBs.stockRatio }
+                        }} />
+                        <AnalysisRow metric="RATIO" data={{
+                          bldg: { value: 0, ratioKey: 'fabBldgBs' },
+                          tool: { value: 0, ratioKey: 'fabToolBs' },
+                          fac: { value: 0, ratioKey: 'fabFacBs' },
+                          fix: { value: 0, ratioKey: 'fabFixBs' },
+                          stock: { value: 0, ratioKey: 'fabStockBs' }
+                        }} />
+                        <AnalysisRow metric="LOSS" data={{
+                          bldg: { value: plant.pdBuilding * assetDistribution.fabBs.bldgRatio, ratioKey: 'fabBldgBs' },
+                          tool: { value: plant.pdTools * assetDistribution.fabBs.toolRatio, ratioKey: 'fabToolBs' },
+                          fac: { value: plant.pdFacility * assetDistribution.fabBs.facRatio, ratioKey: 'fabFacBs' },
+                          fix: { value: plant.pdFixture * assetDistribution.fabBs.fixRatio, ratioKey: 'fabFixBs' },
+                          stock: { value: plant.pdStock * assetDistribution.fabBs.stockRatio, ratioKey: 'fabStockBs' }
+                        }} />
+
+                        <AnalysisRow level="L10 Level" metric="VALUE" data={{
+                          bldg: { value: plant.pdBuilding * assetDistribution.fabL10Floor.bldgRatio },
+                          tool: { value: plant.pdTools * assetDistribution.fabL10Floor.toolRatio },
+                          fac: { value: plant.pdFacility * assetDistribution.fabL10Floor.facRatio },
+                          fix: { value: plant.pdFixture * assetDistribution.fabL10Floor.fixRatio },
+                          stock: { value: plant.pdStock * assetDistribution.fabL10Floor.stockRatio }
+                        }} />
+                        <AnalysisRow metric="RATIO" data={{
+                          bldg: { value: 0, ratioKey: 'fabBldgL10' },
+                          tool: { value: 0, ratioKey: 'fabToolL10' },
+                          fac: { value: 0, ratioKey: 'fabFacL10' },
+                          fix: { value: 0, ratioKey: 'fabFixL10' },
+                          stock: { value: 0, ratioKey: 'fabStockL10' }
+                        }} />
+                        <AnalysisRow metric="LOSS" data={{
+                          bldg: { value: plant.pdBuilding * assetDistribution.fabL10Floor.bldgRatio, ratioKey: 'fabBldgL10' },
+                          tool: { value: plant.pdTools * assetDistribution.fabL10Floor.toolRatio, ratioKey: 'fabToolL10' },
+                          fac: { value: plant.pdFacility * assetDistribution.fabL10Floor.facRatio, ratioKey: 'fabFacL10' },
+                          fix: { value: plant.pdFixture * assetDistribution.fabL10Floor.fixRatio, ratioKey: 'fabFixL10' },
+                          stock: { value: plant.pdStock * assetDistribution.fabL10Floor.stockRatio, ratioKey: 'fabStockL10' }
+                        }} />
                       </TableBody>
                     </Table>
                   </div>
@@ -294,32 +338,44 @@ export function Step6Estimation() {
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 text-primary border-b-2 border-primary/10 pb-4">
                     <Building2 className="w-8 h-8 text-accent" />
-                    <h3 className="text-2xl font-headline font-black uppercase tracking-tight">CUP Building Loss Matrix</h3>
+                    <h3 className="text-2xl font-headline font-black uppercase tracking-tight">CUP Building Loss Analysis</h3>
                   </div>
-                  <div className="border-2 rounded-[2rem] overflow-hidden shadow-2xl bg-white">
+                  <div className="border-2 rounded-2xl overflow-hidden shadow-2xl bg-white">
                     <Table>
                       <TableHeader className="bg-muted/50">
                         <TableRow className="hover:bg-transparent border-b-2">
-                          <TableHead className="w-[140px] text-xs font-black uppercase text-center border-r-2 text-primary">Analysis Level</TableHead>
+                          <TableHead className="w-[120px] text-xs font-black uppercase text-center border-r-2 text-primary">Level</TableHead>
+                          <TableHead className="w-[100px] text-xs font-black uppercase text-center border-r-2 text-primary">Metric</TableHead>
                           <TableHead className="text-xs font-black uppercase text-center">Building</TableHead>
                           <TableHead className="text-xs font-black uppercase text-center">Facility</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow className="hover:bg-muted/5">
-                          <TableCell className="text-xs font-black text-muted-foreground uppercase text-center bg-muted/10 border-r-2 py-8">
-                            Basement
-                          </TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdBuilding * assetDistribution.cupBs.bldgRatio} ratioKey="cupBldgBs" /></TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdFacility * assetDistribution.cupBs.facRatio} ratioKey="cupFacBs" /></TableCell>
-                        </TableRow>
-                        <TableRow className="hover:bg-muted/5 border-t-2">
-                          <TableCell className="text-xs font-black text-accent uppercase text-center bg-accent/5 border-r-2 py-8">
-                            L10 Level
-                          </TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdBuilding * assetDistribution.cupL10Floor.bldgRatio} ratioKey="cupBldgL10" /></TableCell>
-                          <TableCell className="p-4"><CellContent assetValue={plant.pdFacility * assetDistribution.cupL10Floor.facRatio} ratioKey="cupFacL10" /></TableCell>
-                        </TableRow>
+                        <AnalysisRow level="Basement" metric="VALUE" data={{
+                          bldg: { value: plant.pdBuilding * assetDistribution.cupBs.bldgRatio },
+                          fac: { value: plant.pdFacility * assetDistribution.cupBs.facRatio }
+                        }} />
+                        <AnalysisRow metric="RATIO" data={{
+                          bldg: { value: 0, ratioKey: 'cupBldgBs' },
+                          fac: { value: 0, ratioKey: 'cupFacBs' }
+                        }} />
+                        <AnalysisRow metric="LOSS" data={{
+                          bldg: { value: plant.pdBuilding * assetDistribution.cupBs.bldgRatio, ratioKey: 'cupBldgBs' },
+                          fac: { value: plant.pdFacility * assetDistribution.cupBs.facRatio, ratioKey: 'cupFacBs' }
+                        }} />
+
+                        <AnalysisRow level="L10 Level" metric="VALUE" data={{
+                          bldg: { value: plant.pdBuilding * assetDistribution.cupL10Floor.bldgRatio },
+                          fac: { value: plant.pdFacility * assetDistribution.cupL10Floor.facRatio }
+                        }} />
+                        <AnalysisRow metric="RATIO" data={{
+                          bldg: { value: 0, ratioKey: 'cupBldgL10' },
+                          fac: { value: 0, ratioKey: 'cupFacL10' }
+                        }} />
+                        <AnalysisRow metric="LOSS" data={{
+                          bldg: { value: plant.pdBuilding * assetDistribution.cupL10Floor.bldgRatio, ratioKey: 'cupBldgL10' },
+                          fac: { value: plant.pdFacility * assetDistribution.cupL10Floor.facRatio, ratioKey: 'cupFacL10' }
+                        }} />
                       </TableBody>
                     </Table>
                   </div>
