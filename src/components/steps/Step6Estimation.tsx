@@ -24,7 +24,6 @@ export function Step6Estimation() {
     fabStockBs: 100, fabStockL10: 0,
     cupBldgBs: 0.2, cupBldgL10: 0.2,
     cupFacBs: 100, cupFacL10: 0,
-    // Defaults for CUP Tool/Fix/Stock are 0 based on P5 distribution logic
     cupToolBs: 0, cupToolL10: 0,
     cupFixBs: 0, cupFixL10: 0,
     cupStockBs: 0, cupStockL10: 0,
@@ -63,14 +62,13 @@ export function Step6Estimation() {
     return Math.min(100, Math.max(0, (floodHeight / l10Height) * 100));
   }, [floodHeight, l10Height]);
 
-  // Update dynamic L10 suggestions for Facility, Fixture, and Stock
   useEffect(() => {
     setRatios(prev => ({
       ...prev,
-      fabFacL10: calcL10Ratio,
-      fabFixL10: calcL10Ratio,
-      fabStockL10: calcL10Ratio,
-      cupFacL10: calcL10Ratio
+      fabFacL10: Number(calcL10Ratio.toFixed(1)),
+      fabFixL10: Number(calcL10Ratio.toFixed(1)),
+      fabStockL10: Number(calcL10Ratio.toFixed(1)),
+      cupFacL10: Number(calcL10Ratio.toFixed(1))
     }));
   }, [calcL10Ratio]);
 
@@ -104,7 +102,7 @@ export function Step6Estimation() {
     calcCategory(cupBs, 'cup', true);
     calcCategory(cupL10Floor, 'cup', false);
 
-    setTotalLoss(est);
+    setTotalLoss(Number(est.toFixed(1)));
   };
 
   const getAiInsights = async () => {
@@ -138,6 +136,10 @@ export function Step6Estimation() {
     }
   };
 
+  const formatNumber = (val: number) => {
+    return val.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  };
+
   return (
     <div className="space-y-8 pb-20">
       <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
@@ -146,7 +148,7 @@ export function Step6Estimation() {
           <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
             <Waves className="w-6 h-6 text-accent" /> Environmental Impact Modeling
           </CardTitle>
-          <CardDescription>Simulate flood events using validated asset distribution ratios (NTD Million). Numbers are formatted with thousands separators.</CardDescription>
+          <CardDescription>Simulate flood events using validated asset distribution ratios (NTD Million).</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-2xl bg-primary/5 border border-primary/10">
@@ -190,6 +192,7 @@ export function Step6Estimation() {
                     bsVal={plant.pdBuilding * assetDistribution.fabBs.bldgRatio}
                     l10Val={plant.pdBuilding * assetDistribution.fabL10Floor.bldgRatio}
                     onChange={(k, v) => setRatios(p => ({ ...p, [`fabBldg${k}`]: v }))}
+                    formatNumber={formatNumber}
                   />
                   <AssetLossDetail 
                     title="Production Tools" 
@@ -197,6 +200,7 @@ export function Step6Estimation() {
                     bsVal={plant.pdTools * assetDistribution.fabBs.toolRatio}
                     l10Val={plant.pdTools * assetDistribution.fabL10Floor.toolRatio}
                     onChange={(k, v) => setRatios(p => ({ ...p, [`fabTool${k}`]: v }))}
+                    formatNumber={formatNumber}
                   />
                   <AssetLossDetail 
                     title="Facility" 
@@ -204,6 +208,7 @@ export function Step6Estimation() {
                     bsVal={plant.pdFacility * assetDistribution.fabBs.facRatio}
                     l10Val={plant.pdFacility * assetDistribution.fabL10Floor.facRatio}
                     onChange={(k, v) => setRatios(p => ({ ...p, [`fabFac${k}`]: v }))}
+                    formatNumber={formatNumber}
                   />
                   <AssetLossDetail 
                     title="Fixture" 
@@ -211,6 +216,7 @@ export function Step6Estimation() {
                     bsVal={plant.pdFixture * assetDistribution.fabBs.fixRatio}
                     l10Val={plant.pdFixture * assetDistribution.fabL10Floor.fixRatio}
                     onChange={(k, v) => setRatios(p => ({ ...p, [`fabFix${k}`]: v }))}
+                    formatNumber={formatNumber}
                   />
                   <AssetLossDetail 
                     title="Stock" 
@@ -218,6 +224,7 @@ export function Step6Estimation() {
                     bsVal={plant.pdStock * assetDistribution.fabBs.stockRatio}
                     l10Val={plant.pdStock * assetDistribution.fabL10Floor.stockRatio}
                     onChange={(k, v) => setRatios(p => ({ ...p, [`fabStock${k}`]: v }))}
+                    formatNumber={formatNumber}
                   />
                 </div>
               </div>
@@ -236,6 +243,7 @@ export function Step6Estimation() {
                     bsVal={plant.pdBuilding * assetDistribution.cupBs.bldgRatio}
                     l10Val={plant.pdBuilding * assetDistribution.cupL10Floor.bldgRatio}
                     onChange={(k, v) => setRatios(p => ({ ...p, [`cupBldg${k}`]: v }))}
+                    formatNumber={formatNumber}
                   />
                   <AssetLossDetail 
                     title="Facility" 
@@ -243,6 +251,7 @@ export function Step6Estimation() {
                     bsVal={plant.pdFacility * assetDistribution.cupBs.facRatio}
                     l10Val={plant.pdFacility * assetDistribution.cupL10Floor.facRatio}
                     onChange={(k, v) => setRatios(p => ({ ...p, [`cupFac${k}`]: v }))}
+                    formatNumber={formatNumber}
                   />
                 </div>
               </div>
@@ -254,7 +263,7 @@ export function Step6Estimation() {
                   </div>
                   <div className="space-y-1 relative z-10">
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Total Site Loss Estimation</p>
-                    <h3 className="text-5xl font-headline font-black tracking-tighter tabular-nums">NTD {totalLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M</h3>
+                    <h3 className="text-5xl font-headline font-black tracking-tighter tabular-nums">NTD {formatNumber(totalLoss)}M</h3>
                   </div>
                   <Button 
                     onClick={getAiInsights}
@@ -304,10 +313,11 @@ export function Step6Estimation() {
 }
 
 function AssetLossDetail({ 
-  title, bs, l10, bsVal, l10Val, onChange 
+  title, bs, l10, bsVal, l10Val, onChange, formatNumber 
 }: { 
   title: string, bs: number, l10: number, bsVal: number, l10Val: number, 
-  onChange: (k: string, v: number) => void
+  onChange: (k: string, v: number) => void,
+  formatNumber: (v: number) => string
 }) {
   const bsLossAmount = (bs / 100) * bsVal;
   const l10LossAmount = (l10 / 100) * l10Val;
@@ -320,22 +330,22 @@ function AssetLossDetail({
         <div className="space-y-2">
           <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
             <span>Basement</span>
-            <span className="text-primary font-mono">NTD {bsVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M</span>
+            <span className="text-primary font-mono">NTD {formatNumber(bsVal)}M</span>
           </div>
           <div className="flex flex-col gap-1.5 bg-muted/10 p-2.5 rounded-lg">
             <div className="flex items-center gap-2">
               <span className="text-[9px] font-black text-muted-foreground/60 uppercase flex-grow">Loss %</span>
               <Input 
-                type="number" value={bs} 
+                type="number" value={bs} step="0.1"
                 onChange={(e) => onChange('Bs', parseFloat(e.target.value) || 0)}
-                className="h-8 w-20 p-1 text-right font-mono text-sm font-bold border-none bg-white shadow-sm" 
+                className="h-8 w-24 p-1 text-right font-mono text-sm font-bold border-none bg-white shadow-sm" 
               />
             </div>
-            <div className="flex flex-col pt-1.5 border-t border-muted/20">
-              <span className="text-[8px] font-black text-destructive uppercase">Loss Value</span>
-              <span className="text-destructive font-mono text-sm font-black tabular-nums">
-                NTD {bsLossAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M
-              </span>
+            <div className="flex items-center gap-2 border-t border-muted/20 pt-1.5">
+              <span className="text-[9px] font-black text-destructive/60 uppercase flex-grow">Loss Value</span>
+              <div className="h-8 w-24 flex items-center justify-end px-1 font-mono text-sm font-black text-destructive tabular-nums bg-white/50 rounded shadow-inner">
+                {formatNumber(bsLossAmount)}
+              </div>
             </div>
           </div>
         </div>
@@ -344,22 +354,22 @@ function AssetLossDetail({
         <div className="space-y-2">
           <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
             <span>L10 Floor</span>
-            <span className="text-primary font-mono">NTD {l10Val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M</span>
+            <span className="text-primary font-mono">NTD {formatNumber(l10Val)}M</span>
           </div>
           <div className="flex flex-col gap-1.5 bg-muted/10 p-2.5 rounded-lg">
             <div className="flex items-center gap-2">
               <span className="text-[9px] font-black text-muted-foreground/60 uppercase flex-grow">Loss %</span>
               <Input 
-                type="number" value={l10} 
+                type="number" value={l10} step="0.1"
                 onChange={(e) => onChange('L10', parseFloat(e.target.value) || 0)}
-                className="h-8 w-20 p-1 text-right font-mono text-sm font-bold border-none bg-white shadow-sm" 
+                className="h-8 w-24 p-1 text-right font-mono text-sm font-bold border-none bg-white shadow-sm" 
               />
             </div>
-            <div className="flex flex-col pt-1.5 border-t border-muted/20">
-              <span className="text-[8px] font-black text-destructive uppercase">Loss Value</span>
-              <span className="text-destructive font-mono text-sm font-black tabular-nums">
-                NTD {l10LossAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M
-              </span>
+            <div className="flex items-center gap-2 border-t border-muted/20 pt-1.5">
+              <span className="text-[9px] font-black text-destructive/60 uppercase flex-grow">Loss Value</span>
+              <div className="h-8 w-24 flex items-center justify-end px-1 font-mono text-sm font-black text-destructive tabular-nums bg-white/50 rounded shadow-inner">
+                {formatNumber(l10LossAmount)}
+              </div>
             </div>
           </div>
         </div>
