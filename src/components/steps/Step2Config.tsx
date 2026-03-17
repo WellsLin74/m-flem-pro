@@ -7,15 +7,20 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Building2, Factory, ChevronRight, ArrowLeft } from 'lucide-react';
+import { useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step2Config() {
   const { user, plant, setPlant, setStep } = useAppStore();
   const [plantName, setPlantName] = useState(plant?.plantName || '');
   const [companyName, setCompanyName] = useState(plant?.company || user?.assignedCompany || '');
+  const db = useFirestore();
 
   const handleNext = () => {
     if (!plantName || !companyName) return;
-    setPlant({
+    
+    const plantData = {
       ...(plant || {}),
       company: companyName,
       plantName,
@@ -35,7 +40,25 @@ export function Step2Config() {
       pdFixture: plant?.pdFixture || 50,
       pdStock: plant?.pdStock || 300,
       bi12m: plant?.bi12m || 1000,
-    } as any);
+    } as any;
+
+    setPlant(plantData);
+
+    // Persist to Firestore (BuildingInfo)
+    const buildingInfoId = `${companyName.replace(/\s+/g, '_')}-${plantName.replace(/\s+/g, '_')}`;
+    const buildingRef = doc(db, 'building_info', buildingInfoId);
+    setDocumentNonBlocking(buildingRef, {
+      id: buildingInfoId,
+      companyName,
+      plantName,
+      latitude: plantData.lat,
+      longitude: plantData.lon,
+      fabAboveLevel: plantData.fabAl,
+      fabBelowLevel: plantData.fabBl,
+      cupAboveLevel: plantData.cupAl,
+      cupBelowLevel: plantData.cupBl,
+    }, { merge: true });
+
     setStep(3);
   };
 
@@ -62,7 +85,7 @@ export function Step2Config() {
                 placeholder="e.g. Acme Microelectronics"
                 className="bg-muted/50 border-none font-bold text-primary"
               />
-              <p className="text-[10px] text-muted-foreground italic">Defaulted to your assigned company: {user?.assignedCompany}</p>
+              <p className="text-[10px] text-muted-foreground italic">Linked to authorized profile: {user?.assignedCompany}</p>
             </div>
           </div>
 
@@ -87,7 +110,7 @@ export function Step2Config() {
 
         <div className="flex justify-between pt-6">
           <Button variant="ghost" onClick={() => setStep(1)} className="font-bold text-muted-foreground gap-2">
-            <ArrowLeft className="w-4 h-4" /> Back to Login
+            <ArrowLeft className="w-4 h-4" /> Back to Auth
           </Button>
           <Button 
             onClick={handleNext} 

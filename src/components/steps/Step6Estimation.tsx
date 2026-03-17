@@ -12,9 +12,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toJpeg } from 'html-to-image';
+import { useFirestore } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step6Estimation() {
   const { plant, finalRatios, setStep } = useAppStore();
+  const db = useFirestore();
   const [l10Height, setL10Height] = useState(0);
   const [floodHeight, setFloodHeight] = useState(0);
   const reportRef = useRef<HTMLDivElement>(null);
@@ -95,7 +99,27 @@ export function Step6Estimation() {
     est += (plant.pdFacility * cupBs.facRatio * (ratios.cupFacBs / 100));
     est += (plant.pdFacility * cupL10Floor.facRatio * (ratios.cupFacL10 / 100));
 
-    setTotalLoss(Number(est.toFixed(1)));
+    const finalEst = Number(est.toFixed(1));
+    setTotalLoss(finalEst);
+
+    // Persist result to Firestore (FloodLossEstimation)
+    const estimationId = `${plant.company.replace(/\s+/g, '_')}-${plant.plantName.replace(/\s+/g, '_')}-${Date.now()}`;
+    const estimationRef = doc(db, 'flood_loss_estimations', estimationId);
+    setDocumentNonBlocking(estimationRef, {
+      id: estimationId,
+      companyName: plant.company,
+      plantName: plant.plantName,
+      l10Height: l10Height,
+      floodHeightAgl: floodHeight,
+      buildingBasementLossRatio: ratios.fabBldgBs,
+      buildingL10LossRatio: ratios.fabBldgL10,
+      toolsBasementLossRatio: ratios.fabToolBs,
+      toolsL10LossRatio: ratios.fabToolL10,
+      ffsBasementLossRatio: ratios.fabFacBs,
+      ffsL10LossRatio: ratios.fabFacL10,
+      estimatedTotalLoss: finalEst,
+      estimationTimestamp: new Date().toISOString(),
+    }, { merge: true });
   };
 
   const getAiInsights = async () => {
@@ -322,4 +346,3 @@ export function Step6Estimation() {
     </div>
   );
 }
-

@@ -8,32 +8,69 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldCheck, UserPlus, LogIn, Building } from 'lucide-react';
+import { useAuth } from '@/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
+import { doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useFirestore } from '@/firebase';
 
 export function Step1Login() {
   const { setUser, setStep } = useAppStore();
   const [mode, setMode] = useState<'login' | 'add'>('login');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('password123'); // Simple default for demo
   const [role, setRole] = useState<UserRole>('ADMIN');
   const [company, setCompany] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    if (!email) return;
-    setUser({
-      email,
-      role: 'ADMIN', // Default for simulation
-      assignedCompany: 'Default Corp',
-    });
-    setStep(2);
+  const auth = useAuth();
+  const db = useFirestore();
+
+  const handleLogin = async () => {
+    if (!email) {
+      // Fallback to anonymous for rapid testing if no email
+      setLoading(true);
+      signInAnonymously(auth).then(() => setStep(2)).finally(() => setLoading(false));
+      return;
+    }
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      setStep(2);
+    } catch (e) {
+      console.error("Login failed", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!email || !company) return;
-    setUser({
-      email,
-      role,
-      assignedCompany: company,
-    });
-    setStep(2);
+    setLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userId = userCredential.user.uid;
+      
+      // Persist user permission metadata
+      const userPermRef = doc(db, 'user_permissions', userId);
+      setDocumentNonBlocking(userPermRef, {
+        id: userId,
+        email,
+        role,
+        assignedCompany: company,
+      }, { merge: true });
+
+      setUser({
+        email,
+        role,
+        assignedCompany: company,
+      });
+      setStep(2);
+    } catch (e) {
+      console.error("Registration failed", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -62,6 +99,18 @@ export function Step1Login() {
                 placeholder="analyst@mflem.com" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="bg-muted/50 border-none focus-visible:ring-accent"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pass" className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Security Key</Label>
+              <Input 
+                id="pass" 
+                type="password"
+                placeholder="••••••••" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="bg-muted/50 border-none focus-visible:ring-accent"
               />
             </div>
@@ -102,9 +151,14 @@ export function Step1Login() {
             <Button 
               className="w-full bg-primary hover:bg-primary/90 text-white font-black py-6 text-lg gap-2 shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]"
               onClick={mode === 'login' ? handleLogin : handleAddUser}
+              disabled={loading}
             >
-              {mode === 'login' ? <LogIn className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
-              {mode === 'login' ? 'Enter System' : 'Create & Access'}
+              {loading ? "Authorizing..." : (
+                <>
+                  {mode === 'login' ? <LogIn className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
+                  {mode === 'login' ? 'Enter System' : 'Create & Access'}
+                </>
+              )}
             </Button>
             
             <button 

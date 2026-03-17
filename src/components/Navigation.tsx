@@ -2,13 +2,35 @@
 
 import { useAppStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
-import { LogOut, User as UserIcon } from 'lucide-react';
+import { LogOut, User as UserIcon, Shield } from 'lucide-react';
+import { useAuth, useUser } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { useEffect } from 'react';
 
 export function Navigation() {
   const { user, setUser, setStep } = useAppStore();
+  const { user: firebaseUser } = useUser();
+  const auth = useAuth();
+
+  // Sync Firebase Auth state with local store
+  useEffect(() => {
+    if (firebaseUser) {
+      // In a real app, we'd fetch the user's role and company from Firestore here
+      // For now, we sync the email and keep the existing role/company from the store if available
+      if (!user) {
+        setUser({
+          email: firebaseUser.email || 'Anonymous User',
+          role: 'ADMIN',
+          assignedCompany: 'Default Corp',
+        });
+      }
+    } else {
+      setUser(null);
+    }
+  }, [firebaseUser, setUser, user]);
 
   const handleLogout = () => {
-    setUser(null);
+    signOut(auth);
     setStep(1);
   };
 
@@ -29,6 +51,7 @@ export function Navigation() {
           <div className="hidden md:flex flex-col items-end border-r border-primary-foreground/20 pr-6">
             <span className="text-sm font-semibold">{user.email}</span>
             <div className="flex gap-2 text-[10px] uppercase font-bold tracking-wider text-accent">
+              <Shield className="w-2.5 h-2.5" />
               <span>{user.role}</span>
               <span className="text-primary-foreground/30">•</span>
               <span>{user.assignedCompany}</span>

@@ -8,11 +8,14 @@ import { Label } from '@/components/ui/label';
 import { MapPin, LayoutDashboard, Coins, ChevronRight, ArrowLeft, Maximize, Ruler } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useMemo } from 'react';
+import { useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step3Init() {
   const { plant, setPlant, setStep } = useAppStore();
+  const db = useFirestore();
   
-  // Use empty object as fallback to ensure inputs start blank if no plant data exists
   const { register, handleSubmit, watch } = useForm<Partial<PlantData>>({
     defaultValues: plant || {}
   });
@@ -48,7 +51,6 @@ export function Step3Init() {
   }, [values]);
 
   const onSubmit = (data: Partial<PlantData>) => {
-    // Convert all inputs to numbers before saving to store
     const numericData: PlantData = {
       company: plant?.company || '',
       plantName: plant?.plantName || '',
@@ -70,6 +72,22 @@ export function Step3Init() {
       bi12m: Number(data.bi12m) || 0,
     };
     setPlant(numericData);
+
+    // Persist to Firestore (PlantInitialValue)
+    const plantValId = `${numericData.company.replace(/\s+/g, '_')}-${numericData.plantName.replace(/\s+/g, '_')}-init`;
+    const plantValRef = doc(db, 'plant_initial_values', plantValId);
+    setDocumentNonBlocking(plantValRef, {
+      id: plantValId,
+      companyName: numericData.company,
+      plantName: numericData.plantName,
+      buildingValue: numericData.pdBuilding,
+      facilityValue: numericData.pdFacility,
+      toolsValue: numericData.pdTools,
+      fixtureValue: numericData.pdFixture,
+      stockValue: numericData.pdStock,
+      bi12mValue: numericData.bi12m,
+    }, { merge: true });
+
     setStep(4);
   };
 
