@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { MapPin, LayoutDashboard, DollarSign, ChevronRight, ArrowLeft } from 'lucide-react';
+import { MapPin, LayoutDashboard, Coins, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 
 export function Step3Init() {
@@ -89,8 +89,8 @@ export function Step3Init() {
             {/* Initial Financials */}
             <div className="p-4 rounded-xl border-2 border-primary/5 bg-primary/5 space-y-4">
               <div className="flex items-center gap-2 text-primary">
-                <DollarSign className="w-4 h-4" />
-                <h3 className="text-xs font-black uppercase tracking-widest">Asset Values (USD M)</h3>
+                <Coins className="w-4 h-4" />
+                <h3 className="text-xs font-black uppercase tracking-widest">Asset Values (NTD M)</h3>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -106,10 +106,14 @@ export function Step3Init() {
                   <Input type="number" {...register('pdTools')} className="bg-white border-none text-xs font-mono h-8" />
                 </div>
                 <div className="space-y-1">
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase">Fixture</Label>
+                  <Input type="number" {...register('pdFixture')} className="bg-white border-none text-xs font-mono h-8" />
+                </div>
+                <div className="space-y-1">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Stock</Label>
                   <Input type="number" {...register('pdStock')} className="bg-white border-none text-xs font-mono h-8" />
                 </div>
-                <div className="col-span-2 space-y-1">
+                <div className="space-y-1">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">BI (12M)</Label>
                   <Input type="number" {...register('bi12m')} className="bg-white border-none text-xs font-mono h-8" />
                 </div>

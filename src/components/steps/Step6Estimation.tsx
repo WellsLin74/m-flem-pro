@@ -129,7 +129,7 @@ export function Step6Estimation() {
                 </div>
                 <div className="space-y-1 relative z-10">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Consolidated Estimation</p>
-                  <h3 className="text-5xl font-headline font-black tracking-tighter tabular-nums">${totalLoss.toFixed(2)}M <span className="text-xl font-medium opacity-50 uppercase ml-2">USD</span></h3>
+                  <h3 className="text-5xl font-headline font-black tracking-tighter tabular-nums">NTD {totalLoss.toFixed(2)}M <span className="text-xl font-medium opacity-50 uppercase ml-2">TWD</span></h3>
                 </div>
                 <Button 
                   onClick={getAiInsights}

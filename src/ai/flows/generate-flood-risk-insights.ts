@@ -20,14 +20,14 @@ const GenerateFloodRiskInsightsInputSchema = z.object({
   floodHeightAglMeters: z
     .number()
     .describe('The flood height above ground level in meters.'),
-  buildingInitialValueM: z.number().describe('Initial building value in millions USD.'),
-  facilityInitialValueM: z.number().describe('Initial facility value in millions USD.'),
-  toolsInitialValueM: z.number().describe('Initial tools value in millions USD.'),
-  fixtureInitialValueM: z.number().describe('Initial fixture value in millions USD.'),
-  stockInitialValueM: z.number().describe('Initial stock value in millions USD.'),
+  buildingInitialValueM: z.number().describe('Initial building value in million NTD.'),
+  facilityInitialValueM: z.number().describe('Initial facility value in million NTD.'),
+  toolsInitialValueM: z.number().describe('Initial tools value in million NTD.'),
+  fixtureInitialValueM: z.number().describe('Initial fixture value in million NTD.'),
+  stockInitialValueM: z.number().describe('Initial stock value in million NTD.'),
   bi12mInitialValueM: z
     .number()
-    .describe('Initial business interruption (12 months) value in millions USD.'),
+    .describe('Initial business interruption (12 months) value in million NTD.'),
   buildingBasementLossRatio: z
     .number()
     .min(0)
@@ -58,7 +58,7 @@ const GenerateFloodRiskInsightsInputSchema = z.object({
     .min(0)
     .max(1)
     .describe('Loss ratio for facility, fixture, and stock assets at L10 height (0-1).'),
-  totalLossEstimateM: z.number().describe('Total estimated flood loss in millions USD.'),
+  totalLossEstimateM: z.number().describe('Total estimated flood loss in million NTD.'),
 });
 export type GenerateFloodRiskInsightsInput = z.infer<typeof GenerateFloodRiskInsightsInputSchema>;
 
@@ -86,7 +86,7 @@ Analyze the following data for the plant located at {{companyName}} - {{plantNam
 - L10 Height (critical elevation): {{{l10HeightMeters}}} meters
 - Actual Flood Height AGL: {{{floodHeightAglMeters}}} meters
 
-**Initial Asset Values (Millions USD):**
+**Initial Asset Values (Million NTD):**
 - Building: {{{buildingInitialValueM}}}
 - Facility: {{{facilityInitialValueM}}}
 - Tools: {{{toolsInitialValueM}}}
@@ -102,7 +102,7 @@ Analyze the following data for the plant located at {{companyName}} - {{plantNam
 - Facility/Fixture/Stock (Basement): {{{ffsBasementLossRatio}}}
 - Facility/Fixture/Stock (L10): {{{ffsL10LossRatio}}}
 
-**Total Estimated Flood Loss: {{{totalLossEstimateM}}} Million USD**
+**Total Estimated Flood Loss: {{{totalLossEstimateM}}} Million NTD**
 
 Based on this information, provide a detailed analysis covering:
 1.  **Overall Risk Assessment:** Explain the significance of the flood height relative to the L10 height and its implications.
