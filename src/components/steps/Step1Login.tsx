@@ -8,11 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldCheck, UserPlus, LogIn, Building } from 'lucide-react';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { useFirestore } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
 
 export function Step1Login() {
   const { setUser, setStep } = useAppStore();
@@ -25,33 +25,55 @@ export function Step1Login() {
 
   const auth = useAuth();
   const db = useFirestore();
+  const { toast } = useToast();
 
   const handleLogin = async () => {
     if (!email) {
-      // Fallback to anonymous for rapid testing if no email
       setLoading(true);
-      signInAnonymously(auth).then(() => setStep(2)).finally(() => setLoading(false));
+      signInAnonymously(auth)
+        .then(() => setStep(2))
+        .catch((err) => {
+          toast({
+            variant: "destructive",
+            title: "Anonymous Access Failed",
+            description: err.message,
+          });
+        })
+        .finally(() => setLoading(false));
       return;
     }
+
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
       setStep(2);
-    } catch (e) {
-      console.error("Login failed", e);
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: e.code === 'auth/invalid-credential' 
+          ? "Invalid email or password. If you haven't registered, please use 'Register New User' below." 
+          : e.message,
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleAddUser = async () => {
-    if (!email || !company) return;
+    if (!email || !company) {
+      toast({
+        variant: "destructive",
+        title: "Missing Information",
+        description: "Please provide both an email and an assigned company.",
+      });
+      return;
+    }
     setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const userId = userCredential.user.uid;
       
-      // Persist user permission metadata
       const userPermRef = doc(db, 'user_permissions', userId);
       setDocumentNonBlocking(userPermRef, {
         id: userId,
@@ -66,8 +88,12 @@ export function Step1Login() {
         assignedCompany: company,
       });
       setStep(2);
-    } catch (e) {
-      console.error("Registration failed", e);
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Registration Failed",
+        description: e.message,
+      });
     } finally {
       setLoading(false);
     }
