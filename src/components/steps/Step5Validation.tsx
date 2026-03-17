@@ -48,7 +48,7 @@ export function Step5Validation() {
       .reduce((sum, f) => sum + Number(refinement.floorData[f].cr), 0);
 
     /**
-     * FACILITY NEW FORMULA CALCULATION:
+     * CALCULATION CONSTANTS:
      */
     const totalFabCrArea = fabFloorArea * totalFabCrSum;
     const totalFabNonCrArea = totalFabArea - totalFabCrArea;
@@ -62,41 +62,41 @@ export function Step5Validation() {
       const fData = refinement.floorData[f] || { fac: 0, cr: 0 }; 
       const crRatio = Number(fData.cr);
 
+      /**
+       * FACILITY CALCULATION (Area-weighted)
+       */
       let calcFac = 0;
       if (isFab) {
-        // FAB Formula:
-        // Global_CR_Ratio * (FAB_Floor_Area * Floor_CR_Ratio / Total_FAB_CR_Area) 
-        // + (1 - Global_CR_Ratio) * (FAB_Floor_Area * (1 - Floor_CR_Ratio) / Total_Site_Non_CR_Area)
         const facCrPart = totalFabCrArea > 0 
           ? (Number(refinement.facCrRatio) * (floorArea * crRatio)) / totalFabCrArea 
           : 0;
-        
         const facNonCrPart = totalSiteNonCrArea > 0 
           ? ((1 - Number(refinement.facCrRatio)) * (floorArea * (1 - crRatio))) / totalSiteNonCrArea 
           : 0;
-        
         calcFac = facCrPart + facNonCrPart;
       } else {
-        // CUP Formula:
-        // (1 - Global_CR_Ratio) * CUP_Floor_Area / Total_Site_Non_CR_Area
         calcFac = totalSiteNonCrArea > 0 
           ? ((1 - Number(refinement.facCrRatio)) * floorArea) / totalSiteNonCrArea 
           : 0;
       }
 
       /**
-       * TOOLS CALCULATION (Keep consistent with logic if not specified, 
-       * usually distributed based on CR weight similarly)
+       * TOOLS CALCULATION (Consistent with FACILITY Area-weighted logic)
        */
-      const totalFabCrWeight = totalFabCrSum;
-      const toolCrPart = totalFabCrWeight > 0 ? (crRatio / totalFabCrWeight) * Number(refinement.toolsCrRatio) : 0;
-      // Tools Non-CR part often follows Fac weight distribution logic if specified, 
-      // otherwise we keep it relative to Fac weights from P4
-      const totalFabFacWeight = Object.keys(refinement.floorData)
-        .filter(f => f.startsWith('FAB'))
-        .reduce((sum, f) => sum + Number(refinement.floorData[f].fac), 0);
-      const toolNonCrPart = totalFabFacWeight > 0 && isFab ? (Number(fData.fac) / totalFabFacWeight) * (1 - Number(refinement.toolsCrRatio)) : 0;
-      const calcTool = toolCrPart + toolNonCrPart;
+      let calcTool = 0;
+      if (isFab) {
+        const toolCrPart = totalFabCrArea > 0 
+          ? (Number(refinement.toolsCrRatio) * (floorArea * crRatio)) / totalFabCrArea 
+          : 0;
+        const toolNonCrPart = totalSiteNonCrArea > 0 
+          ? ((1 - Number(refinement.toolsCrRatio)) * (floorArea * (1 - crRatio))) / totalSiteNonCrArea 
+          : 0;
+        calcTool = toolCrPart + toolNonCrPart;
+      } else {
+        calcTool = totalSiteNonCrArea > 0 
+          ? ((1 - Number(refinement.toolsCrRatio)) * floorArea) / totalSiteNonCrArea 
+          : 0;
+      }
 
       /**
        * BUILDING CALCULATION FORMULA:
