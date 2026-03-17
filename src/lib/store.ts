@@ -40,6 +40,7 @@ export interface FinalRatio {
   fac: number;
   tool: number;
   fix: number;
+  stock: number;
 }
 
 export interface AppState {

@@ -60,7 +60,7 @@ export function Step5Validation() {
         fixRatio = 1.0 / fabFloors.length;
       }
 
-      suggestions[f] = { bldg: bldgRatio, fac: calcFac, tool: calcTool, fix: fixRatio };
+      suggestions[f] = { bldg: bldgRatio, fac: calcFac, tool: calcTool, fix: fixRatio, stock: calcFac };
     });
 
     setLocalRatios(suggestions);
@@ -89,15 +89,17 @@ export function Step5Validation() {
       bldg: acc.bldg + r.bldg,
       fac: acc.fac + r.fac,
       tool: acc.tool + r.tool,
-      fix: acc.fix + r.fix
-    }), { bldg: 0, fac: 0, tool: 0, fix: 0 });
+      fix: acc.fix + r.fix,
+      stock: acc.stock + (r.stock || 0)
+    }), { bldg: 0, fac: 0, tool: 0, fix: 0, stock: 0 });
   }, [localRatios]);
 
   const validate = () => {
     const isOk = Math.abs(sums.bldg - 1) < 0.001 && 
                  Math.abs(sums.fac - 1) < 0.001 && 
                  Math.abs(sums.tool - 1) < 0.001 && 
-                 Math.abs(sums.fix - 1) < 0.001;
+                 Math.abs(sums.fix - 1) < 0.001 &&
+                 Math.abs(sums.stock - 1) < 0.001;
     setIsValidated(isOk);
     if (isOk) {
       setFinalRatios(localRatios);
@@ -142,47 +144,56 @@ export function Step5Validation() {
             <TableHeader className="bg-muted/50 sticky top-0 z-10">
               <TableRow>
                 <TableHead className="text-[10px] font-black uppercase">Building/Floor</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right">Building (90:10)</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right">Facility (Site)</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right">Tools (Site)</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right">Building</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right">Facility</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right">Tools</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-right">Fixture (FAB Only)</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right">Stock</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {floors.map(floor => (
                 <TableRow key={floor} className={floor.startsWith('CUP') ? 'bg-blue-50/30' : ''}>
                   <TableCell className="font-mono text-[10px] font-bold">{floor}</TableCell>
-                  <TableCell className="py-2">
+                  <TableCell className="py-1">
                     <Input 
                       type="number" step="0.0001"
                       value={localRatios[floor]?.bldg || 0}
                       onChange={(e) => handleUpdate(floor, 'bldg', e.target.value)}
-                      className="h-8 border-none bg-muted/30 font-mono text-xs text-right"
+                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right"
                     />
                   </TableCell>
-                  <TableCell className="py-2">
+                  <TableCell className="py-1">
                     <Input 
                       type="number" step="0.0001"
                       value={localRatios[floor]?.fac || 0}
                       onChange={(e) => handleUpdate(floor, 'fac', e.target.value)}
-                      className="h-8 border-none bg-muted/30 font-mono text-xs text-right"
+                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right"
                     />
                   </TableCell>
-                  <TableCell className="py-2">
+                  <TableCell className="py-1">
                     <Input 
                       type="number" step="0.0001"
                       value={localRatios[floor]?.tool || 0}
                       onChange={(e) => handleUpdate(floor, 'tool', e.target.value)}
-                      className="h-8 border-none bg-muted/30 font-mono text-xs text-right"
+                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right"
                     />
                   </TableCell>
-                  <TableCell className="py-2">
+                  <TableCell className="py-1">
                     <Input 
                       type="number" step="0.0001"
                       value={localRatios[floor]?.fix || 0}
                       onChange={(e) => handleUpdate(floor, 'fix', e.target.value)}
-                      className="h-8 border-none bg-muted/30 font-mono text-xs text-right"
+                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right"
                       disabled={floor.startsWith('CUP')}
+                    />
+                  </TableCell>
+                  <TableCell className="py-1">
+                    <Input 
+                      type="number" step="0.0001"
+                      value={localRatios[floor]?.stock || 0}
+                      onChange={(e) => handleUpdate(floor, 'stock', e.target.value)}
+                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right"
                     />
                   </TableCell>
                 </TableRow>
@@ -191,17 +202,20 @@ export function Step5Validation() {
             <TableFooter className="bg-primary/5 sticky bottom-0">
               <TableRow className="font-black">
                 <TableCell className="text-[10px]">TOTAL SUM</TableCell>
-                <TableCell className={`text-right font-mono text-xs ${Math.abs(sums.bldg - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
+                <TableCell className={`text-right font-mono text-[10px] ${Math.abs(sums.bldg - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
                   {sums.bldg.toFixed(4)}
                 </TableCell>
-                <TableCell className={`text-right font-mono text-xs ${Math.abs(sums.fac - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
+                <TableCell className={`text-right font-mono text-[10px] ${Math.abs(sums.fac - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
                   {sums.fac.toFixed(4)}
                 </TableCell>
-                <TableCell className={`text-right font-mono text-xs ${Math.abs(sums.tool - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
+                <TableCell className={`text-right font-mono text-[10px] ${Math.abs(sums.tool - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
                   {sums.tool.toFixed(4)}
                 </TableCell>
-                <TableCell className={`text-right font-mono text-xs ${Math.abs(sums.fix - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
+                <TableCell className={`text-right font-mono text-[10px] ${Math.abs(sums.fix - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
                   {sums.fix.toFixed(4)}
+                </TableCell>
+                <TableCell className={`text-right font-mono text-[10px] ${Math.abs(sums.stock - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
+                  {sums.stock.toFixed(4)}
                 </TableCell>
               </TableRow>
             </TableFooter>

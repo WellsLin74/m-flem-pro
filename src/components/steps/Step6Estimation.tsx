@@ -17,70 +17,88 @@ export function Step6Estimation() {
   const [floodHeight, setFloodHeight] = useState(2.0);
   
   const [ratios, setRatios] = useState({
+    // FAB Ratios
     fabBldgBs: 20, fabBldgL10: 20,
+    fabFacBs: 100,
     fabToolBs: 100, fabToolL10: 100,
-    fabFfsBs: 100,
+    fabFixBs: 100,
+    fabStockBs: 100,
+    // CUP Ratios
     cupBldgBs: 20, cupBldgL10: 20,
+    cupFacBs: 100,
     cupToolBs: 100, cupToolL10: 100,
-    cupFfsBs: 100,
+    cupFixBs: 100,
+    cupStockBs: 100,
   });
 
   const [totalLoss, setTotalLoss] = useState<number | null>(null);
   const [aiInsights, setAiInsights] = useState<string>('');
   const [loadingAi, setLoadingAi] = useState(false);
 
+  // Asset values categorized by Building -> Floor Bucket (Basement, L10 Floor)
   const assetDistribution = useMemo(() => {
     if (!plant || !finalRatios) return null;
 
-    const floors = Object.keys(finalRatios);
-
     const calculateAggregates = (floorFilter: (f: string) => boolean) => {
-      let bldgRatio = 0, facRatio = 0, toolRatio = 0, fixRatio = 0;
-      floors.filter(floorFilter).forEach(f => {
+      let bldgRatio = 0, facRatio = 0, toolRatio = 0, fixRatio = 0, stockRatio = 0;
+      Object.keys(finalRatios).filter(floorFilter).forEach(f => {
         const r = finalRatios[f];
         bldgRatio += r.bldg;
         facRatio += r.fac;
         toolRatio += r.tool;
         fixRatio += r.fix;
+        stockRatio += r.stock;
       });
-      return { bldgRatio, facRatio, toolRatio, fixRatio };
+      return { bldgRatio, facRatio, toolRatio, fixRatio, stockRatio };
     };
 
     return {
       fabBs: calculateAggregates(f => f.startsWith('FAB') && f.includes('BL')),
-      fabL10: calculateAggregates(f => f.startsWith('FAB') && f.includes('-L')),
+      fabL10Floor: calculateAggregates(f => f === 'FAB-L10'), // Specific Ground Floor
       cupBs: calculateAggregates(f => f.startsWith('CUP') && f.includes('BL')),
-      cupL10: calculateAggregates(f => f.startsWith('CUP') && f.includes('-L'))
+      cupL10Floor: calculateAggregates(f => f === 'CUP-L10')  // Specific Ground Floor
     };
   }, [plant, finalRatios]);
 
-  const ffsL10Ratio = useMemo(() => Math.min(100, Math.max(0, (floodHeight / l10Height) * 100)), [floodHeight, l10Height]);
+  const calcL10Ratio = useMemo(() => Math.min(100, Math.max(0, (floodHeight / l10Height) * 100)), [floodHeight, l10Height]);
 
   const calculate = () => {
     if (!plant || !assetDistribution) return;
     
     let est = 0;
-    const { fabBs, fabL10, cupBs, cupL10 } = assetDistribution;
+    const { fabBs, fabL10Floor, cupBs, cupL10Floor } = assetDistribution;
     
-    // FAB Calculation
-    est += (plant.pdBuilding * fabBs.bldgRatio * (ratios.fabBldgBs / 100));
-    est += (plant.pdBuilding * fabL10.bldgRatio * (ratios.fabBldgL10 / 100));
-    est += (plant.pdTools * fabBs.toolRatio * (ratios.fabToolBs / 100));
-    est += (plant.pdTools * fabL10.toolRatio * (ratios.fabToolL10 / 100));
-    
-    const fabFfsAssets = plant.pdFacility + plant.pdStock + plant.pdFixture;
-    est += (fabFfsAssets * fabBs.facRatio * (ratios.fabFfsBs / 100));
-    est += (fabFfsAssets * fabL10.facRatio * (ffsL10Ratio / 100));
+    // Helper to calculate loss for a specific bucket (FAB/CUP, BS/L10)
+    const calcCategory = (dist: any, buildingPrefix: 'fab' | 'cup', isBasement: boolean) => {
+      const suffix = isBasement ? 'Bs' : 'L10';
+      const ratioKeyPrefix = `${buildingPrefix}`;
+      const l10R = calcL10Ratio / 100;
 
-    // CUP Calculation
-    est += (plant.pdBuilding * cupBs.bldgRatio * (ratios.cupBldgBs / 100));
-    est += (plant.pdBuilding * cupL10.bldgRatio * (ratios.cupBldgL10 / 100));
-    est += (plant.pdTools * cupBs.toolRatio * (ratios.cupToolBs / 100));
-    est += (plant.pdTools * cupL10.toolRatio * (ratios.cupToolL10 / 100));
-    
-    const cupFfsAssets = plant.pdFacility + plant.pdStock + plant.pdFixture;
-    est += (cupFfsAssets * cupBs.facRatio * (ratios.cupFfsBs / 100));
-    est += (cupFfsAssets * cupL10.facRatio * (ffsL10Ratio / 100));
+      // Building
+      const bRatio = isBasement ? (ratios[`${ratioKeyPrefix}BldgBs` as keyof typeof ratios] / 100) : (ratios[`${ratioKeyPrefix}BldgL10` as keyof typeof ratios] / 100);
+      est += (plant.pdBuilding * dist.bldgRatio * bRatio);
+
+      // Facility
+      const fRatio = isBasement ? (ratios[`${ratioKeyPrefix}FacBs` as keyof typeof ratios] / 100) : l10R;
+      est += (plant.pdFacility * dist.facRatio * fRatio);
+
+      // Tools
+      const tRatio = isBasement ? (ratios[`${ratioKeyPrefix}ToolBs` as keyof typeof ratios] / 100) : (ratios[`${ratioKeyPrefix}ToolL10` as keyof typeof ratios] / 100);
+      est += (plant.pdTools * dist.toolRatio * tRatio);
+
+      // Fixture
+      const fixR = isBasement ? (ratios[`${ratioKeyPrefix}FixBs` as keyof typeof ratios] / 100) : l10R;
+      est += (plant.pdFixture * dist.fixRatio * fixR);
+
+      // Stock
+      const sRatio = isBasement ? (ratios[`${ratioKeyPrefix}StockBs` as keyof typeof ratios] / 100) : l10R;
+      est += (plant.pdStock * dist.stockRatio * sRatio);
+    };
+
+    calcCategory(fabBs, 'fab', true);
+    calcCategory(fabL10Floor, 'fab', false);
+    calcCategory(cupBs, 'cup', true);
+    calcCategory(cupL10Floor, 'cup', false);
 
     setTotalLoss(est);
   };
@@ -104,8 +122,8 @@ export function Step6Estimation() {
         buildingL10LossRatio: ratios.fabBldgL10 / 100,
         toolsBasementLossRatio: ratios.fabToolBs / 100,
         toolsL10LossRatio: ratios.fabToolL10 / 100,
-        ffsBasementLossRatio: ratios.fabFfsBs / 100,
-        ffsL10LossRatio: ffsL10Ratio / 100,
+        ffsBasementLossRatio: ratios.fabFacBs / 100, // Summarized for prompt
+        ffsL10LossRatio: calcL10Ratio / 100,
         totalLossEstimateM: totalLoss
       });
       setAiInsights(result);
@@ -124,7 +142,7 @@ export function Step6Estimation() {
           <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
             <Waves className="w-6 h-6 text-accent" /> Environmental Impact Modeling
           </CardTitle>
-          <CardDescription>Simulate flood events using validated asset distribution ratios (NTD Million).</CardDescription>
+          <CardDescription>Simulate flood events using validated asset distribution ratios (NTD Million). Ratios for L20+ floors are 0%.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-2xl bg-primary/5 border border-primary/10">
@@ -158,35 +176,48 @@ export function Step6Estimation() {
             <div className="space-y-12 animate-in fade-in slide-in-from-top-4 duration-500">
               {/* FAB Building Analysis */}
               <div className="space-y-6">
-                <div className="flex items-center gap-3 text-primary">
+                <div className="flex items-center gap-3 text-primary border-b border-primary/10 pb-4">
                   <Factory className="w-6 h-6" />
                   <h3 className="text-xl font-headline font-black uppercase tracking-tight">FAB Building Analysis</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <LossCard 
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                  <AssetLossDetail 
                     title="Building" 
-                    bs={ratios.fabBldgBs} 
-                    l10={ratios.fabBldgL10} 
-                    bsValue={plant.pdBuilding * assetDistribution.fabBs.bldgRatio}
-                    l10Value={plant.pdBuilding * assetDistribution.fabL10.bldgRatio}
-                    onChange={(k, v) => setRatios(p => ({ ...p, [`fabBldg${k}`]: v }))} 
+                    bs={ratios.fabBldgBs} l10={ratios.fabBldgL10} 
+                    bsVal={plant.pdBuilding * assetDistribution.fabBs.bldgRatio}
+                    l10Val={plant.pdBuilding * assetDistribution.fabL10Floor.bldgRatio}
+                    onChange={(k, v) => setRatios(p => ({ ...p, [`fabBldg${k}`]: v }))}
                   />
-                  <LossCard 
+                  <AssetLossDetail 
                     title="Production Tools" 
-                    bs={ratios.fabToolBs} 
-                    l10={ratios.fabToolL10} 
-                    bsValue={plant.pdTools * assetDistribution.fabBs.toolRatio}
-                    l10Value={plant.pdTools * assetDistribution.fabL10.toolRatio}
-                    onChange={(k, v) => setRatios(p => ({ ...p, [`fabTool${k}`]: v }))} 
+                    bs={ratios.fabToolBs} l10={ratios.fabToolL10} 
+                    bsVal={plant.pdTools * assetDistribution.fabBs.toolRatio}
+                    l10Val={plant.pdTools * assetDistribution.fabL10Floor.toolRatio}
+                    onChange={(k, v) => setRatios(p => ({ ...p, [`fabTool${k}`]: v }))}
                   />
-                  <LossCard 
-                    title="FFS (Facility/Fix/Stock)" 
-                    bs={ratios.fabFfsBs} 
-                    l10={ffsL10Ratio} 
-                    bsValue={(plant.pdFacility + plant.pdStock + plant.pdFixture) * assetDistribution.fabBs.facRatio}
-                    l10Value={(plant.pdFacility + plant.pdStock + plant.pdFixture) * assetDistribution.fabL10.facRatio}
-                    onChange={() => {}} 
-                    readonly 
+                  <AssetLossDetail 
+                    title="Facility" 
+                    bs={ratios.fabFacBs} l10={calcL10Ratio} 
+                    bsVal={plant.pdFacility * assetDistribution.fabBs.facRatio}
+                    l10Val={plant.pdFacility * assetDistribution.fabL10Floor.facRatio}
+                    onChange={(k, v) => setRatios(p => ({ ...p, [`fabFac${k}`]: v }))}
+                    l10ReadOnly
+                  />
+                  <AssetLossDetail 
+                    title="Fixture" 
+                    bs={ratios.fabFixBs} l10={calcL10Ratio} 
+                    bsVal={plant.pdFixture * assetDistribution.fabBs.fixRatio}
+                    l10Val={plant.pdFixture * assetDistribution.fabL10Floor.fixRatio}
+                    onChange={(k, v) => setRatios(p => ({ ...p, [`fabFix${k}`]: v }))}
+                    l10ReadOnly
+                  />
+                  <AssetLossDetail 
+                    title="Stock" 
+                    bs={ratios.fabStockBs} l10={calcL10Ratio} 
+                    bsVal={plant.pdStock * assetDistribution.fabBs.stockRatio}
+                    l10Val={plant.pdStock * assetDistribution.fabL10Floor.stockRatio}
+                    onChange={(k, v) => setRatios(p => ({ ...p, [`fabStock${k}`]: v }))}
+                    l10ReadOnly
                   />
                 </div>
               </div>
@@ -195,35 +226,48 @@ export function Step6Estimation() {
 
               {/* CUP Building Analysis */}
               <div className="space-y-6">
-                <div className="flex items-center gap-3 text-primary">
+                <div className="flex items-center gap-3 text-primary border-b border-primary/10 pb-4">
                   <Building2 className="w-6 h-6" />
                   <h3 className="text-xl font-headline font-black uppercase tracking-tight">CUP Building Analysis</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <LossCard 
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                  <AssetLossDetail 
                     title="Building" 
-                    bs={ratios.cupBldgBs} 
-                    l10={ratios.cupBldgL10} 
-                    bsValue={plant.pdBuilding * assetDistribution.cupBs.bldgRatio}
-                    l10Value={plant.pdBuilding * assetDistribution.cupL10.bldgRatio}
-                    onChange={(k, v) => setRatios(p => ({ ...p, [`cupBldg${k}`]: v }))} 
+                    bs={ratios.cupBldgBs} l10={ratios.cupBldgL10} 
+                    bsVal={plant.pdBuilding * assetDistribution.cupBs.bldgRatio}
+                    l10Val={plant.pdBuilding * assetDistribution.cupL10Floor.bldgRatio}
+                    onChange={(k, v) => setRatios(p => ({ ...p, [`cupBldg${k}`]: v }))}
                   />
-                  <LossCard 
+                  <AssetLossDetail 
                     title="Production Tools" 
-                    bs={ratios.cupToolBs} 
-                    l10={ratios.cupToolL10} 
-                    bsValue={plant.pdTools * assetDistribution.cupBs.toolRatio}
-                    l10Value={plant.pdTools * assetDistribution.cupL10.toolRatio}
-                    onChange={(k, v) => setRatios(p => ({ ...p, [`cupTool${k}`]: v }))} 
+                    bs={ratios.cupToolBs} l10={ratios.cupToolL10} 
+                    bsVal={plant.pdTools * assetDistribution.cupBs.toolRatio}
+                    l10Val={plant.pdTools * assetDistribution.cupL10Floor.toolRatio}
+                    onChange={(k, v) => setRatios(p => ({ ...p, [`cupTool${k}`]: v }))}
                   />
-                  <LossCard 
-                    title="FFS (Facility/Fix/Stock)" 
-                    bs={ratios.cupFfsBs} 
-                    l10={ffsL10Ratio} 
-                    bsValue={(plant.pdFacility + plant.pdStock + plant.pdFixture) * assetDistribution.cupBs.facRatio}
-                    l10Value={(plant.pdFacility + plant.pdStock + plant.pdFixture) * assetDistribution.cupL10.facRatio}
-                    onChange={() => {}} 
-                    readonly 
+                  <AssetLossDetail 
+                    title="Facility" 
+                    bs={ratios.cupFacBs} l10={calcL10Ratio} 
+                    bsVal={plant.pdFacility * assetDistribution.cupBs.facRatio}
+                    l10Val={plant.pdFacility * assetDistribution.cupL10Floor.facRatio}
+                    onChange={(k, v) => setRatios(p => ({ ...p, [`cupFac${k}`]: v }))}
+                    l10ReadOnly
+                  />
+                  <AssetLossDetail 
+                    title="Fixture" 
+                    bs={ratios.cupFixBs} l10={calcL10Ratio} 
+                    bsVal={plant.pdFixture * assetDistribution.cupBs.fixRatio}
+                    l10Val={plant.pdFixture * assetDistribution.cupL10Floor.fixRatio}
+                    onChange={(k, v) => setRatios(p => ({ ...p, [`cupFix${k}`]: v }))}
+                    l10ReadOnly
+                  />
+                  <AssetLossDetail 
+                    title="Stock" 
+                    bs={ratios.cupStockBs} l10={calcL10Ratio} 
+                    bsVal={plant.pdStock * assetDistribution.cupBs.stockRatio}
+                    l10Val={plant.pdStock * assetDistribution.cupL10Floor.stockRatio}
+                    onChange={(k, v) => setRatios(p => ({ ...p, [`cupStock${k}`]: v }))}
+                    l10ReadOnly
                   />
                 </div>
               </div>
@@ -284,64 +328,49 @@ export function Step6Estimation() {
   );
 }
 
-function LossCard({ 
-  title, 
-  bs, 
-  l10, 
-  bsValue, 
-  l10Value, 
-  onChange, 
-  readonly = false 
+function AssetLossDetail({ 
+  title, bs, l10, bsVal, l10Val, onChange, l10ReadOnly = false 
 }: { 
-  title: string, 
-  bs: number, 
-  l10: number, 
-  bsValue: number, 
-  l10Value: number, 
-  onChange: (k: string, v: number) => void, 
-  readonly?: boolean 
+  title: string, bs: number, l10: number, bsVal: number, l10Val: number, 
+  onChange: (k: string, v: number) => void, l10ReadOnly?: boolean 
 }) {
   return (
-    <div className="p-4 rounded-xl border-2 border-primary/5 bg-white space-y-4 shadow-sm">
-      <h4 className="text-xs font-black uppercase tracking-wider text-primary border-b border-primary/10 pb-2">{title}</h4>
-      <div className="space-y-4">
+    <div className="p-3 rounded-xl border-2 border-primary/5 bg-white space-y-3 shadow-sm hover:border-accent/30 transition-colors">
+      <h4 className="text-[10px] font-black uppercase tracking-wider text-primary border-b border-primary/5 pb-2 truncate">{title}</h4>
+      <div className="space-y-3">
         <div className="space-y-1">
-          <div className="flex justify-between items-center">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase">Basement Asset</span>
-            <span className="text-[10px] font-mono font-bold text-primary">NTD {bsValue.toFixed(2)}M</span>
+          <div className="flex justify-between items-center text-[9px] font-bold text-muted-foreground uppercase">
+            <span>Basement</span>
+            <span className="text-primary">NTD {bsVal.toFixed(2)}M</span>
           </div>
-          <div className="flex justify-between items-center bg-muted/20 p-2 rounded-lg">
-            <span className="text-[9px] font-bold text-muted-foreground/70 uppercase">Loss Ratio</span>
-            <div className="flex items-center gap-1">
-              <Input 
-                type="number" 
-                value={bs} 
-                disabled={readonly}
-                onChange={(e) => onChange('Bs', parseFloat(e.target.value) || 0)}
-                className="h-6 w-14 p-1 text-right font-mono text-xs border-none bg-transparent" 
-              />
-              <span className="text-[10px] font-bold text-muted-foreground">%</span>
-            </div>
+          <div className="flex items-center gap-2 bg-muted/20 p-1.5 rounded-lg">
+            <span className="text-[8px] font-bold text-muted-foreground/60 uppercase flex-grow">Loss %</span>
+            <Input 
+              type="number" value={bs} 
+              onChange={(e) => onChange('Bs', parseFloat(e.target.value) || 0)}
+              className="h-5 w-12 p-1 text-right font-mono text-[10px] border-none bg-white/50" 
+            />
           </div>
         </div>
-
         <div className="space-y-1">
-          <div className="flex justify-between items-center">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase">L10 Asset</span>
-            <span className="text-[10px] font-mono font-bold text-primary">NTD {l10Value.toFixed(2)}M</span>
+          <div className="flex justify-between items-center text-[9px] font-bold text-muted-foreground uppercase">
+            <span>L10 Floor</span>
+            <span className="text-primary">NTD {l10Val.toFixed(2)}M</span>
           </div>
-          <div className="flex justify-between items-center bg-muted/20 p-2 rounded-lg">
-            <span className="text-[9px] font-bold text-muted-foreground/70 uppercase">Loss Ratio</span>
-            <div className="flex items-center gap-1">
-              <Input 
-                type="number" 
-                value={l10.toFixed(1)} 
-                disabled={readonly}
-                onChange={(e) => onChange('L10', parseFloat(e.target.value) || 0)}
-                className="h-6 w-14 p-1 text-right font-mono text-xs border-none bg-transparent" 
-              />
-              <span className="text-[10px] font-bold text-muted-foreground">%</span>
-            </div>
+          <div className="flex items-center gap-2 bg-muted/20 p-1.5 rounded-lg">
+            <span className="text-[8px] font-bold text-muted-foreground/60 uppercase flex-grow">Loss %</span>
+            <Input 
+              type="number" value={l10.toFixed(1)} 
+              readOnly={l10ReadOnly}
+              onChange={(e) => !l10ReadOnly && onChange('L10', parseFloat(e.target.value) || 0)}
+              className={`h-5 w-12 p-1 text-right font-mono text-[10px] border-none ${l10ReadOnly ? 'bg-transparent text-accent' : 'bg-white/50'}`} 
+            />
+          </div>
+        </div>
+        <div className="pt-1 border-t border-dashed">
+          <div className="flex justify-between items-center text-[8px] font-bold text-muted-foreground/40 italic">
+            <span>L20+ Value</span>
+            <span>Ratio: 0.0%</span>
           </div>
         </div>
       </div>
