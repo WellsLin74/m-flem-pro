@@ -156,7 +156,9 @@ export function Step6Estimation() {
     try {
       const dataUrl = await toJpeg(reportRef.current, { quality: 0.95, backgroundColor: '#f8fafc' });
       const link = document.createElement('a');
-      link.download = `FLEM-Report-${plant?.plantName || 'Analysis'}.jpg`;
+      const company = (plant?.company || 'COMPANY').replace(/\s+/g, '_');
+      const site = (plant?.plantName || 'PLANT').replace(/\s+/g, '_');
+      link.download = `MFLE_REPORT_${company}_${site}.jpg`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
@@ -188,7 +190,7 @@ export function Step6Estimation() {
       </TableCell>
       {Object.entries(data).map(([key, item]) => (
         <TableCell key={key} className={`text-center py-2 px-4 ${metric === 'LOSS' ? 'border-b-2' : ''}`}>
-          <div className="flex justify-center items-center h-full w-full">
+          <div className="flex flex-col items-center justify-center h-full w-full">
             {metric === 'VALUE' && (
               <span className="text-sm font-mono font-bold text-primary">{formatNum(item.value)}M</span>
             )}
@@ -277,7 +279,7 @@ export function Step6Estimation() {
                     <Table>
                       <TableHeader className="bg-muted/50">
                         <TableRow className="hover:bg-transparent border-b-2">
-                          <TableHead className="w-[120px] text-xs font-black uppercase text-center border-r-2 text-primary">Level</TableHead>
+                          <TableHead className="w-[120px] text-xs font-black uppercase text-center border-r-2 text-primary">Analysis Level</TableHead>
                           <TableHead className="w-[100px] text-xs font-black uppercase text-center border-r-2 text-primary">Metric</TableHead>
                           <TableHead className="text-xs font-black uppercase text-center">Building</TableHead>
                           <TableHead className="text-xs font-black uppercase text-center">Tools</TableHead>
@@ -344,7 +346,7 @@ export function Step6Estimation() {
                     <Table>
                       <TableHeader className="bg-muted/50">
                         <TableRow className="hover:bg-transparent border-b-2">
-                          <TableHead className="w-[120px] text-xs font-black uppercase text-center border-r-2 text-primary">Level</TableHead>
+                          <TableHead className="w-[120px] text-xs font-black uppercase text-center border-r-2 text-primary">Analysis Level</TableHead>
                           <TableHead className="w-[100px] text-xs font-black uppercase text-center border-r-2 text-primary">Metric</TableHead>
                           <TableHead className="text-xs font-black uppercase text-center">Building</TableHead>
                           <TableHead className="text-xs font-black uppercase text-center">Facility</TableHead>
