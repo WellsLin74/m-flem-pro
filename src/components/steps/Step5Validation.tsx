@@ -42,7 +42,7 @@ export function Step5Validation() {
     const totalCupArea = cupFloorArea * cupLevels;
     const plantTotalArea = totalFabArea + totalCupArea;
 
-    // Sum weights only from FAB floors (refinement now only has FAB data)
+    // Sum weights only from FAB floors
     const totalFabFacSum = Object.keys(refinement.floorData)
       .filter(f => f.startsWith('FAB'))
       .reduce((sum, f) => sum + Number(refinement.floorData[f].fac), 0);
@@ -55,13 +55,13 @@ export function Step5Validation() {
 
     /**
      * FACILITY REFINED FORMULA DENOMINATOR:
-     * facDenominator = (FAB總面積 * FAB全棟FAC總權重 + CUP總面積)
+     * facDenominator = (FAB 總面積 * (1 - 全棟 CR 總權重) + CUP 總面積)
      */
-    const facDenominator = (totalFabArea * totalFabFacSum + totalCupArea);
+    const facDenominator = (totalFabArea * (1 - totalFabCrSum) + totalCupArea);
 
     allFloors.forEach(f => {
       const isFab = f.startsWith('FAB');
-      const fData = refinement.floorData[f] || { fac: isFab ? 0 : 1, cr: 0 }; // CUP default fac=1, cr=0
+      const fData = refinement.floorData[f] || { fac: isFab ? 0 : 1, cr: 0 }; 
       const floorArea = isFab ? fabFloorArea : cupFloorArea;
       
       /**
@@ -73,7 +73,7 @@ export function Step5Validation() {
       
       // For FAB: Weight is from input. For CUP: Weight is implicitly 1.
       const floorFacWeight = isFab ? Number(fData.fac) : 1;
-      const facNonCrPart = facDenominator > 0 
+      const facNonCrPart = facDenominator !== 0 
         ? (floorFacWeight * floorArea / facDenominator) * (1 - Number(refinement.facCrRatio)) 
         : 0;
       
@@ -81,7 +81,7 @@ export function Step5Validation() {
 
       /**
        * TOOLS CALCULATION FORMULA:
-       * Only FAB floors have tools typically, but we distribute based on FAB weights.
+       * Distributed based on CR and Fac weights within FAB.
        */
       const toolCrPart = totalFabCrSum > 0 ? (Number(fData.cr) / totalFabCrSum) * Number(refinement.toolsCrRatio) : 0;
       const toolNonCrPart = totalFabFacSum > 0 && isFab ? (Number(fData.fac) / totalFabFacSum) * (1 - Number(refinement.toolsCrRatio)) : 0;
