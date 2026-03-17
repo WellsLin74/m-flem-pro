@@ -22,7 +22,6 @@ export function Step3Init() {
     }
   });
 
-  // Watch values for real-time area calculations
   const values = watch();
   
   const calculations = useMemo(() => {
@@ -54,7 +53,27 @@ export function Step3Init() {
   }, [values]);
 
   const onSubmit = (data: PlantData) => {
-    setPlant({ ...plant, ...data });
+    // Ensure numeric conversion on submit
+    const numericData = {
+      ...data,
+      lat: Number(data.lat),
+      lon: Number(data.lon),
+      fabLength: Number(data.fabLength),
+      fabWidth: Number(data.fabWidth),
+      fabAl: Number(data.fabAl),
+      fabBl: Number(data.fabBl),
+      cupLength: Number(data.cupLength),
+      cupWidth: Number(data.cupWidth),
+      cupAl: Number(data.cupAl),
+      cupBl: Number(data.cupBl),
+      pdBuilding: Number(data.pdBuilding),
+      pdFacility: Number(data.pdFacility),
+      pdTools: Number(data.pdTools),
+      pdFixture: Number(data.pdFixture),
+      pdStock: Number(data.pdStock),
+      bi12m: Number(data.bi12m),
+    };
+    setPlant(numericData);
     setStep(4);
   };
 
@@ -68,7 +87,6 @@ export function Step3Init() {
       <CardContent className="pb-10">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Geo-Location */}
             <div className="p-4 rounded-xl border-2 border-primary/5 bg-primary/5 space-y-4">
               <div className="flex items-center gap-2 text-primary">
                 <MapPin className="w-4 h-4" />
@@ -84,7 +102,6 @@ export function Step3Init() {
               </div>
             </div>
 
-            {/* FAB Dimensions */}
             <div className="p-4 rounded-xl border-2 border-accent/10 bg-accent/5 space-y-4">
               <div className="flex items-center gap-2 text-primary">
                 <Maximize className="w-4 h-4" />
@@ -126,7 +143,6 @@ export function Step3Init() {
               </div>
             </div>
 
-            {/* CUP Dimensions */}
             <div className="p-4 rounded-xl border-2 border-accent/10 bg-accent/5 space-y-4">
               <div className="flex items-center gap-2 text-primary">
                 <Maximize className="w-4 h-4" />
@@ -168,7 +184,6 @@ export function Step3Init() {
               </div>
             </div>
 
-            {/* Initial Financials & Grand Total */}
             <div className="space-y-4">
               <div className="p-4 rounded-xl border-2 border-primary/10 bg-primary/10 space-y-2">
                 <div className="flex items-center gap-2 text-primary">

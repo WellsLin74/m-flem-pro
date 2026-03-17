@@ -16,10 +16,10 @@ export function Step5Validation() {
   const floors = useMemo(() => {
     const list: string[] = [];
     if (!plant) return list;
-    for (let i = plant.fabBl; i >= 1; i--) list.push(`FAB-BL${i}0`);
-    for (let j = 1; j <= plant.fabAl; j++) list.push(`FAB-L${j}0`);
-    for (let i = plant.cupBl; i >= 1; i--) list.push(`CUP-BL${i}0`);
-    for (let j = 1; j <= plant.cupAl; j++) list.push(`CUP-L${j}0`);
+    for (let i = Number(plant.fabBl); i >= 1; i--) list.push(`FAB-BL${i}0`);
+    for (let j = 1; j <= Number(plant.fabAl); j++) list.push(`FAB-L${j}0`);
+    for (let i = Number(plant.cupBl); i >= 1; i--) list.push(`CUP-BL${i}0`);
+    for (let j = 1; j <= Number(plant.cupAl); j++) list.push(`CUP-L${j}0`);
     return list;
   }, [plant]);
 
@@ -28,15 +28,23 @@ export function Step5Validation() {
   const generateSuggestions = () => {
     if (!plant || !refinement) return;
 
-    // Calculate Areas for Building Ratio
-    const fabFloorArea = plant.fabLength * plant.fabWidth;
-    const cupFloorArea = plant.cupLength * plant.cupWidth;
-    const totalFabArea = fabFloorArea * (plant.fabAl + plant.fabBl);
-    const totalCupArea = cupFloorArea * (plant.cupAl + plant.cupBl);
+    // Explicit numeric casting to prevent string concatenation bugs
+    const fabL = Number(plant.fabLength);
+    const fabW = Number(plant.fabWidth);
+    const cupL = Number(plant.cupLength);
+    const cupW = Number(plant.cupWidth);
+    const fabLevels = Number(plant.fabAl) + Number(plant.fabBl);
+    const cupLevels = Number(plant.cupAl) + Number(plant.cupBl);
+
+    const fabFloorArea = fabL * fabW;
+    const cupFloorArea = cupL * cupW;
+    
+    const totalFabArea = fabFloorArea * fabLevels;
+    const totalCupArea = cupFloorArea * cupLevels;
     const plantTotalArea = totalFabArea + totalCupArea;
 
-    const totalFacSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.fac, 0);
-    const totalCrSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.cr, 0);
+    const totalFacSum = Object.values(refinement.floorData).reduce((sum, f) => sum + Number(f.fac), 0);
+    const totalCrSum = Object.values(refinement.floorData).reduce((sum, f) => sum + Number(f.cr), 0);
 
     const suggestions: Record<string, FinalRatio> = {};
 
@@ -44,15 +52,17 @@ export function Step5Validation() {
       const fData = refinement.floorData[f];
       
       // Asset Distribution Logic
-      const facCrPart = totalCrSum > 0 ? (fData.cr / totalCrSum) * refinement.facCrRatio : 0;
-      const facNonCrPart = totalFacSum > 0 ? (fData.fac / totalFacSum) * (1 - refinement.facCrRatio) : 0;
+      const facCrPart = totalCrSum > 0 ? (Number(fData.cr) / totalCrSum) * Number(refinement.facCrRatio) : 0;
+      const facNonCrPart = totalFacSum > 0 ? (Number(fData.fac) / totalFacSum) * (1 - Number(refinement.facCrRatio)) : 0;
       const calcFac = facCrPart + facNonCrPart;
 
-      const toolCrPart = totalCrSum > 0 ? (fData.cr / totalCrSum) * refinement.toolsCrRatio : 0;
-      const toolNonCrPart = totalFacSum > 0 ? (fData.fac / totalFacSum) * (1 - refinement.toolsCrRatio) : 0;
+      const toolCrPart = totalCrSum > 0 ? (Number(fData.cr) / totalCrSum) * Number(refinement.toolsCrRatio) : 0;
+      const toolNonCrPart = totalFacSum > 0 ? (Number(fData.fac) / totalFacSum) * (1 - Number(refinement.toolsCrRatio)) : 0;
       const calcTool = toolCrPart + toolNonCrPart;
 
-      // Building Distribution: FAB floor area / plant total area OR CUP floor area / plant total area
+      // Building Distribution Calculation: 
+      // FAB區 = fab_floor_area / plant_total_area
+      // CUP區 = cup_floor_area / plant_total_area
       let bldgRatio = 0;
       if (plantTotalArea > 0) {
         if (f.startsWith('FAB')) {
@@ -64,7 +74,7 @@ export function Step5Validation() {
 
       // Fixture Distribution: FAB ONLY (1 / number of FAB floors)
       let fixRatio = 0;
-      if (f.startsWith('FAB')) {
+      if (f.startsWith('FAB') && fabFloors.length > 0) {
         fixRatio = 1.0 / fabFloors.length;
       }
 
@@ -84,7 +94,7 @@ export function Step5Validation() {
     } else {
       generateSuggestions();
     }
-  }, []);
+  }, [plant, refinement]); // Recalculate if plant parameters change
 
   const handleUpdate = (floor: string, field: keyof FinalRatio, value: string) => {
     const num = parseFloat(value) || 0;
@@ -97,11 +107,11 @@ export function Step5Validation() {
 
   const sums = useMemo(() => {
     return Object.values(localRatios).reduce((acc, r) => ({
-      bldg: acc.bldg + r.bldg,
-      fac: acc.fac + r.fac,
-      tool: acc.tool + r.tool,
-      fix: acc.fix + r.fix,
-      stock: acc.stock + (r.stock || 0)
+      bldg: acc.bldg + Number(r.bldg),
+      fac: acc.fac + Number(r.fac),
+      tool: acc.tool + Number(r.tool),
+      fix: acc.fix + Number(r.fix),
+      stock: acc.stock + (Number(r.stock) || 0)
     }), { bldg: 0, fac: 0, tool: 0, fix: 0, stock: 0 });
   }, [localRatios]);
 
