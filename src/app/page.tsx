@@ -12,7 +12,7 @@ export default function Home() {
       </main>
       <footer className="py-6 border-t bg-white/50 text-center">
         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
-          © 2024 M-FLEM Industrial • Advanced Flood Loss Estimation Matrix
+          @ 2026 Marsh Flood Loss Estimation Model
         </p>
       </footer>
     </div>
