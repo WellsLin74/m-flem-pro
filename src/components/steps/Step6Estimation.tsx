@@ -21,12 +21,12 @@ export function Step6Estimation() {
   
   const [ratios, setRatios] = useState({
     fabBldgBs: 0.2, fabBldgL10: 0.2,
-    fabFacBs: 100, fabFacL10: 0,
-    fabToolBs: 100, fabToolL10: 100,
-    fabFixBs: 100, fabFixL10: 0,
-    fabStockBs: 100, fabStockL10: 0,
+    fabFacBs: 100.0, fabFacL10: 0.0,
+    fabToolBs: 100.0, fabToolL10: 100.0,
+    fabFixBs: 100.0, fabFixL10: 0.0,
+    fabStockBs: 100.0, fabStockL10: 0.0,
     cupBldgBs: 0.2, cupBldgL10: 0.2,
-    cupFacBs: 100, cupFacL10: 0,
+    cupFacBs: 100.0, cupFacL10: 0.0,
   });
 
   const [totalLoss, setTotalLoss] = useState<number | null>(null);
@@ -150,6 +150,47 @@ export function Step6Estimation() {
     setRatios(prev => ({ ...prev, [key]: parseFloat(val) || 0 }));
   };
 
+  const renderAssetTable = (title: string, icon: React.ReactNode, headers: string[], rows: { label: string, dataKey: keyof typeof ratios, assetValue: number }[]) => (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 text-primary border-b border-primary/10 pb-4">
+        {icon}
+        <h3 className="text-xl font-headline font-black uppercase tracking-tight">{title}</h3>
+      </div>
+      <div className="border rounded-2xl overflow-hidden shadow-sm bg-white">
+        <Table>
+          <TableHeader className="bg-primary/5">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-[180px] text-[10px] font-black uppercase text-center">Category</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-center">Asset Value (M)</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-center">Loss %</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-center">Loss Value (M)</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row, idx) => (
+              <TableRow key={idx} className="hover:bg-muted/5">
+                <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center">{row.label}</TableCell>
+                <TableCell className="text-center font-mono text-sm">{formatNum(row.assetValue)}</TableCell>
+                <TableCell className="px-2 w-[120px]">
+                  <Input 
+                    type="number" 
+                    step="0.1" 
+                    value={ratios[row.dataKey]} 
+                    onChange={(e) => handleRatioChange(row.dataKey, e.target.value)} 
+                    className="h-8 text-center font-mono font-bold border-none bg-muted/30 text-sm" 
+                  />
+                </TableCell>
+                <TableCell className="text-center font-mono text-sm font-black text-destructive">
+                  {formatNum((ratios[row.dataKey] / 100) * row.assetValue)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-8 pb-20">
       <div ref={reportRef} className="space-y-8 p-1">
@@ -161,7 +202,7 @@ export function Step6Estimation() {
                 <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
                   <Waves className="w-6 h-6 text-accent" /> Environmental Impact Modeling
                 </CardTitle>
-                <CardDescription>Simulate flood events using horizontal asset distribution matrix (NTD Million).</CardDescription>
+                <CardDescription>Simulate flood events and analyze financial impact (NTD Million).</CardDescription>
               </div>
               <Button 
                 variant="outline" 
@@ -175,7 +216,7 @@ export function Step6Estimation() {
           </CardHeader>
           <CardContent className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-2xl bg-primary/5 border border-primary/10">
-              <div className="space-y-2">
+              <div className="space-y-2 text-center">
                 <Label className="text-xs font-bold text-muted-foreground uppercase">L10 Critical Height (m)</Label>
                 <Input 
                   type="number" step="0.1" 
@@ -184,7 +225,7 @@ export function Step6Estimation() {
                   className="bg-white border-none font-mono text-lg font-bold text-center"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 text-center">
                 <Label className="text-xs font-bold text-muted-foreground uppercase">Simulated Flood Height AGL (m)</Label>
                 <Input 
                   type="number" step="0.1" 
@@ -203,134 +244,27 @@ export function Step6Estimation() {
 
             {plant && assetDistribution && (
               <div className="space-y-12 animate-in fade-in slide-in-from-top-4 duration-500">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 text-primary border-b border-primary/10 pb-4">
-                    <Factory className="w-6 h-6" />
-                    <h3 className="text-xl font-headline font-black uppercase tracking-tight">FAB Building Analysis</h3>
-                  </div>
-                  <div className="border rounded-2xl overflow-hidden shadow-sm bg-white">
-                    <Table>
-                      <TableHeader className="bg-primary/5">
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="w-[180px] text-[10px] font-black uppercase text-center">Metrics / Category</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Building</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Tools</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Facility</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Fixture</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Stock</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        <TableRow className="bg-muted/20 font-bold"><TableCell colSpan={6} className="py-2 text-[10px] uppercase tracking-widest text-primary text-center">Basement Floors</TableCell></TableRow>
-                        <TableRow>
-                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center">Asset Value (M)</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdBuilding * assetDistribution.fabBs.bldgRatio)}</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdTools * assetDistribution.fabBs.toolRatio)}</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdFacility * assetDistribution.fabBs.facRatio)}</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdFixture * assetDistribution.fabBs.fixRatio)}</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdStock * assetDistribution.fabBs.stockRatio)}</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center">Loss %</TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.fabBldgBs} onChange={(e) => handleRatioChange('fabBldgBs', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.fabToolBs} onChange={(e) => handleRatioChange('fabToolBs', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.fabFacBs} onChange={(e) => handleRatioChange('fabFacBs', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.fabFixBs} onChange={(e) => handleRatioChange('fabFixBs', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.fabStockBs} onChange={(e) => handleRatioChange('fabStockBs', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="text-[10px] font-bold text-destructive uppercase text-center">Loss Value (M)</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.fabBldgBs / 100) * (plant.pdBuilding * assetDistribution.fabBs.bldgRatio))}</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.fabToolBs / 100) * (plant.pdTools * assetDistribution.fabBs.toolRatio))}</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.fabFacBs / 100) * (plant.pdFacility * assetDistribution.fabBs.facRatio))}</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.fabFixBs / 100) * (plant.pdFixture * assetDistribution.fabBs.fixRatio))}</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.fabStockBs / 100) * (plant.pdStock * assetDistribution.fabBs.stockRatio))}</TableCell>
-                        </TableRow>
-                        
-                        <TableRow className="bg-muted/20 font-bold"><TableCell colSpan={6} className="py-2 text-[10px] uppercase tracking-widest text-primary text-center">L10 Floors</TableCell></TableRow>
-                        <TableRow>
-                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center">Asset Value (M)</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdBuilding * assetDistribution.fabL10Floor.bldgRatio)}</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdTools * assetDistribution.fabL10Floor.toolRatio)}</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdFacility * assetDistribution.fabL10Floor.facRatio)}</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdFixture * assetDistribution.fabL10Floor.fixRatio)}</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdStock * assetDistribution.fabL10Floor.stockRatio)}</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center">Loss %</TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.fabBldgL10} onChange={(e) => handleRatioChange('fabBldgL10', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.fabToolL10} onChange={(e) => handleRatioChange('fabToolL10', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.fabFacL10} onChange={(e) => handleRatioChange('fabFacL10', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.fabFixL10} onChange={(e) => handleRatioChange('fabFixL10', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.fabStockL10} onChange={(e) => handleRatioChange('fabStockL10', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="text-[10px] font-bold text-destructive uppercase text-center">Loss Value (M)</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.fabBldgL10 / 100) * (plant.pdBuilding * assetDistribution.fabL10Floor.bldgRatio))}</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.fabToolL10 / 100) * (plant.pdTools * assetDistribution.fabL10Floor.toolRatio))}</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.fabFacL10 / 100) * (plant.pdFacility * assetDistribution.fabL10Floor.facRatio))}</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.fabFixL10 / 100) * (plant.pdFixture * assetDistribution.fabL10Floor.fixRatio))}</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.fabStockL10 / 100) * (plant.pdStock * assetDistribution.fabL10Floor.stockRatio))}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
+                {renderAssetTable("FAB Building Analysis", <Factory className="w-6 h-6" />, ["Category", "Value", "Loss %", "Loss Value"], [
+                  { label: "Building (Basement)", dataKey: "fabBldgBs", assetValue: plant.pdBuilding * assetDistribution.fabBs.bldgRatio },
+                  { label: "Building (L10)", dataKey: "fabBldgL10", assetValue: plant.pdBuilding * assetDistribution.fabL10Floor.bldgRatio },
+                  { label: "Tools (Basement)", dataKey: "fabToolBs", assetValue: plant.pdTools * assetDistribution.fabBs.toolRatio },
+                  { label: "Tools (L10)", dataKey: "fabToolL10", assetValue: plant.pdTools * assetDistribution.fabL10Floor.toolRatio },
+                  { label: "Facility (Basement)", dataKey: "fabFacBs", assetValue: plant.pdFacility * assetDistribution.fabBs.facRatio },
+                  { label: "Facility (L10)", dataKey: "fabFacL10", assetValue: plant.pdFacility * assetDistribution.fabL10Floor.facRatio },
+                  { label: "Fixture (Basement)", dataKey: "fabFixBs", assetValue: plant.pdFixture * assetDistribution.fabBs.fixRatio },
+                  { label: "Fixture (L10)", dataKey: "fabFixL10", assetValue: plant.pdFixture * assetDistribution.fabL10Floor.fixRatio },
+                  { label: "Stock (Basement)", dataKey: "fabStockBs", assetValue: plant.pdStock * assetDistribution.fabBs.stockRatio },
+                  { label: "Stock (L10)", dataKey: "fabStockL10", assetValue: plant.pdStock * assetDistribution.fabL10Floor.stockRatio },
+                ])}
 
                 <Separator className="bg-primary/10" />
 
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 text-primary border-b border-primary/10 pb-4">
-                    <Building2 className="w-6 h-6" />
-                    <h3 className="text-xl font-headline font-black uppercase tracking-tight">CUP Building Analysis</h3>
-                  </div>
-                  <div className="border rounded-2xl overflow-hidden shadow-sm bg-white">
-                    <Table>
-                      <TableHeader className="bg-primary/5">
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="w-[180px] text-[10px] font-black uppercase text-center">Metrics / Category</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Building</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-center">Facility</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        <TableRow className="bg-muted/20 font-bold"><TableCell colSpan={3} className="py-2 text-[10px] uppercase tracking-widest text-primary text-center">Basement Floors</TableCell></TableRow>
-                        <TableRow>
-                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center">Asset Value (M)</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdBuilding * assetDistribution.cupBs.bldgRatio)}</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdFacility * assetDistribution.cupBs.facRatio)}</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center">Loss %</TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.cupBldgBs} onChange={(e) => handleRatioChange('cupBldgBs', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.cupFacBs} onChange={(e) => handleRatioChange('cupFacBs', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="text-[10px] font-bold text-destructive uppercase text-center">Loss Value (M)</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.cupBldgBs / 100) * (plant.pdBuilding * assetDistribution.cupBs.bldgRatio))}</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.cupFacBs / 100) * (plant.pdFacility * assetDistribution.cupBs.facRatio))}</TableCell>
-                        </TableRow>
-                        
-                        <TableRow className="bg-muted/20 font-bold"><TableCell colSpan={3} className="py-2 text-[10px] uppercase tracking-widest text-primary text-center">L10 Floors</TableCell></TableRow>
-                        <TableRow>
-                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center">Asset Value (M)</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdBuilding * assetDistribution.cupL10Floor.bldgRatio)}</TableCell>
-                          <TableCell className="text-center font-mono text-sm">{formatNum(plant.pdFacility * assetDistribution.cupL10Floor.facRatio)}</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center">Loss %</TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.cupBldgL10} onChange={(e) => handleRatioChange('cupBldgL10', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                          <TableCell className="px-2"><Input type="number" step="0.1" value={ratios.cupFacL10} onChange={(e) => handleRatioChange('cupFacL10', e.target.value)} className="h-8 text-center font-mono font-bold border-none bg-muted/30" /></TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="text-[10px] font-bold text-destructive uppercase text-center">Loss Value (M)</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.cupBldgL10 / 100) * (plant.pdBuilding * assetDistribution.cupL10Floor.bldgRatio))}</TableCell>
-                          <TableCell className="text-center font-mono text-sm font-black text-destructive">{formatNum((ratios.cupFacL10 / 100) * (plant.pdFacility * assetDistribution.cupL10Floor.facRatio))}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
+                {renderAssetTable("CUP Building Analysis", <Building2 className="w-6 h-6" />, ["Category", "Value", "Loss %", "Loss Value"], [
+                  { label: "Building (Basement)", dataKey: "cupBldgBs", assetValue: plant.pdBuilding * assetDistribution.cupBs.bldgRatio },
+                  { label: "Building (L10)", dataKey: "cupBldgL10", assetValue: plant.pdBuilding * assetDistribution.cupL10Floor.bldgRatio },
+                  { label: "Facility (Basement)", dataKey: "cupFacBs", assetValue: plant.pdFacility * assetDistribution.cupBs.facRatio },
+                  { label: "Facility (L10)", dataKey: "cupFacL10", assetValue: plant.pdFacility * assetDistribution.cupL10Floor.facRatio },
+                ])}
 
                 {totalLoss !== null && (
                   <div className="p-8 rounded-3xl bg-primary text-primary-foreground flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl shadow-primary/30 relative overflow-hidden">
@@ -339,7 +273,7 @@ export function Step6Estimation() {
                     </div>
                     <div className="space-y-1 relative z-10">
                       <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Total Site Loss Estimation</p>
-                      <h3 className="text-5xl font-headline font-black tracking-tighter tabular-nums">NTD {formatNum(totalLoss)}M</h3>
+                      <h3 className="text-5xl font-headline font-black tracking-tighter tabular-nums text-center md:text-left">NTD {formatNum(totalLoss)}M</h3>
                     </div>
                     <Button 
                       onClick={getAiInsights}
@@ -388,3 +322,4 @@ export function Step6Estimation() {
     </div>
   );
 }
+
