@@ -28,7 +28,6 @@ export function Step5Validation() {
   const generateSuggestions = () => {
     if (!plant || !refinement) return;
 
-    // Explicit numeric casting to prevent string concatenation bugs
     const fabL = Number(plant.fabLength);
     const fabW = Number(plant.fabWidth);
     const cupL = Number(plant.cupLength);
@@ -51,7 +50,6 @@ export function Step5Validation() {
     floors.forEach(f => {
       const fData = refinement.floorData[f];
       
-      // Asset Distribution Logic
       const facCrPart = totalCrSum > 0 ? (Number(fData.cr) / totalCrSum) * Number(refinement.facCrRatio) : 0;
       const facNonCrPart = totalFacSum > 0 ? (Number(fData.fac) / totalFacSum) * (1 - Number(refinement.facCrRatio)) : 0;
       const calcFac = facCrPart + facNonCrPart;
@@ -60,9 +58,6 @@ export function Step5Validation() {
       const toolNonCrPart = totalFacSum > 0 ? (Number(fData.fac) / totalFacSum) * (1 - Number(refinement.toolsCrRatio)) : 0;
       const calcTool = toolCrPart + toolNonCrPart;
 
-      // Building Distribution Calculation: 
-      // FAB區 = fab_floor_area / plant_total_area
-      // CUP區 = cup_floor_area / plant_total_area
       let bldgRatio = 0;
       if (plantTotalArea > 0) {
         if (f.startsWith('FAB')) {
@@ -72,13 +67,11 @@ export function Step5Validation() {
         }
       }
 
-      // Fixture Distribution: FAB ONLY (1 / number of FAB floors)
       let fixRatio = 0;
       if (f.startsWith('FAB') && fabFloors.length > 0) {
         fixRatio = 1.0 / fabFloors.length;
       }
 
-      // Stock Distribution: 100% on FAB-L10 (Ground Floor)
       const stockRatio = f === 'FAB-L10' ? 1.0 : 0.0;
 
       suggestions[f] = { bldg: bldgRatio, fac: calcFac, tool: calcTool, fix: fixRatio, stock: stockRatio };
@@ -94,7 +87,7 @@ export function Step5Validation() {
     } else {
       generateSuggestions();
     }
-  }, [plant, refinement]); // Recalculate if plant parameters change
+  }, [plant, refinement]);
 
   const handleUpdate = (floor: string, field: keyof FinalRatio, value: string) => {
     const num = parseFloat(value) || 0;
@@ -120,7 +113,7 @@ export function Step5Validation() {
                  Math.abs(sums.fac - 1) < 0.001 && 
                  Math.abs(sums.tool - 1) < 0.001 && 
                  Math.abs(sums.fix - 1) < 0.001 &&
-                 Math.abs(sums.stock - 1) < 0.001;
+                 sums.stock <= 1.0001; // Stock total sum <= 1.0
     setIsValidated(isOk);
     if (isOk) {
       setFinalRatios(localRatios);
@@ -135,7 +128,7 @@ export function Step5Validation() {
           <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
             <ShieldCheck className="w-6 h-6 text-accent" /> Asset Distribution Matrix
           </CardTitle>
-          <CardDescription>Review suggested values or manually refine ratios. Total must sum to 1.0000 for each column.</CardDescription>
+          <CardDescription>Review suggested values or manually refine ratios. Stock sum must be &le; 1.0000; others must equal 1.0000.</CardDescription>
         </div>
         <Button variant="outline" size="sm" onClick={generateSuggestions} className="gap-2 font-bold text-xs">
           <RefreshCw className="w-3 h-3" /> Reset to Suggested
@@ -147,7 +140,7 @@ export function Step5Validation() {
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle className="font-bold">Validation Required</AlertTitle>
             <AlertDescription className="text-xs opacity-80">
-              User adjustments must sum to 1.0000 for each category. Click "Run Audit" to verify.
+              Columns must sum to 1.0000 (Stock &le; 1.0000). Click "Run Audit" to verify.
             </AlertDescription>
           </Alert>
         ) : (
@@ -155,7 +148,7 @@ export function Step5Validation() {
             <CheckCircle2 className="h-4 w-4" />
             <AlertTitle className="font-bold">Matrix Verified</AlertTitle>
             <AlertDescription className="text-xs opacity-80">
-              Manual distribution verified. All sums equal 100.00%.
+              Manual distribution verified. All criteria met.
             </AlertDescription>
           </Alert>
         )}
@@ -235,7 +228,7 @@ export function Step5Validation() {
                 <TableCell className={`text-right font-mono text-[10px] ${Math.abs(sums.fix - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
                   {sums.fix.toFixed(4)}
                 </TableCell>
-                <TableCell className={`text-right font-mono text-[10px] ${Math.abs(sums.stock - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
+                <TableCell className={`text-right font-mono text-[10px] ${sums.stock <= 1.0001 ? 'text-emerald-600' : 'text-destructive'}`}>
                   {sums.stock.toFixed(4)}
                 </TableCell>
               </TableRow>
