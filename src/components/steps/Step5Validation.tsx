@@ -60,7 +60,10 @@ export function Step5Validation() {
         fixRatio = 1.0 / fabFloors.length;
       }
 
-      suggestions[f] = { bldg: bldgRatio, fac: calcFac, tool: calcTool, fix: fixRatio, stock: calcFac };
+      // Stock Distribution: 100% on FAB-L10 (Ground Floor) as requested
+      const stockRatio = f === 'FAB-L10' ? 1.0 : 0.0;
+
+      suggestions[f] = { bldg: bldgRatio, fac: calcFac, tool: calcTool, fix: fixRatio, stock: stockRatio };
     });
 
     setLocalRatios(suggestions);
