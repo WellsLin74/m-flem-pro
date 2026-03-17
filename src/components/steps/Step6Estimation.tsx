@@ -25,46 +25,51 @@ export function Step6Estimation() {
   const [aiInsights, setAiInsights] = useState<string>('');
   const [loadingAi, setLoadingAi] = useState(false);
 
-  // Recalculate distribution ratios to show values
+  // Synchronize distribution ratios with Step 5 logic
   const assetDistribution = useMemo(() => {
     if (!plant || !refinement) return null;
 
     const floors: string[] = [];
     for (let i = plant.fabBl; i >= 1; i--) floors.push(`BL${i}0`);
-    const basementFloors = [...floors];
     for (let j = 1; j <= plant.fabAl; j++) floors.push(`L${j}0`);
-    const l10Floors = floors.filter(f => f.startsWith('L'));
 
     const totalFacSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.fac, 0);
     const totalCrSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.cr, 0);
 
-    const calculateRatiosForSet = (floorList: string[]) => {
-      let bldg = 0, fac = 0, tool = 0, fix = 0;
+    const calculateRatiosForFloors = (floorFilter: (f: string) => boolean) => {
+      let bldgRatio = 0, facRatio = 0, toolRatio = 0, fixRatio = 0;
       
-      floorList.forEach(f => {
+      const filtered = floors.filter(floorFilter);
+      
+      filtered.forEach(f => {
         const fData = refinement.floorData[f];
         if (!fData) return;
 
-        // Building & Fixture (Simplified even distribution for prototype)
-        bldg += (0.9 / floors.length);
-        fix += (1.0 / floors.length);
-
-        // Facility
+        // Building Ratio (0.9 total for Fab floors)
+        bldgRatio += (0.9 / floors.length);
+        
+        // Facility Ratio
         const facCrPart = totalCrSum > 0 ? (fData.cr / totalCrSum) * refinement.facCrRatio : 0;
         const facNonCrPart = totalFacSum > 0 ? (fData.fac / totalFacSum) * (1 - refinement.facCrRatio) : 0;
-        fac += (facCrPart + facNonCrPart);
+        facRatio += (facCrPart + facNonCrPart);
 
-        // Tools
+        // Tools Ratio
         const toolCrPart = totalCrSum > 0 ? (fData.cr / totalCrSum) * refinement.toolsCrRatio : 0;
         const toolNonCrPart = totalFacSum > 0 ? (fData.fac / totalFacSum) * (1 - refinement.toolsCrRatio) : 0;
-        tool += (toolCrPart + toolNonCrPart);
+        toolRatio += (toolCrPart + toolNonCrPart);
+
+        // Fixture Ratio (Even distribution)
+        fixRatio += (1.0 / floors.length);
       });
 
-      return { bldg, fac, tool, fix };
+      return { bldgRatio, facRatio, toolRatio, fixRatio };
     };
 
-    const bsDist = calculateRatiosForSet(basementFloors);
-    const l10Dist = calculateRatiosForSet(l10Floors);
+    const bsDist = calculateRatiosForFloors(f => f.startsWith('BL'));
+    const l10Dist = calculateRatiosForFloors(f => f.startsWith('L'));
+
+    // Note: CUP (10% Building) is usually added to one of the sections or treated separately. 
+    // For this calculation, we assume CUP is protected/static unless explicitly modeled.
 
     return { bsDist, l10Dist };
   }, [plant, refinement]);
@@ -79,14 +84,23 @@ export function Step6Estimation() {
     
     let est = 0;
     
-    // Building
-    est += (plant.pdBuilding * bsDist.bldg * (ratios.bldgBs / 100)) + (plant.pdBuilding * l10Dist.bldg * (ratios.bldgL10 / 100));
-    // Tools
-    est += (plant.pdTools * bsDist.tool * (ratios.toolBs / 100)) + (plant.pdTools * l10Dist.tool * (ratios.toolL10 / 100));
-    // FFS (Facility, Fixture, Stock)
-    const ffsTotal = plant.pdFacility + plant.pdFixture + plant.pdStock;
-    // For Stock and Fixture, assume same distribution as Facility for simplification
-    est += (ffsTotal * bsDist.fac * (ratios.ffsBs / 100)) + (ffsTotal * l10Dist.fac * (l10Dynamic / 100));
+    // Building Loss
+    est += (plant.pdBuilding * bsDist.bldgRatio * (ratios.bldgBs / 100));
+    est += (plant.pdBuilding * l10Dist.bldgRatio * (ratios.bldgL10 / 100));
+    
+    // Tools Loss
+    est += (plant.pdTools * bsDist.toolRatio * (ratios.toolBs / 100));
+    est += (plant.pdTools * l10Dist.toolRatio * (ratios.toolL10 / 100));
+    
+    // Facility, Fixture, Stock (FFS) Loss
+    // Stock and Facility usually follow the Facility distribution
+    const facAssets = plant.pdFacility + plant.pdStock;
+    est += (facAssets * bsDist.facRatio * (ratios.ffsBs / 100));
+    est += (facAssets * l10Dist.facRatio * (l10Dynamic / 100));
+
+    // Fixture Loss
+    est += (plant.pdFixture * bsDist.fixRatio * (ratios.ffsBs / 100));
+    est += (plant.pdFixture * l10Dist.fixRatio * (l10Dynamic / 100));
 
     setTotalLoss(est);
   };
@@ -116,6 +130,7 @@ export function Step6Estimation() {
       });
       setAiInsights(result);
     } catch (err) {
+      // Error handling via Firebase Studio patterns is preferred, but for this utility flow:
       console.error(err);
     } finally {
       setLoadingAi(false);
@@ -167,8 +182,8 @@ export function Step6Estimation() {
                   title="Building" 
                   bs={ratios.bldgBs} 
                   l10={ratios.bldgL10} 
-                  bsValue={plant.pdBuilding * assetDistribution.bsDist.bldg}
-                  l10Value={plant.pdBuilding * assetDistribution.l10Dist.bldg}
+                  bsValue={plant.pdBuilding * assetDistribution.bsDist.bldgRatio}
+                  l10Value={plant.pdBuilding * assetDistribution.l10Dist.bldgRatio}
                   onChange={(k, v) => setRatios(p => ({ ...p, [k]: v }))} 
                   prefix="bldg" 
                 />
@@ -176,8 +191,8 @@ export function Step6Estimation() {
                   title="Production Tools" 
                   bs={ratios.toolBs} 
                   l10={ratios.toolL10} 
-                  bsValue={plant.pdTools * assetDistribution.bsDist.tool}
-                  l10Value={plant.pdTools * assetDistribution.l10Dist.tool}
+                  bsValue={plant.pdTools * assetDistribution.bsDist.toolRatio}
+                  l10Value={plant.pdTools * assetDistribution.l10Dist.toolRatio}
                   onChange={(k, v) => setRatios(p => ({ ...p, [k]: v }))} 
                   prefix="tool" 
                 />
@@ -185,8 +200,16 @@ export function Step6Estimation() {
                   title="FFS (Facility/Fix/Stock)" 
                   bs={ratios.ffsBs} 
                   l10={ratios.ffsL10} 
-                  bsValue={(plant.pdFacility + plant.pdFixture + plant.pdStock) * assetDistribution.bsDist.fac}
-                  l10Value={(plant.pdFacility + plant.pdFixture + plant.pdStock) * assetDistribution.l10Dist.fac}
+                  bsValue={
+                    (plant.pdFacility * assetDistribution.bsDist.facRatio) + 
+                    (plant.pdStock * assetDistribution.bsDist.facRatio) + 
+                    (plant.pdFixture * assetDistribution.bsDist.fixRatio)
+                  }
+                  l10Value={
+                    (plant.pdFacility * assetDistribution.l10Dist.facRatio) + 
+                    (plant.pdStock * assetDistribution.l10Dist.facRatio) + 
+                    (plant.pdFixture * assetDistribution.l10Dist.fixRatio)
+                  }
                   onChange={() => {}} 
                   prefix="ffs" 
                   readonly 
@@ -200,7 +223,7 @@ export function Step6Estimation() {
                   </div>
                   <div className="space-y-1 relative z-10">
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Consolidated Estimation</p>
-                    <h3 className="text-5xl font-headline font-black tracking-tighter tabular-nums">NTD {totalLoss.toFixed(2)}M <span className="text-xl font-medium opacity-50 uppercase ml-2">TWD</span></h3>
+                    <h3 className="text-5xl font-headline font-black tracking-tighter tabular-nums">NTD {totalLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M <span className="text-xl font-medium opacity-50 uppercase ml-2">TWD</span></h3>
                   </div>
                   <Button 
                     onClick={getAiInsights}
