@@ -7,11 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { generateFloodRiskInsights } from '@/ai/flows/generate-flood-risk-insights';
 import { TrendingDown, Waves, Sparkles, ArrowLeft, Download } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function Step6Estimation() {
-  const { plant, setStep } = useAppStore();
+  const { plant, refinement, setStep } = useAppStore();
   const [l10Height, setL10Height] = useState(5.5);
   const [floodHeight, setFloodHeight] = useState(2.0);
   
@@ -25,23 +25,68 @@ export function Step6Estimation() {
   const [aiInsights, setAiInsights] = useState<string>('');
   const [loadingAi, setLoadingAi] = useState(false);
 
+  // Recalculate distribution ratios to show values
+  const assetDistribution = useMemo(() => {
+    if (!plant || !refinement) return null;
+
+    const floors: string[] = [];
+    for (let i = plant.fabBl; i >= 1; i--) floors.push(`BL${i}0`);
+    const basementFloors = [...floors];
+    for (let j = 1; j <= plant.fabAl; j++) floors.push(`L${j}0`);
+    const l10Floors = floors.filter(f => f.startsWith('L'));
+
+    const totalFacSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.fac, 0);
+    const totalCrSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.cr, 0);
+
+    const calculateRatiosForSet = (floorList: string[]) => {
+      let bldg = 0, fac = 0, tool = 0, fix = 0;
+      
+      floorList.forEach(f => {
+        const fData = refinement.floorData[f];
+        if (!fData) return;
+
+        // Building & Fixture (Simplified even distribution for prototype)
+        bldg += (0.9 / floors.length);
+        fix += (1.0 / floors.length);
+
+        // Facility
+        const facCrPart = totalCrSum > 0 ? (fData.cr / totalCrSum) * refinement.facCrRatio : 0;
+        const facNonCrPart = totalFacSum > 0 ? (fData.fac / totalFacSum) * (1 - refinement.facCrRatio) : 0;
+        fac += (facCrPart + facNonCrPart);
+
+        // Tools
+        const toolCrPart = totalCrSum > 0 ? (fData.cr / totalCrSum) * refinement.toolsCrRatio : 0;
+        const toolNonCrPart = totalFacSum > 0 ? (fData.fac / totalFacSum) * (1 - refinement.toolsCrRatio) : 0;
+        tool += (toolCrPart + toolNonCrPart);
+      });
+
+      return { bldg, fac, tool, fix };
+    };
+
+    const bsDist = calculateRatiosForSet(basementFloors);
+    const l10Dist = calculateRatiosForSet(l10Floors);
+
+    return { bsDist, l10Dist };
+  }, [plant, refinement]);
+
   const calculate = () => {
-    if (!plant) return;
+    if (!plant || !assetDistribution) return;
     
-    // Simple logic matching prototype
     const l10Dynamic = Math.min(100, Math.max(0, (floodHeight / l10Height) * 100));
     setRatios(prev => ({ ...prev, ffsL10: Number(l10Dynamic.toFixed(1)) }));
 
-    const floorShare = 0.1; 
+    const { bsDist, l10Dist } = assetDistribution;
+    
     let est = 0;
     
     // Building
-    est += (plant.pdBuilding * floorShare * (ratios.bldgBs / 100)) + (plant.pdBuilding * floorShare * (ratios.bldgL10 / 100));
+    est += (plant.pdBuilding * bsDist.bldg * (ratios.bldgBs / 100)) + (plant.pdBuilding * l10Dist.bldg * (ratios.bldgL10 / 100));
     // Tools
-    est += (plant.pdTools * floorShare * (ratios.toolBs / 100)) + (plant.pdTools * floorShare * (ratios.toolL10 / 100));
-    // FFS
+    est += (plant.pdTools * bsDist.tool * (ratios.toolBs / 100)) + (plant.pdTools * l10Dist.tool * (ratios.toolL10 / 100));
+    // FFS (Facility, Fixture, Stock)
     const ffsTotal = plant.pdFacility + plant.pdFixture + plant.pdStock;
-    est += (ffsTotal * floorShare * (ratios.ffsBs / 100)) + (ffsTotal * floorShare * (l10Dynamic / 100));
+    // For Stock and Fixture, assume same distribution as Facility for simplification
+    est += (ffsTotal * bsDist.fac * (ratios.ffsBs / 100)) + (ffsTotal * l10Dist.fac * (l10Dynamic / 100));
 
     setTotalLoss(est);
   };
@@ -85,7 +130,7 @@ export function Step6Estimation() {
           <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
             <Waves className="w-6 h-6 text-accent" /> Environmental Impact Modeling
           </CardTitle>
-          <CardDescription>Simulate flood events and calculate direct financial exposure.</CardDescription>
+          <CardDescription>Simulate flood events and calculate direct financial exposure (NTD Million).</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-2xl bg-primary/5 border border-primary/10">
@@ -115,30 +160,57 @@ export function Step6Estimation() {
             </Button>
           </div>
 
-          {totalLoss !== null && (
+          {plant && assetDistribution && (
             <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <LossCard title="Building" bs={ratios.bldgBs} l10={ratios.bldgL10} onChange={(k, v) => setRatios(p => ({ ...p, [k]: v }))} prefix="bldg" />
-                <LossCard title="Production Tools" bs={ratios.toolBs} l10={ratios.toolL10} onChange={(k, v) => setRatios(p => ({ ...p, [k]: v }))} prefix="tool" />
-                <LossCard title="FFS (Facility/Fix/Stock)" bs={ratios.ffsBs} l10={ratios.ffsL10} onChange={() => {}} prefix="ffs" readonly />
+                <LossCard 
+                  title="Building" 
+                  bs={ratios.bldgBs} 
+                  l10={ratios.bldgL10} 
+                  bsValue={plant.pdBuilding * assetDistribution.bsDist.bldg}
+                  l10Value={plant.pdBuilding * assetDistribution.l10Dist.bldg}
+                  onChange={(k, v) => setRatios(p => ({ ...p, [k]: v }))} 
+                  prefix="bldg" 
+                />
+                <LossCard 
+                  title="Production Tools" 
+                  bs={ratios.toolBs} 
+                  l10={ratios.toolL10} 
+                  bsValue={plant.pdTools * assetDistribution.bsDist.tool}
+                  l10Value={plant.pdTools * assetDistribution.l10Dist.tool}
+                  onChange={(k, v) => setRatios(p => ({ ...p, [k]: v }))} 
+                  prefix="tool" 
+                />
+                <LossCard 
+                  title="FFS (Facility/Fix/Stock)" 
+                  bs={ratios.ffsBs} 
+                  l10={ratios.ffsL10} 
+                  bsValue={(plant.pdFacility + plant.pdFixture + plant.pdStock) * assetDistribution.bsDist.fac}
+                  l10Value={(plant.pdFacility + plant.pdFixture + plant.pdStock) * assetDistribution.l10Dist.fac}
+                  onChange={() => {}} 
+                  prefix="ffs" 
+                  readonly 
+                />
               </div>
 
-              <div className="p-8 rounded-3xl bg-primary text-primary-foreground flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl shadow-primary/30 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                  <TrendingDown className="w-40 h-40" />
+              {totalLoss !== null && (
+                <div className="p-8 rounded-3xl bg-primary text-primary-foreground flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl shadow-primary/30 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <TrendingDown className="w-40 h-40" />
+                  </div>
+                  <div className="space-y-1 relative z-10">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Consolidated Estimation</p>
+                    <h3 className="text-5xl font-headline font-black tracking-tighter tabular-nums">NTD {totalLoss.toFixed(2)}M <span className="text-xl font-medium opacity-50 uppercase ml-2">TWD</span></h3>
+                  </div>
+                  <Button 
+                    onClick={getAiInsights}
+                    disabled={loadingAi}
+                    className="bg-accent hover:bg-accent/90 text-primary font-black px-8 py-6 rounded-2xl gap-2 shadow-xl relative z-10"
+                  >
+                    {loadingAi ? 'Analyzing Data...' : <><Sparkles className="w-5 h-5" /> Generate AI Insights</>}
+                  </Button>
                 </div>
-                <div className="space-y-1 relative z-10">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Consolidated Estimation</p>
-                  <h3 className="text-5xl font-headline font-black tracking-tighter tabular-nums">NTD {totalLoss.toFixed(2)}M <span className="text-xl font-medium opacity-50 uppercase ml-2">TWD</span></h3>
-                </div>
-                <Button 
-                  onClick={getAiInsights}
-                  disabled={loadingAi}
-                  className="bg-accent hover:bg-accent/90 text-primary font-black px-8 py-6 rounded-2xl gap-2 shadow-xl relative z-10"
-                >
-                  {loadingAi ? 'Analyzing Data...' : <><Sparkles className="w-5 h-5" /> Generate AI Insights</>}
-                </Button>
-              </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -177,35 +249,66 @@ export function Step6Estimation() {
   );
 }
 
-function LossCard({ title, bs, l10, onChange, prefix, readonly = false }: { title: string, bs: number, l10: number, onChange: (k: string, v: number) => void, prefix: string, readonly?: boolean }) {
+function LossCard({ 
+  title, 
+  bs, 
+  l10, 
+  bsValue, 
+  l10Value, 
+  onChange, 
+  prefix, 
+  readonly = false 
+}: { 
+  title: string, 
+  bs: number, 
+  l10: number, 
+  bsValue: number, 
+  l10Value: number, 
+  onChange: (k: string, v: number) => void, 
+  prefix: string, 
+  readonly?: boolean 
+}) {
   return (
     <div className="p-4 rounded-xl border-2 border-primary/5 bg-white space-y-4 shadow-sm">
       <h4 className="text-xs font-black uppercase tracking-wider text-primary border-b border-primary/10 pb-2">{title}</h4>
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase">Basement Ratio</span>
-          <div className="flex items-center gap-1">
-            <Input 
-              type="number" 
-              value={bs} 
-              disabled={readonly}
-              onChange={(e) => onChange(`${prefix}Bs`, parseFloat(e.target.value) || 0)}
-              className="h-7 w-16 p-1 text-right font-mono text-xs border-none bg-muted/30" 
-            />
-            <span className="text-[10px] font-bold text-muted-foreground">%</span>
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase">Basement Asset</span>
+            <span className="text-[10px] font-mono font-bold text-primary">NTD {bsValue.toFixed(2)}M</span>
+          </div>
+          <div className="flex justify-between items-center bg-muted/20 p-2 rounded-lg">
+            <span className="text-[9px] font-bold text-muted-foreground/70 uppercase">Loss Ratio</span>
+            <div className="flex items-center gap-1">
+              <Input 
+                type="number" 
+                value={bs} 
+                disabled={readonly}
+                onChange={(e) => onChange(`${prefix}Bs`, parseFloat(e.target.value) || 0)}
+                className="h-6 w-14 p-1 text-right font-mono text-xs border-none bg-transparent" 
+              />
+              <span className="text-[10px] font-bold text-muted-foreground">%</span>
+            </div>
           </div>
         </div>
-        <div className="flex justify-between items-center">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase">L10 Ratio</span>
-          <div className="flex items-center gap-1">
-            <Input 
-              type="number" 
-              value={l10} 
-              disabled={readonly}
-              onChange={(e) => onChange(`${prefix}L10`, parseFloat(e.target.value) || 0)}
-              className="h-7 w-16 p-1 text-right font-mono text-xs border-none bg-muted/30" 
-            />
-            <span className="text-[10px] font-bold text-muted-foreground">%</span>
+
+        <div className="space-y-1">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase">L10 Asset</span>
+            <span className="text-[10px] font-mono font-bold text-primary">NTD {l10Value.toFixed(2)}M</span>
+          </div>
+          <div className="flex justify-between items-center bg-muted/20 p-2 rounded-lg">
+            <span className="text-[9px] font-bold text-muted-foreground/70 uppercase">Loss Ratio</span>
+            <div className="flex items-center gap-1">
+              <Input 
+                type="number" 
+                value={l10} 
+                disabled={readonly}
+                onChange={(e) => onChange(`${prefix}L10`, parseFloat(e.target.value) || 0)}
+                className="h-6 w-14 p-1 text-right font-mono text-xs border-none bg-transparent" 
+              />
+              <span className="text-[10px] font-bold text-muted-foreground">%</span>
+            </div>
           </div>
         </div>
       </div>
