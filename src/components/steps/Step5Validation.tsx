@@ -50,14 +50,28 @@ export function Step5Validation() {
     floors.forEach(f => {
       const fData = refinement.floorData[f];
       
+      /**
+       * FACILITY CALCULATION FORMULA:
+       * Weighted average of Cleanroom (CR) and Non-CR parts based on Global Facility CR Ratio.
+       * Fac_Ratio = (Floor_CR / Total_CR) * Global_Fac_CR_Ratio + (Floor_Fac / Total_Fac) * (1 - Global_Fac_CR_Ratio)
+       */
       const facCrPart = totalCrSum > 0 ? (Number(fData.cr) / totalCrSum) * Number(refinement.facCrRatio) : 0;
       const facNonCrPart = totalFacSum > 0 ? (Number(fData.fac) / totalFacSum) * (1 - Number(refinement.facCrRatio)) : 0;
       const calcFac = facCrPart + facNonCrPart;
 
+      /**
+       * TOOLS CALCULATION FORMULA:
+       * Same weighted logic as Facility, but using the Global Tools CR Ratio (default 0.9).
+       * Tool_Ratio = (Floor_CR / Total_CR) * Global_Tool_CR_Ratio + (Floor_Fac / Total_Fac) * (1 - Global_Tool_CR_Ratio)
+       */
       const toolCrPart = totalCrSum > 0 ? (Number(fData.cr) / totalCrSum) * Number(refinement.toolsCrRatio) : 0;
       const toolNonCrPart = totalFacSum > 0 ? (Number(fData.fac) / totalFacSum) * (1 - Number(refinement.toolsCrRatio)) : 0;
       const calcTool = toolCrPart + toolNonCrPart;
 
+      /**
+       * BUILDING CALCULATION FORMULA:
+       * Ratio = Floor_Area / Plant_Total_Area
+       */
       let bldgRatio = 0;
       if (plantTotalArea > 0) {
         if (f.startsWith('FAB')) {
@@ -67,11 +81,19 @@ export function Step5Validation() {
         }
       }
 
+      /**
+       * FIXTURE CALCULATION FORMULA:
+       * Distributed equally among FAB floors only. CUP = 0.
+       */
       let fixRatio = 0;
       if (f.startsWith('FAB') && fabFloors.length > 0) {
         fixRatio = 1.0 / fabFloors.length;
       }
 
+      /**
+       * STOCK CALCULATION FORMULA:
+       * 100% on FAB-L10 by default.
+       */
       const stockRatio = f === 'FAB-L10' ? 1.0 : 0.0;
 
       suggestions[f] = { bldg: bldgRatio, fac: calcFac, tool: calcTool, fix: fixRatio, stock: stockRatio };
@@ -113,7 +135,7 @@ export function Step5Validation() {
                  Math.abs(sums.fac - 1) < 0.001 && 
                  Math.abs(sums.tool - 1) < 0.001 && 
                  Math.abs(sums.fix - 1) < 0.001 &&
-                 sums.stock <= 1.0001; // Stock total sum <= 1.0
+                 sums.stock <= 1.0001;
     setIsValidated(isOk);
     if (isOk) {
       setFinalRatios(localRatios);
