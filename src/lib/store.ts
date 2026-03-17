@@ -35,16 +35,25 @@ export interface RefinementData {
   floorData: Record<string, { fac: number; cr: number }>;
 }
 
+export interface FinalRatio {
+  bldg: number;
+  fac: number;
+  tool: number;
+  fix: number;
+}
+
 export interface AppState {
   step: number;
   user: User | null;
   plant: PlantData | null;
   refinement: RefinementData | null;
+  finalRatios: Record<string, FinalRatio> | null;
   isValidated: boolean;
   setStep: (step: number) => void;
   setUser: (user: User | null) => void;
   setPlant: (plant: PlantData | null) => void;
   setRefinement: (refinement: RefinementData | null) => void;
+  setFinalRatios: (ratios: Record<string, FinalRatio> | null) => void;
   setIsValidated: (isValidated: boolean) => void;
 }
 
@@ -53,10 +62,12 @@ export const useAppStore = create<AppState>((set) => ({
   user: null,
   plant: null,
   refinement: null,
+  finalRatios: null,
   isValidated: false,
   setStep: (step) => set({ step }),
   setUser: (user) => set({ user }),
   setPlant: (plant) => set({ plant }),
   setRefinement: (refinement) => set({ refinement }),
+  setFinalRatios: (finalRatios) => set({ finalRatios }),
   setIsValidated: (isValidated) => set({ isValidated }),
 }));

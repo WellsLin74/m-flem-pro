@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 
 export function Step6Estimation() {
-  const { plant, refinement, setStep } = useAppStore();
+  const { plant, finalRatios, setStep } = useAppStore();
   const [l10Height, setL10Height] = useState(5.5);
   const [floodHeight, setFloodHeight] = useState(2.0);
   
@@ -30,55 +30,29 @@ export function Step6Estimation() {
   const [loadingAi, setLoadingAi] = useState(false);
 
   const assetDistribution = useMemo(() => {
-    if (!plant || !refinement) return null;
+    if (!plant || !finalRatios) return null;
 
-    const floors: string[] = [];
-    for (let i = plant.fabBl; i >= 1; i--) floors.push(`FAB-BL${i}0`);
-    for (let j = 1; j <= plant.fabAl; j++) floors.push(`FAB-L${j}0`);
-    for (let i = plant.cupBl; i >= 1; i--) floors.push(`CUP-BL${i}0`);
-    for (let j = 1; j <= plant.cupAl; j++) floors.push(`CUP-L${j}0`);
+    const floors = Object.keys(finalRatios);
 
-    const totalFacSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.fac, 0);
-    const totalCrSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.cr, 0);
-
-    const fabFloors = floors.filter(f => f.startsWith('FAB'));
-    const cupFloors = floors.filter(f => f.startsWith('CUP'));
-
-    const calculateRatiosForFloors = (floorFilter: (f: string) => boolean) => {
+    const calculateAggregates = (floorFilter: (f: string) => boolean) => {
       let bldgRatio = 0, facRatio = 0, toolRatio = 0, fixRatio = 0;
-      const filtered = floors.filter(floorFilter);
-      
-      filtered.forEach(f => {
-        const fData = refinement.floorData[f];
-        if (!fData) return;
-
-        if (f.startsWith('FAB')) {
-          bldgRatio += (0.9 / fabFloors.length);
-        } else if (f.startsWith('CUP')) {
-          bldgRatio += (0.1 / cupFloors.length);
-        }
-        
-        const facCrPart = totalCrSum > 0 ? (fData.cr / totalCrSum) * refinement.facCrRatio : 0;
-        const facNonCrPart = totalFacSum > 0 ? (fData.fac / totalFacSum) * (1 - refinement.facCrRatio) : 0;
-        facRatio += (facCrPart + facNonCrPart);
-
-        const toolCrPart = totalCrSum > 0 ? (fData.cr / totalCrSum) * refinement.toolsCrRatio : 0;
-        const toolNonCrPart = totalFacSum > 0 ? (fData.fac / totalFacSum) * (1 - refinement.toolsCrRatio) : 0;
-        toolRatio += (toolCrPart + toolNonCrPart);
-
-        fixRatio += (1.0 / floors.length);
+      floors.filter(floorFilter).forEach(f => {
+        const r = finalRatios[f];
+        bldgRatio += r.bldg;
+        facRatio += r.fac;
+        toolRatio += r.tool;
+        fixRatio += r.fix;
       });
-
       return { bldgRatio, facRatio, toolRatio, fixRatio };
     };
 
     return {
-      fabBs: calculateRatiosForFloors(f => f.startsWith('FAB') && f.includes('BL')),
-      fabL10: calculateRatiosForFloors(f => f.startsWith('FAB') && f.includes('-L')),
-      cupBs: calculateRatiosForFloors(f => f.startsWith('CUP') && f.includes('BL')),
-      cupL10: calculateRatiosForFloors(f => f.startsWith('CUP') && f.includes('-L'))
+      fabBs: calculateAggregates(f => f.startsWith('FAB') && f.includes('BL')),
+      fabL10: calculateAggregates(f => f.startsWith('FAB') && f.includes('-L')),
+      cupBs: calculateAggregates(f => f.startsWith('CUP') && f.includes('BL')),
+      cupL10: calculateAggregates(f => f.startsWith('CUP') && f.includes('-L'))
     };
-  }, [plant, refinement]);
+  }, [plant, finalRatios]);
 
   const ffsL10Ratio = useMemo(() => Math.min(100, Math.max(0, (floodHeight / l10Height) * 100)), [floodHeight, l10Height]);
 
@@ -88,20 +62,22 @@ export function Step6Estimation() {
     let est = 0;
     const { fabBs, fabL10, cupBs, cupL10 } = assetDistribution;
     
-    // FAB
+    // FAB Calculation
     est += (plant.pdBuilding * fabBs.bldgRatio * (ratios.fabBldgBs / 100));
     est += (plant.pdBuilding * fabL10.bldgRatio * (ratios.fabBldgL10 / 100));
     est += (plant.pdTools * fabBs.toolRatio * (ratios.fabToolBs / 100));
     est += (plant.pdTools * fabL10.toolRatio * (ratios.fabToolL10 / 100));
+    
     const fabFfsAssets = plant.pdFacility + plant.pdStock + plant.pdFixture;
     est += (fabFfsAssets * fabBs.facRatio * (ratios.fabFfsBs / 100));
     est += (fabFfsAssets * fabL10.facRatio * (ffsL10Ratio / 100));
 
-    // CUP
+    // CUP Calculation
     est += (plant.pdBuilding * cupBs.bldgRatio * (ratios.cupBldgBs / 100));
     est += (plant.pdBuilding * cupL10.bldgRatio * (ratios.cupBldgL10 / 100));
     est += (plant.pdTools * cupBs.toolRatio * (ratios.cupToolBs / 100));
     est += (plant.pdTools * cupL10.toolRatio * (ratios.cupToolL10 / 100));
+    
     const cupFfsAssets = plant.pdFacility + plant.pdStock + plant.pdFixture;
     est += (cupFfsAssets * cupBs.facRatio * (ratios.cupFfsBs / 100));
     est += (cupFfsAssets * cupL10.facRatio * (ffsL10Ratio / 100));
@@ -124,7 +100,7 @@ export function Step6Estimation() {
         fixtureInitialValueM: plant.pdFixture,
         stockInitialValueM: plant.pdStock,
         bi12mInitialValueM: plant.bi12m,
-        buildingBasementLossRatio: ratios.fabBldgBs / 100, // Approximate for AI summary
+        buildingBasementLossRatio: ratios.fabBldgBs / 100,
         buildingL10LossRatio: ratios.fabBldgL10 / 100,
         toolsBasementLossRatio: ratios.fabToolBs / 100,
         toolsL10LossRatio: ratios.fabToolL10 / 100,
@@ -148,7 +124,7 @@ export function Step6Estimation() {
           <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
             <Waves className="w-6 h-6 text-accent" /> Environmental Impact Modeling
           </CardTitle>
-          <CardDescription>Simulate flood events and calculate direct financial exposure (NTD Million).</CardDescription>
+          <CardDescription>Simulate flood events using validated asset distribution ratios (NTD Million).</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-2xl bg-primary/5 border border-primary/10">
