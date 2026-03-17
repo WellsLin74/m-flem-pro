@@ -13,40 +13,33 @@ import { useState, useEffect, useMemo } from 'react';
 export function Step4Refinement() {
   const { plant, refinement, setRefinement, setStep } = useAppStore();
   
-  // Defaulting Fac CR Ratio to 0.33 and Tools CR Ratio to 0.9 as requested
   const [facCrRatio, setFacCrRatio] = useState(refinement?.facCrRatio ?? 0.33);
   const [toolsCrRatio, setToolsCrRatio] = useState(refinement?.toolsCrRatio ?? 0.9);
   const [floorData, setFloorData] = useState<Record<string, { fac: number; cr: number }>>(
     refinement?.floorData || {}
   );
 
-  const floors = useMemo(() => {
+  const fabFloors = useMemo(() => {
     const list: string[] = [];
     if (!plant) return list;
-
     for (let i = plant.fabBl; i >= 1; i--) list.push(`FAB-BL${i}0`);
     for (let j = 1; j <= plant.fabAl; j++) list.push(`FAB-L${j}0`);
-    
-    for (let i = plant.cupBl; i >= 1; i--) list.push(`CUP-BL${i}0`);
-    for (let j = 1; j <= plant.cupAl; j++) list.push(`CUP-L${j}0`);
-    
     return list;
   }, [plant]);
 
   useEffect(() => {
-    if (Object.keys(floorData).length === 0 || Object.keys(floorData).length !== floors.length) {
-      const initial: Record<string, { fac: number; cr: number }> = { ...floorData };
-      floors.forEach(f => {
-        if (!initial[f]) {
-          initial[f] = { 
-            fac: 0, 
-            cr: 0
-          };
-        }
-      });
+    const initial: Record<string, { fac: number; cr: number }> = { ...floorData };
+    let changed = false;
+    fabFloors.forEach(f => {
+      if (!initial[f]) {
+        initial[f] = { fac: 0, cr: 0 };
+        changed = true;
+      }
+    });
+    if (changed) {
       setFloorData(initial);
     }
-  }, [floors]);
+  }, [fabFloors]);
 
   const handleUpdate = (floor: string, type: 'fac' | 'cr', value: string) => {
     const num = parseFloat(value) || 0;
@@ -68,7 +61,7 @@ export function Step4Refinement() {
         <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
           <Layers className="w-6 h-6 text-accent" /> Spatial Value Distribution
         </CardTitle>
-        <CardDescription>Refine cleanroom occupancy ratios across the vertical profiles of FAB and CUP.</CardDescription>
+        <CardDescription>Refine cleanroom occupancy ratios across the vertical profiles of FAB area only.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8 pb-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -100,7 +93,7 @@ export function Step4Refinement() {
 
           <div className="space-y-4">
             <h3 className="font-headline font-bold text-sm text-primary uppercase tracking-widest flex items-center gap-2">
-              <Layers className="w-4 h-4" /> Vertical Distribution Matrix
+              <Layers className="w-4 h-4" /> FAB Vertical Distribution Matrix
             </h3>
             <div className="border rounded-xl bg-white overflow-hidden shadow-sm h-[400px] overflow-y-auto">
               <Table>
@@ -112,10 +105,10 @@ export function Step4Refinement() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {floors.map(floor => (
+                  {fabFloors.map(floor => (
                     <TableRow key={floor} className="hover:bg-muted/20">
                       <TableCell className="font-mono text-[10px] font-bold py-2">
-                        <Badge variant={floor.includes('BL') ? 'secondary' : (floor.startsWith('FAB') ? 'default' : 'outline')} className="rounded-md text-[9px]">
+                        <Badge variant={floor.includes('BL') ? 'secondary' : 'default'} className="rounded-md text-[9px]">
                           {floor}
                         </Badge>
                       </TableCell>

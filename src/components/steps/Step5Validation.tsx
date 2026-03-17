@@ -13,7 +13,7 @@ export function Step5Validation() {
   const { plant, refinement, finalRatios, setFinalRatios, setIsValidated, isValidated, setStep } = useAppStore();
   const [localRatios, setLocalRatios] = useState<Record<string, FinalRatio>>({});
 
-  const floors = useMemo(() => {
+  const allFloors = useMemo(() => {
     const list: string[] = [];
     if (!plant) return list;
     for (let i = Number(plant.fabBl); i >= 1; i--) list.push(`FAB-BL${i}0`);
@@ -23,7 +23,7 @@ export function Step5Validation() {
     return list;
   }, [plant]);
 
-  const fabFloors = useMemo(() => floors.filter(f => f.startsWith('FAB')), [floors]);
+  const fabFloors = useMemo(() => allFloors.filter(f => f.startsWith('FAB')), [allFloors]);
 
   const generateSuggestions = () => {
     if (!plant || !refinement) return;
@@ -42,65 +42,66 @@ export function Step5Validation() {
     const totalCupArea = cupFloorArea * cupLevels;
     const plantTotalArea = totalFabArea + totalCupArea;
 
-    // Sum of all FAC weights across ALL floors (FAB + CUP)
-    const totalFacSum = Object.values(refinement.floorData).reduce((sum, f) => sum + Number(f.fac), 0);
-    const totalCrSum = Object.values(refinement.floorData).reduce((sum, f) => sum + Number(f.cr), 0);
+    // Sum weights only from FAB floors (refinement now only has FAB data)
+    const totalFabFacSum = Object.keys(refinement.floorData)
+      .filter(f => f.startsWith('FAB'))
+      .reduce((sum, f) => sum + Number(refinement.floorData[f].fac), 0);
+    
+    const totalFabCrSum = Object.keys(refinement.floorData)
+      .filter(f => f.startsWith('FAB'))
+      .reduce((sum, f) => sum + Number(refinement.floorData[f].cr), 0);
 
     const suggestions: Record<string, FinalRatio> = {};
 
     /**
-     * FACILITY NEW FORMULA DENOMINATOR:
-     * (FAB總面積 * 全棟FAC總權重 + CUP總面積)
+     * FACILITY REFINED FORMULA DENOMINATOR:
+     * facDenominator = (FAB總面積 * FAB全棟FAC總權重 + CUP總面積)
      */
-    const facDenominator = (totalFabArea * totalFacSum + totalCupArea);
+    const facDenominator = (totalFabArea * totalFabFacSum + totalCupArea);
 
-    floors.forEach(f => {
-      const fData = refinement.floorData[f];
-      
-      // CRITICAL: Determine floor area based on whether it belongs to FAB or CUP zone
+    allFloors.forEach(f => {
       const isFab = f.startsWith('FAB');
+      const fData = refinement.floorData[f] || { fac: isFab ? 0 : 1, cr: 0 }; // CUP default fac=1, cr=0
       const floorArea = isFab ? fabFloorArea : cupFloorArea;
       
       /**
-       * FACILITY CALCULATION FORMULA (REFINED):
-       * Fac_Ratio = (Floor_CR / Total_CR) * Global_Fac_CR_Ratio 
-       *             + (Floor_Fac * Floor_Area / (FAB_Total_Area * Total_Fac_Sum + CUP_Total_Area)) * (1 - Global_Fac_CR_Ratio)
+       * FACILITY CALCULATION FORMULA:
+       * Fac_Ratio = (Floor_CR / Total_Fab_CR) * Global_Fac_CR_Ratio 
+       *             + (Floor_Fac_Weight * Floor_Area / facDenominator) * (1 - Global_Fac_CR_Ratio)
        */
-      const facCrPart = totalCrSum > 0 ? (Number(fData.cr) / totalCrSum) * Number(refinement.facCrRatio) : 0;
+      const facCrPart = totalFabCrSum > 0 ? (Number(fData.cr) / totalFabCrSum) * Number(refinement.facCrRatio) : 0;
+      
+      // For FAB: Weight is from input. For CUP: Weight is implicitly 1.
+      const floorFacWeight = isFab ? Number(fData.fac) : 1;
       const facNonCrPart = facDenominator > 0 
-        ? (Number(fData.fac) * floorArea / facDenominator) * (1 - Number(refinement.facCrRatio)) 
+        ? (floorFacWeight * floorArea / facDenominator) * (1 - Number(refinement.facCrRatio)) 
         : 0;
+      
       const calcFac = facCrPart + facNonCrPart;
 
       /**
        * TOOLS CALCULATION FORMULA:
-       * Based on Global Tools CR Ratio.
+       * Only FAB floors have tools typically, but we distribute based on FAB weights.
        */
-      const toolCrPart = totalCrSum > 0 ? (Number(fData.cr) / totalCrSum) * Number(refinement.toolsCrRatio) : 0;
-      const toolNonCrPart = totalFacSum > 0 ? (Number(fData.fac) / totalFacSum) * (1 - Number(refinement.toolsCrRatio)) : 0;
+      const toolCrPart = totalFabCrSum > 0 ? (Number(fData.cr) / totalFabCrSum) * Number(refinement.toolsCrRatio) : 0;
+      const toolNonCrPart = totalFabFacSum > 0 && isFab ? (Number(fData.fac) / totalFabFacSum) * (1 - Number(refinement.toolsCrRatio)) : 0;
       const calcTool = toolCrPart + toolNonCrPart;
 
       /**
        * BUILDING CALCULATION FORMULA:
        * Ratio = Floor_Area / Plant_Total_Area
        */
-      let bldgRatio = 0;
-      if (plantTotalArea > 0) {
-        bldgRatio = floorArea / plantTotalArea;
-      }
+      let bldgRatio = plantTotalArea > 0 ? floorArea / plantTotalArea : 0;
 
       /**
        * FIXTURE CALCULATION FORMULA:
-       * Distributed equally among FAB floors only. CUP = 0.
+       * Distributed equally among FAB floors only.
        */
-      let fixRatio = 0;
-      if (isFab && fabFloors.length > 0) {
-        fixRatio = 1.0 / fabFloors.length;
-      }
+      let fixRatio = isFab && fabFloors.length > 0 ? 1.0 / fabFloors.length : 0;
 
       /**
        * STOCK CALCULATION FORMULA:
-       * 100% on FAB-L10 by default as requested.
+       * 100% on FAB-L10 by default.
        */
       const stockRatio = f === 'FAB-L10' ? 1.0 : 0.0;
 
@@ -112,7 +113,7 @@ export function Step5Validation() {
   };
 
   useEffect(() => {
-    if (finalRatios && Object.keys(finalRatios).length === floors.length) {
+    if (finalRatios && Object.keys(finalRatios).length === allFloors.length) {
       setLocalRatios(finalRatios);
     } else {
       generateSuggestions();
@@ -196,7 +197,7 @@ export function Step5Validation() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {floors.map(floor => (
+              {allFloors.map(floor => (
                 <TableRow key={floor} className={floor.startsWith('CUP') ? 'bg-blue-50/30' : ''}>
                   <TableCell className="font-mono text-[10px] font-bold">{floor}</TableCell>
                   <TableCell className="py-1">
