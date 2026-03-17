@@ -13,29 +13,26 @@ import { Separator } from '@/components/ui/separator';
 
 export function Step6Estimation() {
   const { plant, finalRatios, setStep } = useAppStore();
-  const [l10Height, setL10Height] = useState(5.5);
-  const [floodHeight, setFloodHeight] = useState(2.0);
+  const [l10Height, setL10Height] = useState(0);
+  const [floodHeight, setFloodHeight] = useState(0);
   
   const [ratios, setRatios] = useState({
-    // FAB Ratios
-    fabBldgBs: 20, fabBldgL10: 20,
-    fabFacBs: 100,
-    fabToolBs: 100, fabToolL10: 100,
-    fabFixBs: 100,
-    fabStockBs: 100,
-    // CUP Ratios
-    cupBldgBs: 20, cupBldgL10: 20,
-    cupFacBs: 100,
-    cupToolBs: 100, cupToolL10: 100,
-    cupFixBs: 100,
-    cupStockBs: 100,
+    fabBldgBs: 0, fabBldgL10: 0,
+    fabFacBs: 0,
+    fabToolBs: 0, fabToolL10: 0,
+    fabFixBs: 0,
+    fabStockBs: 0,
+    cupBldgBs: 0, cupBldgL10: 0,
+    cupFacBs: 0,
+    cupToolBs: 0, cupToolL10: 0,
+    cupFixBs: 0,
+    cupStockBs: 0,
   });
 
   const [totalLoss, setTotalLoss] = useState<number | null>(null);
   const [aiInsights, setAiInsights] = useState<string>('');
   const [loadingAi, setLoadingAi] = useState(false);
 
-  // Asset values categorized by Building -> Floor Bucket (Basement, L10 Floor)
   const assetDistribution = useMemo(() => {
     if (!plant || !finalRatios) return null;
 
@@ -54,13 +51,16 @@ export function Step6Estimation() {
 
     return {
       fabBs: calculateAggregates(f => f.startsWith('FAB') && f.includes('BL')),
-      fabL10Floor: calculateAggregates(f => f === 'FAB-L10'), // Specific Ground Floor
+      fabL10Floor: calculateAggregates(f => f === 'FAB-L10'),
       cupBs: calculateAggregates(f => f.startsWith('CUP') && f.includes('BL')),
-      cupL10Floor: calculateAggregates(f => f === 'CUP-L10')  // Specific Ground Floor
+      cupL10Floor: calculateAggregates(f => f === 'CUP-L10')
     };
   }, [plant, finalRatios]);
 
-  const calcL10Ratio = useMemo(() => Math.min(100, Math.max(0, (floodHeight / l10Height) * 100)), [floodHeight, l10Height]);
+  const calcL10Ratio = useMemo(() => {
+    if (l10Height === 0) return 0;
+    return Math.min(100, Math.max(0, (floodHeight / l10Height) * 100));
+  }, [floodHeight, l10Height]);
 
   const calculate = () => {
     if (!plant || !assetDistribution) return;
@@ -68,29 +68,22 @@ export function Step6Estimation() {
     let est = 0;
     const { fabBs, fabL10Floor, cupBs, cupL10Floor } = assetDistribution;
     
-    // Helper to calculate loss for a specific bucket (FAB/CUP, BS/L10)
     const calcCategory = (dist: any, buildingPrefix: 'fab' | 'cup', isBasement: boolean) => {
-      const suffix = isBasement ? 'Bs' : 'L10';
       const ratioKeyPrefix = `${buildingPrefix}`;
       const l10R = calcL10Ratio / 100;
 
-      // Building
       const bRatio = isBasement ? (ratios[`${ratioKeyPrefix}BldgBs` as keyof typeof ratios] / 100) : (ratios[`${ratioKeyPrefix}BldgL10` as keyof typeof ratios] / 100);
       est += (plant.pdBuilding * dist.bldgRatio * bRatio);
 
-      // Facility
       const fRatio = isBasement ? (ratios[`${ratioKeyPrefix}FacBs` as keyof typeof ratios] / 100) : l10R;
       est += (plant.pdFacility * dist.facRatio * fRatio);
 
-      // Tools
       const tRatio = isBasement ? (ratios[`${ratioKeyPrefix}ToolBs` as keyof typeof ratios] / 100) : (ratios[`${ratioKeyPrefix}ToolL10` as keyof typeof ratios] / 100);
       est += (plant.pdTools * dist.toolRatio * tRatio);
 
-      // Fixture
       const fixR = isBasement ? (ratios[`${ratioKeyPrefix}FixBs` as keyof typeof ratios] / 100) : l10R;
       est += (plant.pdFixture * dist.fixRatio * fixR);
 
-      // Stock
       const sRatio = isBasement ? (ratios[`${ratioKeyPrefix}StockBs` as keyof typeof ratios] / 100) : l10R;
       est += (plant.pdStock * dist.stockRatio * sRatio);
     };
@@ -122,7 +115,7 @@ export function Step6Estimation() {
         buildingL10LossRatio: ratios.fabBldgL10 / 100,
         toolsBasementLossRatio: ratios.fabToolBs / 100,
         toolsL10LossRatio: ratios.fabToolL10 / 100,
-        ffsBasementLossRatio: ratios.fabFacBs / 100, // Summarized for prompt
+        ffsBasementLossRatio: ratios.fabFacBs / 100,
         ffsL10LossRatio: calcL10Ratio / 100,
         totalLossEstimateM: totalLoss
       });
@@ -150,7 +143,7 @@ export function Step6Estimation() {
               <Label className="text-xs font-bold text-muted-foreground uppercase">L10 Critical Height (m)</Label>
               <Input 
                 type="number" step="0.1" 
-                value={l10Height} 
+                value={l10Height || ''} 
                 onChange={(e) => setL10Height(parseFloat(e.target.value) || 0)}
                 className="bg-white border-none font-mono text-lg font-bold"
               />
@@ -159,7 +152,7 @@ export function Step6Estimation() {
               <Label className="text-xs font-bold text-muted-foreground uppercase">Simulated Flood Height AGL (m)</Label>
               <Input 
                 type="number" step="0.1" 
-                value={floodHeight} 
+                value={floodHeight || ''} 
                 onChange={(e) => setFloodHeight(parseFloat(e.target.value) || 0)}
                 className="bg-white border-none font-mono text-lg font-bold text-accent"
               />
@@ -174,7 +167,6 @@ export function Step6Estimation() {
 
           {plant && assetDistribution && (
             <div className="space-y-12 animate-in fade-in slide-in-from-top-4 duration-500">
-              {/* FAB Building Analysis */}
               <div className="space-y-6">
                 <div className="flex items-center gap-3 text-primary border-b border-primary/10 pb-4">
                   <Factory className="w-6 h-6" />
@@ -224,7 +216,6 @@ export function Step6Estimation() {
 
               <Separator className="bg-primary/10" />
 
-              {/* CUP Building Analysis */}
               <div className="space-y-6">
                 <div className="flex items-center gap-3 text-primary border-b border-primary/10 pb-4">
                   <Building2 className="w-6 h-6" />
@@ -346,7 +337,7 @@ function AssetLossDetail({
           <div className="flex items-center gap-2 bg-muted/20 p-1.5 rounded-lg">
             <span className="text-[8px] font-bold text-muted-foreground/60 uppercase flex-grow">Loss %</span>
             <Input 
-              type="number" value={bs} 
+              type="number" value={bs || ''} 
               onChange={(e) => onChange('Bs', parseFloat(e.target.value) || 0)}
               className="h-5 w-12 p-1 text-right font-mono text-[10px] border-none bg-white/50" 
             />
@@ -360,7 +351,7 @@ function AssetLossDetail({
           <div className="flex items-center gap-2 bg-muted/20 p-1.5 rounded-lg">
             <span className="text-[8px] font-bold text-muted-foreground/60 uppercase flex-grow">Loss %</span>
             <Input 
-              type="number" value={l10.toFixed(1)} 
+              type="number" value={l10ReadOnly ? l10.toFixed(1) : (l10 || '')} 
               readOnly={l10ReadOnly}
               onChange={(e) => !l10ReadOnly && onChange('L10', parseFloat(e.target.value) || 0)}
               className={`h-5 w-12 p-1 text-right font-mono text-[10px] border-none ${l10ReadOnly ? 'bg-transparent text-accent' : 'bg-white/50'}`} 

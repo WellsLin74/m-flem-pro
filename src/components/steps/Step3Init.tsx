@@ -13,12 +13,12 @@ export function Step3Init() {
   const { plant, setPlant, setStep } = useAppStore();
   const { register, handleSubmit, watch } = useForm<PlantData>({
     defaultValues: plant || {
-      lat: 24.774, lon: 121.013,
-      fabLength: 200, fabWidth: 150,
-      fabAl: 4, fabBl: 2,
-      cupLength: 100, cupWidth: 80,
-      cupAl: 2, cupBl: 1,
-      pdBuilding: 500, pdFacility: 200, pdTools: 1500, pdFixture: 50, pdStock: 300, bi12m: 1000
+      lat: 0, lon: 0,
+      fabLength: 0, fabWidth: 0,
+      fabAl: 0, fabBl: 0,
+      cupLength: 0, cupWidth: 0,
+      cupAl: 0, cupBl: 0,
+      pdBuilding: 0, pdFacility: 0, pdTools: 0, pdFixture: 0, pdStock: 0, bi12m: 0
     }
   });
 
@@ -53,7 +53,6 @@ export function Step3Init() {
   }, [values]);
 
   const onSubmit = (data: PlantData) => {
-    // Ensure numeric conversion on submit
     const numericData = {
       ...data,
       lat: Number(data.lat),

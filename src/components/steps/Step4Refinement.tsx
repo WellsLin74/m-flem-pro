@@ -13,8 +13,8 @@ import { useState, useEffect, useMemo } from 'react';
 export function Step4Refinement() {
   const { plant, refinement, setRefinement, setStep } = useAppStore();
   
-  const [facCrRatio, setFacCrRatio] = useState(refinement?.facCrRatio ?? 0.75);
-  const [toolsCrRatio, setToolsCrRatio] = useState(refinement?.toolsCrRatio ?? 0.95);
+  const [facCrRatio, setFacCrRatio] = useState(refinement?.facCrRatio ?? 0);
+  const [toolsCrRatio, setToolsCrRatio] = useState(refinement?.toolsCrRatio ?? 0);
   const [floorData, setFloorData] = useState<Record<string, { fac: number; cr: number }>>(
     refinement?.floorData || {}
   );
@@ -23,11 +23,9 @@ export function Step4Refinement() {
     const list: string[] = [];
     if (!plant) return list;
 
-    // FAB Floors
     for (let i = plant.fabBl; i >= 1; i--) list.push(`FAB-BL${i}0`);
     for (let j = 1; j <= plant.fabAl; j++) list.push(`FAB-L${j}0`);
     
-    // CUP Floors
     for (let i = plant.cupBl; i >= 1; i--) list.push(`CUP-BL${i}0`);
     for (let j = 1; j <= plant.cupAl; j++) list.push(`CUP-L${j}0`);
     
@@ -39,10 +37,9 @@ export function Step4Refinement() {
       const initial: Record<string, { fac: number; cr: number }> = { ...floorData };
       floors.forEach(f => {
         if (!initial[f]) {
-          const isBasement = f.includes('BL');
           initial[f] = { 
-            fac: 1, 
-            cr: isBasement ? 0.2 : 1.0 // Lower cleanroom probability in basements
+            fac: 0, 
+            cr: 0
           };
         }
       });
