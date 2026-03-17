@@ -82,7 +82,7 @@ export function Step3Init() {
       <div className="h-2 bg-accent w-full" />
       <CardHeader>
         <CardTitle className="font-headline font-black text-2xl text-primary">Baseline Data Initialization</CardTitle>
-        <CardDescription>Configure physical dimensions and initial financial values for {plant?.plantName}.</CardDescription>
+        <CardDescription>Configure physical dimensions and initial financial values for {plant?.company} - {plant?.plantName}.</CardDescription>
       </CardHeader>
       <CardContent className="pb-10">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
