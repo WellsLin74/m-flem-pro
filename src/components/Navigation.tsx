@@ -3,31 +3,37 @@
 import { useAppStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { LogOut, User as UserIcon, Shield } from 'lucide-react';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useEffect } from 'react';
+import { doc } from 'firebase/firestore';
 
 export function Navigation() {
   const { user, setUser, setStep } = useAppStore();
   const { user: firebaseUser } = useUser();
   const auth = useAuth();
+  const db = useFirestore();
 
-  // Sync Firebase Auth state with local store
+  // Fetch actual user permission data from Firestore
+  const userPermRef = useMemoFirebase(() => {
+    if (!firebaseUser?.uid) return null;
+    return doc(db, 'user_permissions', firebaseUser.uid);
+  }, [db, firebaseUser?.uid]);
+
+  const { data: userPerm } = useDoc(userPermRef);
+
+  // Sync Firebase Auth and Firestore data with local store
   useEffect(() => {
-    if (firebaseUser) {
-      // In a real app, we'd fetch the user's role and company from Firestore here
-      // For now, we sync the email and keep the existing role/company from the store if available
-      if (!user) {
-        setUser({
-          email: firebaseUser.email || 'Anonymous User',
-          role: 'ADMIN',
-          assignedCompany: 'Default Corp',
-        });
-      }
-    } else {
+    if (firebaseUser && userPerm) {
+      setUser({
+        email: firebaseUser.email || userPerm.email || 'Authorized User',
+        role: userPerm.role || 'READER',
+        assignedCompany: userPerm.assignedCompany || 'Unauthorized Org',
+      });
+    } else if (!firebaseUser) {
       setUser(null);
     }
-  }, [firebaseUser, setUser, user]);
+  }, [firebaseUser, userPerm, setUser]);
 
   const handleLogout = () => {
     signOut(auth);
