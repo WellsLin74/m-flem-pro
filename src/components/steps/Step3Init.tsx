@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { MapPin, LayoutDashboard, Coins, ChevronRight, ArrowLeft } from 'lucide-react';
+import { MapPin, LayoutDashboard, Coins, ChevronRight, ArrowLeft, Maximize } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 
 export function Step3Init() {
@@ -13,7 +13,9 @@ export function Step3Init() {
   const { register, handleSubmit } = useForm<PlantData>({
     defaultValues: plant || {
       lat: 24.774, lon: 121.013,
+      fabLength: 200, fabWidth: 150,
       fabAl: 4, fabBl: 2,
+      cupLength: 100, cupWidth: 80,
       cupAl: 2, cupBl: 1,
       pdBuilding: 500, pdFacility: 200, pdTools: 1500, pdFixture: 50, pdStock: 300, bi12m: 1000
     }
@@ -53,6 +55,20 @@ export function Step3Init() {
             {/* FAB Dimensions */}
             <div className="p-4 rounded-xl border-2 border-accent/10 bg-accent/5 space-y-4">
               <div className="flex items-center gap-2 text-primary">
+                <Maximize className="w-4 h-4" />
+                <h3 className="text-xs font-black uppercase tracking-widest">FAB Footprint (m)</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase">Length</Label>
+                  <Input type="number" {...register('fabLength')} className="bg-white border-none font-mono" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase">Width</Label>
+                  <Input type="number" {...register('fabWidth')} className="bg-white border-none font-mono" />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-primary pt-2">
                 <LayoutDashboard className="w-4 h-4" />
                 <h3 className="text-xs font-black uppercase tracking-widest">FAB Levels</h3>
               </div>
@@ -71,6 +87,20 @@ export function Step3Init() {
             {/* CUP Dimensions */}
             <div className="p-4 rounded-xl border-2 border-accent/10 bg-accent/5 space-y-4">
               <div className="flex items-center gap-2 text-primary">
+                <Maximize className="w-4 h-4" />
+                <h3 className="text-xs font-black uppercase tracking-widest">CUP Footprint (m)</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase">Length</Label>
+                  <Input type="number" {...register('cupLength')} className="bg-white border-none font-mono" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase">Width</Label>
+                  <Input type="number" {...register('cupWidth')} className="bg-white border-none font-mono" />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-primary pt-2">
                 <LayoutDashboard className="w-4 h-4" />
                 <h3 className="text-xs font-black uppercase tracking-widest">CUP Levels</h3>
               </div>

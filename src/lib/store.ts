@@ -13,8 +13,12 @@ export interface PlantData {
   plantName: string;
   lat: number;
   lon: number;
+  fabLength: number;
+  fabWidth: number;
   fabAl: number;
   fabBl: number;
+  cupLength: number;
+  cupWidth: number;
   cupAl: number;
   cupBl: number;
   pdBuilding: number;
