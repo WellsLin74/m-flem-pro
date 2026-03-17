@@ -40,16 +40,14 @@ export function Step5Validation() {
     
     const totalFabArea = fabFloorArea * fabLevels;
     const totalCupArea = cupFloorArea * cupLevels;
-    const plantTotalArea = totalFabArea + totalCupArea;
+    const siteTotalArea = totalFabArea + totalCupArea;
 
-    // Sum weights only from FAB floors (CUP has no CR input in P4)
+    // 計算 FAB 全棟 CR 總權重
     const totalFabCrSum = Object.keys(refinement.floorData)
       .filter(f => f.startsWith('FAB'))
       .reduce((sum, f) => sum + Number(refinement.floorData[f].cr), 0);
 
-    /**
-     * CALCULATION CONSTANTS:
-     */
+    // 核心面積分母計算
     const totalFabCrArea = fabFloorArea * totalFabCrSum;
     const totalFabNonCrArea = totalFabArea - totalFabCrArea;
     const totalSiteNonCrArea = totalFabNonCrArea + totalCupArea;
@@ -60,18 +58,20 @@ export function Step5Validation() {
       const isFab = f.startsWith('FAB');
       const floorArea = isFab ? fabFloorArea : cupFloorArea;
       const fData = refinement.floorData[f] || { fac: 0, cr: 0 }; 
-      const crRatio = Number(fData.cr);
+      const crWeight = Number(fData.cr);
 
       /**
-       * FACILITY CALCULATION (Area-weighted)
+       * FACILITY 計算公式 (遵循使用者指定):
+       * FAB: 全局FacCR * (面積*CR比)/全棟CR面積 + (1-全局FacCR) * (面積*(1-CR比))/全區NonCR面積
+       * CUP: (1-全局FacCR) * 面積 / 全區NonCR面積
        */
       let calcFac = 0;
       if (isFab) {
         const facCrPart = totalFabCrArea > 0 
-          ? (Number(refinement.facCrRatio) * (floorArea * crRatio)) / totalFabCrArea 
+          ? (Number(refinement.facCrRatio) * (floorArea * crWeight)) / totalFabCrArea 
           : 0;
         const facNonCrPart = totalSiteNonCrArea > 0 
-          ? ((1 - Number(refinement.facCrRatio)) * (floorArea * (1 - crRatio))) / totalSiteNonCrArea 
+          ? ((1 - Number(refinement.facCrRatio)) * (floorArea * (1 - crWeight))) / totalSiteNonCrArea 
           : 0;
         calcFac = facCrPart + facNonCrPart;
       } else {
@@ -81,38 +81,36 @@ export function Step5Validation() {
       }
 
       /**
-       * TOOLS CALCULATION (Consistent with FACILITY Area-weighted logic)
+       * TOOLS 計算公式 (遵循使用者最新要求):
+       * FAB CR 部分: 全局ToolsCR * (面積*CR權重) / FAB全棟CR面積
+       * FAB Non-CR 部分: (1-全局ToolsCR) * (面積*(1-CR權重)) / FAB全棟Non-CR面積
+       * CUP 樓層: 0
        */
       let calcTool = 0;
       if (isFab) {
         const toolCrPart = totalFabCrArea > 0 
-          ? (Number(refinement.toolsCrRatio) * (floorArea * crRatio)) / totalFabCrArea 
+          ? (Number(refinement.toolsCrRatio) * (floorArea * crWeight)) / totalFabCrArea 
           : 0;
-        const toolNonCrPart = totalSiteNonCrArea > 0 
-          ? ((1 - Number(refinement.toolsCrRatio)) * (floorArea * (1 - crRatio))) / totalSiteNonCrArea 
+        const toolNonCrPart = totalFabNonCrArea > 0 
+          ? ((1 - Number(refinement.toolsCrRatio)) * (floorArea * (1 - crWeight))) / totalFabNonCrArea 
           : 0;
         calcTool = toolCrPart + toolNonCrPart;
       } else {
-        calcTool = totalSiteNonCrArea > 0 
-          ? ((1 - Number(refinement.toolsCrRatio)) * floorArea) / totalSiteNonCrArea 
-          : 0;
+        calcTool = 0; // CUP 樓層數值為 0
       }
 
       /**
-       * BUILDING CALCULATION FORMULA:
-       * Ratio = Floor_Area / Plant_Total_Area
+       * BUILDING 計算: 樓層面積 / 全場總面積
        */
-      let bldgRatio = plantTotalArea > 0 ? floorArea / plantTotalArea : 0;
+      const bldgRatio = siteTotalArea > 0 ? floorArea / siteTotalArea : 0;
 
       /**
-       * FIXTURE CALCULATION FORMULA:
-       * Distributed equally among FAB floors only.
+       * FIXTURE 計算: 平均分配於 FAB 樓層
        */
-      let fixRatio = isFab && fabFloors.length > 0 ? 1.0 / fabFloors.length : 0;
+      const fixRatio = isFab && fabFloors.length > 0 ? 1.0 / fabFloors.length : 0;
 
       /**
-       * STOCK CALCULATION FORMULA:
-       * 100% on FAB-L10 by default.
+       * STOCK 計算: 預設 100% 在 FAB-L10
        */
       const stockRatio = f === 'FAB-L10' ? 1.0 : 0.0;
 
