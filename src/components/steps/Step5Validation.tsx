@@ -29,6 +29,13 @@ export function Step5Validation() {
   const generateSuggestions = () => {
     if (!plant || !refinement) return;
 
+    // Calculate Areas for Building Ratio
+    const fabSingleArea = plant.fabLength * plant.fabWidth;
+    const cupSingleArea = plant.cupLength * plant.cupWidth;
+    const totalFabArea = fabSingleArea * (plant.fabAl + plant.fabBl);
+    const totalCupArea = cupSingleArea * (plant.cupAl + plant.cupBl);
+    const totalSiteArea = totalFabArea + totalCupArea;
+
     const totalFacSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.fac, 0);
     const totalCrSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.cr, 0);
 
@@ -46,12 +53,14 @@ export function Step5Validation() {
       const toolNonCrPart = totalFacSum > 0 ? (fData.fac / totalFacSum) * (1 - refinement.toolsCrRatio) : 0;
       const calcTool = toolCrPart + toolNonCrPart;
 
-      // Building Distribution: FAB (90%), CUP (10%)
+      // Building Distribution: Proportion of floor area to total site area
       let bldgRatio = 0;
-      if (f.startsWith('FAB')) {
-        bldgRatio = 0.9 / fabFloors.length;
-      } else if (f.startsWith('CUP')) {
-        bldgRatio = 0.1 / cupFloors.length;
+      if (totalSiteArea > 0) {
+        if (f.startsWith('FAB')) {
+          bldgRatio = fabSingleArea / totalSiteArea;
+        } else if (f.startsWith('CUP')) {
+          bldgRatio = cupSingleArea / totalSiteArea;
+        }
       }
 
       // Fixture Distribution: FAB ONLY
