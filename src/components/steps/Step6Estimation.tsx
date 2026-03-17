@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toJpeg } from 'html-to-image';
 import { useFirestore } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step6Estimation() {
@@ -102,7 +102,6 @@ export function Step6Estimation() {
     const finalEst = Number(est.toFixed(1));
     setTotalLoss(finalEst);
 
-    // Persist result to Firestore (FloodLossEstimation)
     const estimationId = `${plant.company.replace(/\s+/g, '_')}-${plant.plantName.replace(/\s+/g, '_')}-${Date.now()}`;
     const estimationRef = doc(db, 'flood_loss_estimations', estimationId);
     setDocumentNonBlocking(estimationRef, {
@@ -174,43 +173,23 @@ export function Step6Estimation() {
     setRatios(prev => ({ ...prev, [key]: parseFloat(val) || 0 }));
   };
 
-  const renderAssetTable = (title: string, icon: React.ReactNode, headers: string[], rows: { label: string, dataKey: keyof typeof ratios, assetValue: number }[]) => (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 text-primary border-b border-primary/10 pb-4">
-        {icon}
-        <h3 className="text-xl font-headline font-black uppercase tracking-tight">{title}</h3>
-      </div>
-      <div className="border rounded-2xl overflow-hidden shadow-sm bg-white">
-        <Table>
-          <TableHeader className="bg-primary/5">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[180px] text-[10px] font-black uppercase text-center">Category</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-center">Asset Value (M)</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-center">Loss %</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-center">Loss Value (M)</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row, idx) => (
-              <TableRow key={idx} className="hover:bg-muted/5">
-                <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center">{row.label}</TableCell>
-                <TableCell className="text-center font-mono text-sm">{formatNum(row.assetValue)}</TableCell>
-                <TableCell className="px-2 w-[120px]">
-                  <Input 
-                    type="number" 
-                    step="0.1" 
-                    value={ratios[row.dataKey]} 
-                    onChange={(e) => handleRatioChange(row.dataKey, e.target.value)} 
-                    className="h-8 text-center font-mono font-bold border-none bg-muted/30 text-sm" 
-                  />
-                </TableCell>
-                <TableCell className="text-center font-mono text-sm font-black text-destructive">
-                  {formatNum((ratios[row.dataKey] / 100) * row.assetValue)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+  const CellContent = ({ assetValue, ratioKey }: { assetValue: number, ratioKey: keyof typeof ratios }) => (
+    <div className="flex flex-col items-center justify-center space-y-1 py-2">
+      <span className="text-[11px] font-mono font-medium text-muted-foreground">{formatNum(assetValue)}M</span>
+      <div className="flex flex-col items-center">
+        <div className="relative">
+          <Input 
+            type="number" 
+            step="0.1" 
+            value={ratios[ratioKey]} 
+            onChange={(e) => handleRatioChange(ratioKey, e.target.value)} 
+            className="h-7 w-20 text-center font-mono font-bold border-none bg-muted/30 text-xs px-1" 
+          />
+          <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground/50">%</span>
+        </div>
+        <span className="text-[10px] font-mono font-black text-destructive mt-1">
+          {formatNum((ratios[ratioKey] / 100) * assetValue)}M
+        </span>
       </div>
     </div>
   );
@@ -238,7 +217,7 @@ export function Step6Estimation() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="space-y-8">
+          <CardContent className="space-y-10">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-2xl bg-primary/5 border border-primary/10">
               <div className="space-y-2 text-center">
                 <Label className="text-xs font-bold text-muted-foreground uppercase">L10 Critical Height (m)</Label>
@@ -267,28 +246,75 @@ export function Step6Estimation() {
             </div>
 
             {plant && assetDistribution && (
-              <div className="space-y-12 animate-in fade-in slide-in-from-top-4 duration-500">
-                {renderAssetTable("FAB Building Analysis", <Factory className="w-6 h-6" />, ["Category", "Value", "Loss %", "Loss Value"], [
-                  { label: "Building (Basement)", dataKey: "fabBldgBs", assetValue: plant.pdBuilding * assetDistribution.fabBs.bldgRatio },
-                  { label: "Building (L10)", dataKey: "fabBldgL10", assetValue: plant.pdBuilding * assetDistribution.fabL10Floor.bldgRatio },
-                  { label: "Tools (Basement)", dataKey: "fabToolBs", assetValue: plant.pdTools * assetDistribution.fabBs.toolRatio },
-                  { label: "Tools (L10)", dataKey: "fabToolL10", assetValue: plant.pdTools * assetDistribution.fabL10Floor.toolRatio },
-                  { label: "Facility (Basement)", dataKey: "fabFacBs", assetValue: plant.pdFacility * assetDistribution.fabBs.facRatio },
-                  { label: "Facility (L10)", dataKey: "fabFacL10", assetValue: plant.pdFacility * assetDistribution.fabL10Floor.facRatio },
-                  { label: "Fixture (Basement)", dataKey: "fabFixBs", assetValue: plant.pdFixture * assetDistribution.fabBs.fixRatio },
-                  { label: "Fixture (L10)", dataKey: "fabFixL10", assetValue: plant.pdFixture * assetDistribution.fabL10Floor.fixRatio },
-                  { label: "Stock (Basement)", dataKey: "fabStockBs", assetValue: plant.pdStock * assetDistribution.fabBs.stockRatio },
-                  { label: "Stock (L10)", dataKey: "fabStockL10", assetValue: plant.pdStock * assetDistribution.fabL10Floor.stockRatio },
-                ])}
+              <div className="space-y-10 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 text-primary border-b border-primary/10 pb-4">
+                    <Factory className="w-6 h-6" />
+                    <h3 className="text-xl font-headline font-black uppercase tracking-tight">FAB Building Analysis</h3>
+                  </div>
+                  <div className="border rounded-2xl overflow-hidden shadow-sm bg-white overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-primary/5">
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="w-[120px] text-[10px] font-black uppercase text-center">Location</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-center">Building</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-center">Tools</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-center">Facility</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-center">Fixture</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-center">Stock</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow className="hover:bg-muted/5">
+                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center bg-muted/10">Basement</TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdBuilding * assetDistribution.fabBs.bldgRatio} ratioKey="fabBldgBs" /></TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdTools * assetDistribution.fabBs.toolRatio} ratioKey="fabToolBs" /></TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdFacility * assetDistribution.fabBs.facRatio} ratioKey="fabFacBs" /></TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdFixture * assetDistribution.fabBs.fixRatio} ratioKey="fabFixBs" /></TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdStock * assetDistribution.fabBs.stockRatio} ratioKey="fabStockBs" /></TableCell>
+                        </TableRow>
+                        <TableRow className="hover:bg-muted/5 border-t">
+                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center bg-muted/10">L10 Floor</TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdBuilding * assetDistribution.fabL10Floor.bldgRatio} ratioKey="fabBldgL10" /></TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdTools * assetDistribution.fabL10Floor.toolRatio} ratioKey="fabToolL10" /></TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdFacility * assetDistribution.fabL10Floor.facRatio} ratioKey="fabFacL10" /></TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdFixture * assetDistribution.fabL10Floor.fixRatio} ratioKey="fabFixL10" /></TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdStock * assetDistribution.fabL10Floor.stockRatio} ratioKey="fabStockL10" /></TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
 
-                <Separator className="bg-primary/10" />
-
-                {renderAssetTable("CUP Building Analysis", <Building2 className="w-6 h-6" />, ["Category", "Value", "Loss %", "Loss Value"], [
-                  { label: "Building (Basement)", dataKey: "cupBldgBs", assetValue: plant.pdBuilding * assetDistribution.cupBs.bldgRatio },
-                  { label: "Building (L10)", dataKey: "cupBldgL10", assetValue: plant.pdBuilding * assetDistribution.cupL10Floor.bldgRatio },
-                  { label: "Facility (Basement)", dataKey: "cupFacBs", assetValue: plant.pdFacility * assetDistribution.cupBs.facRatio },
-                  { label: "Facility (L10)", dataKey: "cupFacL10", assetValue: plant.pdFacility * assetDistribution.cupL10Floor.facRatio },
-                ])}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 text-primary border-b border-primary/10 pb-4">
+                    <Building2 className="w-6 h-6" />
+                    <h3 className="text-xl font-headline font-black uppercase tracking-tight">CUP Building Analysis</h3>
+                  </div>
+                  <div className="border rounded-2xl overflow-hidden shadow-sm bg-white overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-primary/5">
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="w-[120px] text-[10px] font-black uppercase text-center">Location</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-center">Building</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-center">Facility</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow className="hover:bg-muted/5">
+                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center bg-muted/10">Basement</TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdBuilding * assetDistribution.cupBs.bldgRatio} ratioKey="cupBldgBs" /></TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdFacility * assetDistribution.cupBs.facRatio} ratioKey="cupFacBs" /></TableCell>
+                        </TableRow>
+                        <TableRow className="hover:bg-muted/5 border-t">
+                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase text-center bg-muted/10">L10 Floor</TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdBuilding * assetDistribution.cupL10Floor.bldgRatio} ratioKey="cupBldgL10" /></TableCell>
+                          <TableCell className="p-0"><CellContent assetValue={plant.pdFacility * assetDistribution.cupL10Floor.facRatio} ratioKey="cupFacL10" /></TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
 
                 {totalLoss !== null && (
                   <div className="p-8 rounded-3xl bg-primary text-primary-foreground flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl shadow-primary/30 relative overflow-hidden">
