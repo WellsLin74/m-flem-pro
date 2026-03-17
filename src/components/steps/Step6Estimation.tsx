@@ -101,7 +101,10 @@ export function Step6Estimation() {
     const finalEst = Number(est.toFixed(1));
     setTotalLoss(finalEst);
 
-    const estimationId = `${plant.company.replace(/\s+/g, '_')}-${plant.plantName.replace(/\s+/g, '_')}-${Date.now()}`;
+    const safeCompany = plant.company.replace(/\s+/g, '_');
+    const safePlant = plant.plantName.replace(/\s+/g, '_');
+    const estimationId = `${safeCompany}-${safePlant}-${Date.now()}`;
+    
     const estimationRef = doc(db, 'flood_loss_estimations', estimationId);
     setDocumentNonBlocking(estimationRef, {
       id: estimationId,

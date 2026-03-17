@@ -20,7 +20,6 @@ export function Step3Init() {
     defaultValues: plant || {}
   });
 
-  // Sync form with store if plant loads late
   useEffect(() => {
     if (plant) {
       reset(plant);
@@ -79,21 +78,17 @@ export function Step3Init() {
       bi12m: Number(data.bi12m) || 0,
     };
 
-    if (!numericData.company || !numericData.plantName) {
-      console.error("Missing company or plant name in P3");
-      return;
-    }
-
     setPlant(numericData);
 
+    // Standardized key based on Company and Plant
     const safeCompany = numericData.company.replace(/\s+/g, '_');
     const safePlant = numericData.plantName.replace(/\s+/g, '_');
+    const plantBaseKey = `${safeCompany}-${safePlant}`;
 
-    // 1. Update Building Info (Physical Parameters)
-    const buildingInfoId = `${safeCompany}-${safePlant}`;
-    const buildingRef = doc(db, 'building_info', buildingInfoId);
+    // 1. Update Building Info
+    const buildingRef = doc(db, 'building_info', plantBaseKey);
     setDocumentNonBlocking(buildingRef, {
-      id: buildingInfoId,
+      id: plantBaseKey,
       companyName: numericData.company,
       plantName: numericData.plantName,
       latitude: numericData.lat,
@@ -104,8 +99,8 @@ export function Step3Init() {
       cupBelowLevel: numericData.cupBl,
     }, { merge: true });
 
-    // 2. Persist to Firestore (PlantInitialValue)
-    const plantValId = `${safeCompany}-${safePlant}-init`;
+    // 2. Persist Plant Initial Values
+    const plantValId = `${plantBaseKey}-init`;
     const plantValRef = doc(db, 'plant_initial_values', plantValId);
     setDocumentNonBlocking(plantValRef, {
       id: plantValId,

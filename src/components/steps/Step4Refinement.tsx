@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Layers, Percent, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { useFirestore } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step4Refinement() {
@@ -62,7 +62,7 @@ export function Step4Refinement() {
       const safePlant = plant.plantName.replace(/\s+/g, '_');
       const occupancyId = `${safeCompany}-${safePlant}-occupancy`;
 
-      // 1. Save main document
+      // 1. Save main document with key derived from company and plant
       const occupancyRef = doc(db, 'fab_cleanroom_occupancy', occupancyId);
       setDocumentNonBlocking(occupancyRef, {
         id: occupancyId,
@@ -82,7 +82,7 @@ export function Step4Refinement() {
           floorIdentifier: floorId,
           facilityOccupancyRatio: ratios.fac,
           cleanroomOccupancyRatio: ratios.cr,
-          // Denormalized for rules
+          // Denormalized for rules and alignment
           companyName: plant.company,
           plantName: plant.plantName,
         }, { merge: true });
