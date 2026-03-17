@@ -42,6 +42,7 @@ export function Step5Validation() {
     const totalCupArea = cupFloorArea * cupLevels;
     const plantTotalArea = totalFabArea + totalCupArea;
 
+    // Sum of all FAC weights across ALL floors (FAB + CUP)
     const totalFacSum = Object.values(refinement.floorData).reduce((sum, f) => sum + Number(f.fac), 0);
     const totalCrSum = Object.values(refinement.floorData).reduce((sum, f) => sum + Number(f.cr), 0);
 
@@ -55,10 +56,13 @@ export function Step5Validation() {
 
     floors.forEach(f => {
       const fData = refinement.floorData[f];
-      const floorArea = f.startsWith('FAB') ? fabFloorArea : cupFloorArea;
+      
+      // CRITICAL: Determine floor area based on whether it belongs to FAB or CUP zone
+      const isFab = f.startsWith('FAB');
+      const floorArea = isFab ? fabFloorArea : cupFloorArea;
       
       /**
-       * FACILITY CALCULATION FORMULA (UPDATED):
+       * FACILITY CALCULATION FORMULA (REFINED):
        * Fac_Ratio = (Floor_CR / Total_CR) * Global_Fac_CR_Ratio 
        *             + (Floor_Fac * Floor_Area / (FAB_Total_Area * Total_Fac_Sum + CUP_Total_Area)) * (1 - Global_Fac_CR_Ratio)
        */
@@ -90,13 +94,13 @@ export function Step5Validation() {
        * Distributed equally among FAB floors only. CUP = 0.
        */
       let fixRatio = 0;
-      if (f.startsWith('FAB') && fabFloors.length > 0) {
+      if (isFab && fabFloors.length > 0) {
         fixRatio = 1.0 / fabFloors.length;
       }
 
       /**
        * STOCK CALCULATION FORMULA:
-       * 100% on FAB-L10 by default.
+       * 100% on FAB-L10 by default as requested.
        */
       const stockRatio = f === 'FAB-L10' ? 1.0 : 0.0;
 
