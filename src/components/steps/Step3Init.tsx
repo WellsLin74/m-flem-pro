@@ -57,9 +57,12 @@ export function Step3Init() {
   }, [values]);
 
   const onSubmit = (data: Partial<PlantData>) => {
+    if (!plant) return;
+
     const numericData: PlantData = {
-      company: plant?.company || '',
-      plantName: plant?.plantName || '',
+      id: plant.id, // Ensure the linked ID is used
+      company: plant.company,
+      plantName: plant.plantName,
       lat: Number(data.lat) || 0,
       lon: Number(data.lon) || 0,
       fabLength: Number(data.fabLength) || 0,
@@ -80,15 +83,12 @@ export function Step3Init() {
 
     setPlant(numericData);
 
-    // Standardized key based on Company and Plant
-    const safeCompany = numericData.company.replace(/\s+/g, '_');
-    const safePlant = numericData.plantName.replace(/\s+/g, '_');
-    const plantBaseKey = `${safeCompany}-${safePlant}`;
+    const plantId = plant.id;
 
-    // 1. Update Building Info
-    const buildingRef = doc(db, 'building_info', plantBaseKey);
+    // 1. Update Building Info using the plant ID
+    const buildingRef = doc(db, 'building_info', plantId);
     setDocumentNonBlocking(buildingRef, {
-      id: plantBaseKey,
+      id: plantId,
       companyName: numericData.company,
       plantName: numericData.plantName,
       latitude: numericData.lat,
@@ -99,8 +99,8 @@ export function Step3Init() {
       cupBelowLevel: numericData.cupBl,
     }, { merge: true });
 
-    // 2. Persist Plant Initial Values
-    const plantValId = `${plantBaseKey}-init`;
+    // 2. Persist Plant Initial Values using the plant ID as prefix
+    const plantValId = `${plantId}-init`;
     const plantValRef = doc(db, 'plant_initial_values', plantValId);
     setDocumentNonBlocking(plantValRef, {
       id: plantValId,
@@ -134,11 +134,11 @@ export function Step3Init() {
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-muted-foreground uppercase">Latitude</Label>
-                <Input type="number" step="0.001" {...register('lat')} placeholder="0.000" className="bg-white border-none font-mono" />
+                <input type="number" step="0.001" {...register('lat')} placeholder="0.000" className="flex h-10 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm font-mono" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-muted-foreground uppercase">Longitude</Label>
-                <Input type="number" step="0.001" {...register('lon')} placeholder="0.000" className="bg-white border-none font-mono" />
+                <input type="number" step="0.001" {...register('lon')} placeholder="0.000" className="flex h-10 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm font-mono" />
               </div>
             </div>
 
@@ -150,11 +150,11 @@ export function Step3Init() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Length</Label>
-                  <Input type="number" {...register('fabLength')} placeholder="0" className="bg-white border-none font-mono" />
+                  <input type="number" {...register('fabLength')} placeholder="0" className="flex h-10 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm font-mono" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Width</Label>
-                  <Input type="number" {...register('fabWidth')} placeholder="0" className="bg-white border-none font-mono" />
+                  <input type="number" {...register('fabWidth')} placeholder="0" className="flex h-10 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm font-mono" />
                 </div>
               </div>
               <div className="flex items-center gap-2 text-primary pt-2">
@@ -164,11 +164,11 @@ export function Step3Init() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Above Ground</Label>
-                  <Input type="number" {...register('fabAl')} placeholder="0" className="bg-white border-none font-mono" />
+                  <input type="number" {...register('fabAl')} placeholder="0" className="flex h-10 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm font-mono" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Below Ground</Label>
-                  <Input type="number" {...register('fabBl')} placeholder="0" className="bg-white border-none font-mono" />
+                  <input type="number" {...register('fabBl')} placeholder="0" className="flex h-10 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm font-mono" />
                 </div>
               </div>
               <div className="pt-2 border-t border-primary/10 space-y-1">
@@ -191,11 +191,11 @@ export function Step3Init() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Length</Label>
-                  <Input type="number" {...register('cupLength')} placeholder="0" className="bg-white border-none font-mono" />
+                  <input type="number" {...register('cupLength')} placeholder="0" className="flex h-10 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm font-mono" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Width</Label>
-                  <Input type="number" {...register('cupWidth')} placeholder="0" className="bg-white border-none font-mono" />
+                  <input type="number" {...register('cupWidth')} placeholder="0" className="flex h-10 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm font-mono" />
                 </div>
               </div>
               <div className="flex items-center gap-2 text-primary pt-2">
@@ -205,11 +205,11 @@ export function Step3Init() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Above Ground</Label>
-                  <Input type="number" {...register('cupAl')} placeholder="0" className="bg-white border-none font-mono" />
+                  <input type="number" {...register('cupAl')} placeholder="0" className="flex h-10 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm font-mono" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Below Ground</Label>
-                  <Input type="number" {...register('cupBl')} placeholder="0" className="bg-white border-none font-mono" />
+                  <input type="number" {...register('cupBl')} placeholder="0" className="flex h-10 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm font-mono" />
                 </div>
               </div>
               <div className="pt-2 border-t border-primary/10 space-y-1">
@@ -243,27 +243,27 @@ export function Step3Init() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Building</Label>
-                    <Input type="number" {...register('pdBuilding')} placeholder="0" className="bg-white border-none text-xs font-mono h-8" />
+                    <input type="number" {...register('pdBuilding')} placeholder="0" className="flex h-8 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-xs font-mono" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Facility</Label>
-                    <Input type="number" {...register('pdFacility')} placeholder="0" className="bg-white border-none text-xs font-mono h-8" />
+                    <input type="number" {...register('pdFacility')} placeholder="0" className="flex h-8 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-xs font-mono" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Tools</Label>
-                    <Input type="number" {...register('pdTools')} placeholder="0" className="bg-white border-none text-xs font-mono h-8" />
+                    <input type="number" {...register('pdTools')} placeholder="0" className="flex h-8 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-xs font-mono" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Fixture</Label>
-                    <Input type="number" {...register('pdFixture')} placeholder="0" className="bg-white border-none text-xs font-mono h-8" />
+                    <input type="number" {...register('pdFixture')} placeholder="0" className="flex h-8 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-xs font-mono" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Stock</Label>
-                    <Input type="number" {...register('pdStock')} placeholder="0" className="bg-white border-none text-xs font-mono h-8" />
+                    <input type="number" {...register('pdStock')} placeholder="0" className="flex h-8 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-xs font-mono" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">BI (12M)</Label>
-                    <Input type="number" {...register('bi12m')} placeholder="0" className="bg-white border-none text-xs font-mono h-8" />
+                    <input type="number" {...register('bi12m')} placeholder="0" className="flex h-8 w-full rounded-md border-none bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-xs font-mono" />
                   </div>
                 </div>
               </div>

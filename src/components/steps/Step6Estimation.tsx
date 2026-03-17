@@ -101,9 +101,8 @@ export function Step6Estimation() {
     const finalEst = Number(est.toFixed(1));
     setTotalLoss(finalEst);
 
-    const safeCompany = plant.company.replace(/\s+/g, '_');
-    const safePlant = plant.plantName.replace(/\s+/g, '_');
-    const estimationId = `${safeCompany}-${safePlant}-${Date.now()}`;
+    const plantId = plant.id;
+    const estimationId = `${plantId}-${Date.now()}`;
     
     const estimationRef = doc(db, 'flood_loss_estimations', estimationId);
     setDocumentNonBlocking(estimationRef, {
@@ -395,13 +394,13 @@ export function Step6Estimation() {
                       <p className="text-sm font-black uppercase tracking-[0.4em] text-accent">Cumulative Site Financial Impact</p>
                       <h3 className="text-6xl font-headline font-black tracking-tighter tabular-nums">NTD {formatNum(totalLoss)}M</h3>
                     </div>
-                    <Button 
+                    <button 
                       onClick={getAiInsights}
                       disabled={loadingAi}
-                      className="bg-accent hover:bg-accent/90 text-primary font-black px-10 py-8 rounded-2xl gap-3 shadow-2xl relative z-10 text-lg transition-all hover:scale-105"
+                      className="inline-flex items-center justify-center bg-accent hover:bg-accent/90 text-primary font-black px-10 py-8 rounded-2xl gap-3 shadow-2xl relative z-10 text-lg transition-all hover:scale-105 disabled:opacity-50 disabled:pointer-events-none"
                     >
                       {loadingAi ? 'Synthesizing Data...' : <><Sparkles className="w-6 h-6 fill-current" /> Generate AI Insights</>}
-                    </Button>
+                    </button>
                   </div>
                 )}
               </div>

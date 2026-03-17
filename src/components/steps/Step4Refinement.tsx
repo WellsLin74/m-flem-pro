@@ -43,7 +43,7 @@ export function Step4Refinement() {
     if (changed) {
       setFloorData(initial);
     }
-  }, [fabFloors]);
+  }, [fabFloors, floorData]);
 
   const handleUpdate = (floor: string, type: 'fac' | 'cr', value: string) => {
     const num = parseFloat(value) || 0;
@@ -58,11 +58,10 @@ export function Step4Refinement() {
     setRefinement(data);
 
     if (plant) {
-      const safeCompany = plant.company.replace(/\s+/g, '_');
-      const safePlant = plant.plantName.replace(/\s+/g, '_');
-      const occupancyId = `${safeCompany}-${safePlant}-occupancy`;
+      const plantId = plant.id;
+      const occupancyId = `${plantId}-occupancy`;
 
-      // 1. Save main document with key derived from company and plant
+      // 1. Save main document with key linked to plant ID
       const occupancyRef = doc(db, 'fab_cleanroom_occupancy', occupancyId);
       setDocumentNonBlocking(occupancyRef, {
         id: occupancyId,
@@ -82,7 +81,6 @@ export function Step4Refinement() {
           floorIdentifier: floorId,
           facilityOccupancyRatio: ratios.fac,
           cleanroomOccupancyRatio: ratios.cr,
-          // Denormalized for rules and alignment
           companyName: plant.company,
           plantName: plant.plantName,
         }, { merge: true });

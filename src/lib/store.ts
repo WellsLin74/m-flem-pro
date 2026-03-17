@@ -9,6 +9,7 @@ export interface User {
 }
 
 export interface PlantData {
+  id: string; // Ensure the ID is part of the plant data
   company: string;
   plantName: string;
   lat: number;

@@ -49,10 +49,16 @@ export function Step2Config() {
     const finalPlantName = isNewPlant ? newPlantName : (existingPlants?.find(p => p.id === selectedPlantId)?.plantName || '');
     if (!finalPlantName || !companyName) return;
     
+    // Generate or retrieve the plant ID
+    const buildingInfoId = isNewPlant 
+      ? `${companyName.replace(/\s+/g, '_')}-${finalPlantName.replace(/\s+/g, '_')}`
+      : selectedPlantId;
+
     // If it's an existing plant, we pre-fill some data if available
     const existingData = existingPlants?.find(p => p.id === selectedPlantId);
 
-    const plantData = {
+    const plantData: any = {
+      id: buildingInfoId, // Critical: Store the ID
       company: companyName,
       plantName: finalPlantName,
       lat: existingData?.latitude || plant?.lat || 24.774,
@@ -61,7 +67,6 @@ export function Step2Config() {
       fabBl: existingData?.fabBelowLevel || plant?.fabBl || 2,
       cupAl: existingData?.cupAboveLevel || plant?.cupAl || 2,
       cupBl: existingData?.cupBelowLevel || plant?.cupBl || 1,
-      // Default dimensions and values if not in building_info
       fabLength: plant?.fabLength || 200,
       fabWidth: plant?.fabWidth || 150,
       cupLength: plant?.cupLength || 100,
@@ -72,15 +77,11 @@ export function Step2Config() {
       pdFixture: plant?.pdFixture || 50,
       pdStock: plant?.pdStock || 300,
       bi12m: plant?.bi12m || 1000,
-    } as any;
+    };
 
     setPlant(plantData);
 
-    // Persist to Firestore (BuildingInfo)
-    const buildingInfoId = isNewPlant 
-      ? `${companyName.replace(/\s+/g, '_')}-${finalPlantName.replace(/\s+/g, '_')}`
-      : selectedPlantId;
-      
+    // Persist to Firestore (BuildingInfo) using the ID as the document key
     const buildingRef = doc(db, 'building_info', buildingInfoId);
     setDocumentNonBlocking(buildingRef, {
       id: buildingInfoId,

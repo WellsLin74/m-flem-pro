@@ -107,7 +107,7 @@ export function Step5Validation() {
     } else {
       generateSuggestions();
     }
-  }, [plant, refinement]);
+  }, [plant, refinement, allFloors.length]);
 
   const handleUpdate = (floor: string, field: keyof FinalRatio, value: string) => {
     const num = parseFloat(value) || 0;
@@ -139,11 +139,10 @@ export function Step5Validation() {
       setFinalRatios(localRatios);
       
       if (plant) {
-        const safeCompany = plant.company.replace(/\s+/g, '_');
-        const safePlant = plant.plantName.replace(/\s+/g, '_');
-        const ratioId = `${safeCompany}-${safePlant}-ratios`;
+        const plantId = plant.id;
+        const ratioId = `${plantId}-ratios`;
 
-        // 1. Save building_value_ratios with standardized key
+        // 1. Save building_value_ratios with ID linked to plant
         const ratioRef = doc(db, 'building_value_ratios', ratioId);
         setDocumentNonBlocking(ratioRef, {
           id: ratioId,
@@ -153,7 +152,7 @@ export function Step5Validation() {
           buildingValueFloorRatioIds: Object.keys(localRatios),
         }, { merge: true });
 
-        // 2. Save each floor_ratio with standardized reference
+        // 2. Save each floor_ratio linked to the ratio document
         Object.entries(localRatios).forEach(([floorId, ratios]) => {
           const floorRef = doc(db, 'building_value_ratios', ratioId, 'floor_ratios', floorId);
           setDocumentNonBlocking(floorRef, {
