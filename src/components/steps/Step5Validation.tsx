@@ -24,17 +24,16 @@ export function Step5Validation() {
   }, [plant]);
 
   const fabFloors = useMemo(() => floors.filter(f => f.startsWith('FAB')), [floors]);
-  const cupFloors = useMemo(() => floors.filter(f => f.startsWith('CUP')), [floors]);
 
   const generateSuggestions = () => {
     if (!plant || !refinement) return;
 
     // Calculate Areas for Building Ratio
-    const fabSingleArea = plant.fabLength * plant.fabWidth;
-    const cupSingleArea = plant.cupLength * plant.cupWidth;
-    const totalFabArea = fabSingleArea * (plant.fabAl + plant.fabBl);
-    const totalCupArea = cupSingleArea * (plant.cupAl + plant.cupBl);
-    const totalSiteArea = totalFabArea + totalCupArea;
+    const fabFloorArea = plant.fabLength * plant.fabWidth;
+    const cupFloorArea = plant.cupLength * plant.cupWidth;
+    const totalFabArea = fabFloorArea * (plant.fabAl + plant.fabBl);
+    const totalCupArea = cupFloorArea * (plant.cupAl + plant.cupBl);
+    const plantTotalArea = totalFabArea + totalCupArea;
 
     const totalFacSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.fac, 0);
     const totalCrSum = Object.values(refinement.floorData).reduce((sum, f) => sum + f.cr, 0);
@@ -53,23 +52,23 @@ export function Step5Validation() {
       const toolNonCrPart = totalFacSum > 0 ? (fData.fac / totalFacSum) * (1 - refinement.toolsCrRatio) : 0;
       const calcTool = toolCrPart + toolNonCrPart;
 
-      // Building Distribution: Proportion of floor area to total site area
+      // Building Distribution: FAB floor area / plant total area OR CUP floor area / plant total area
       let bldgRatio = 0;
-      if (totalSiteArea > 0) {
+      if (plantTotalArea > 0) {
         if (f.startsWith('FAB')) {
-          bldgRatio = fabSingleArea / totalSiteArea;
+          bldgRatio = fabFloorArea / plantTotalArea;
         } else if (f.startsWith('CUP')) {
-          bldgRatio = cupSingleArea / totalSiteArea;
+          bldgRatio = cupFloorArea / plantTotalArea;
         }
       }
 
-      // Fixture Distribution: FAB ONLY
+      // Fixture Distribution: FAB ONLY (1 / number of FAB floors)
       let fixRatio = 0;
       if (f.startsWith('FAB')) {
         fixRatio = 1.0 / fabFloors.length;
       }
 
-      // Stock Distribution: 100% on FAB-L10 (Ground Floor) as requested
+      // Stock Distribution: 100% on FAB-L10 (Ground Floor)
       const stockRatio = f === 'FAB-L10' ? 1.0 : 0.0;
 
       suggestions[f] = { bldg: bldgRatio, fac: calcFac, tool: calcTool, fix: fixRatio, stock: stockRatio };
@@ -126,7 +125,7 @@ export function Step5Validation() {
           <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
             <ShieldCheck className="w-6 h-6 text-accent" /> Asset Distribution Matrix
           </CardTitle>
-          <CardDescription>Review suggested values or manually refine ratios. CUP excluded from Fixture calculations.</CardDescription>
+          <CardDescription>Review suggested values or manually refine ratios. Total must sum to 1.0000 for each column.</CardDescription>
         </div>
         <Button variant="outline" size="sm" onClick={generateSuggestions} className="gap-2 font-bold text-xs">
           <RefreshCw className="w-3 h-3" /> Reset to Suggested
@@ -138,7 +137,7 @@ export function Step5Validation() {
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle className="font-bold">Validation Required</AlertTitle>
             <AlertDescription className="text-xs opacity-80">
-              User adjustments must sum to 100.00% (1.0000) for each category. Click "Run Audit" to verify.
+              User adjustments must sum to 1.0000 for each category. Click "Run Audit" to verify.
             </AlertDescription>
           </Alert>
         ) : (

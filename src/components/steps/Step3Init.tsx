@@ -36,20 +36,20 @@ export function Step3Init() {
     const cAl = Number(values.cupAl) || 0;
     const cBl = Number(values.cupBl) || 0;
 
-    const fabSingle = fL * fW;
-    const fabTotal = fabSingle * (fAl + fBl);
+    const fabSingleArea = fL * fW;
+    const fabTotalArea = fabSingleArea * (fAl + fBl);
     
-    const cupSingle = cL * cW;
-    const cupTotal = cupSingle * (cAl + cBl);
+    const cupSingleArea = cL * cW;
+    const cupTotalArea = cupSingleArea * (cAl + cBl);
     
-    const grandTotal = fabTotal + cupTotal;
+    const plantTotalArea = fabTotalArea + cupTotalArea;
 
     return {
-      fabSingle,
-      fabTotal,
-      cupSingle,
-      cupTotal,
-      grandTotal
+      fabSingleArea,
+      fabTotalArea,
+      cupSingleArea,
+      cupTotalArea,
+      plantTotalArea
     };
   }, [values]);
 
@@ -117,11 +117,11 @@ export function Step3Init() {
               <div className="pt-2 border-t border-primary/10 space-y-1">
                 <div className="flex justify-between text-[10px] font-bold uppercase">
                   <span className="text-muted-foreground">Single Floor:</span>
-                  <span className="text-primary">{calculations.fabSingle.toLocaleString()} m²</span>
+                  <span className="text-primary">{calculations.fabSingleArea.toLocaleString()} m²</span>
                 </div>
                 <div className="flex justify-between text-[10px] font-black uppercase">
-                  <span className="text-muted-foreground">Total Area:</span>
-                  <span className="text-primary">{calculations.fabTotal.toLocaleString()} m²</span>
+                  <span className="text-muted-foreground">Total Floor Area:</span>
+                  <span className="text-primary">{calculations.fabTotalArea.toLocaleString()} m²</span>
                 </div>
               </div>
             </div>
@@ -159,11 +159,11 @@ export function Step3Init() {
               <div className="pt-2 border-t border-primary/10 space-y-1">
                 <div className="flex justify-between text-[10px] font-bold uppercase">
                   <span className="text-muted-foreground">Single Floor:</span>
-                  <span className="text-primary">{calculations.cupSingle.toLocaleString()} m²</span>
+                  <span className="text-primary">{calculations.cupSingleArea.toLocaleString()} m²</span>
                 </div>
                 <div className="flex justify-between text-[10px] font-black uppercase">
-                  <span className="text-muted-foreground">Total Area:</span>
-                  <span className="text-primary">{calculations.cupTotal.toLocaleString()} m²</span>
+                  <span className="text-muted-foreground">Total Floor Area:</span>
+                  <span className="text-primary">{calculations.cupTotalArea.toLocaleString()} m²</span>
                 </div>
               </div>
             </div>
@@ -173,10 +173,10 @@ export function Step3Init() {
               <div className="p-4 rounded-xl border-2 border-primary/10 bg-primary/10 space-y-2">
                 <div className="flex items-center gap-2 text-primary">
                   <Ruler className="w-4 h-4" />
-                  <h3 className="text-xs font-black uppercase tracking-widest">Grand Total Area</h3>
+                  <h3 className="text-xs font-black uppercase tracking-widest">Plant Total Area</h3>
                 </div>
                 <div className="text-xl font-headline font-black text-primary">
-                  {calculations.grandTotal.toLocaleString()} <span className="text-xs">m²</span>
+                  {calculations.plantTotalArea.toLocaleString()} <span className="text-xs">m²</span>
                 </div>
               </div>
 
