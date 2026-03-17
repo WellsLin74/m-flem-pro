@@ -24,6 +24,7 @@ export function Step6Estimation() {
     fabStockBs: 0,
     cupBldgBs: 0, cupBldgL10: 0,
     cupFacBs: 0,
+    // Note: cupTool, cupFix, cupStock are effectively 0 based on distribution logic in P5
     cupToolBs: 0, cupToolL10: 0,
     cupFixBs: 0,
     cupStockBs: 0,
@@ -230,34 +231,11 @@ export function Step6Estimation() {
                     onChange={(k, v) => setRatios(p => ({ ...p, [`cupBldg${k}`]: v }))}
                   />
                   <AssetLossDetail 
-                    title="Production Tools" 
-                    bs={ratios.cupToolBs} l10={ratios.cupToolL10} 
-                    bsVal={plant.pdTools * assetDistribution.cupBs.toolRatio}
-                    l10Val={plant.pdTools * assetDistribution.cupL10Floor.toolRatio}
-                    onChange={(k, v) => setRatios(p => ({ ...p, [`cupTool${k}`]: v }))}
-                  />
-                  <AssetLossDetail 
                     title="Facility" 
                     bs={ratios.cupFacBs} l10={calcL10Ratio} 
                     bsVal={plant.pdFacility * assetDistribution.cupBs.facRatio}
                     l10Val={plant.pdFacility * assetDistribution.cupL10Floor.facRatio}
                     onChange={(k, v) => setRatios(p => ({ ...p, [`cupFac${k}`]: v }))}
-                    l10ReadOnly
-                  />
-                  <AssetLossDetail 
-                    title="Fixture" 
-                    bs={ratios.cupFixBs} l10={calcL10Ratio} 
-                    bsVal={plant.pdFixture * assetDistribution.cupBs.fixRatio}
-                    l10Val={plant.pdFixture * assetDistribution.cupL10Floor.fixRatio}
-                    onChange={(k, v) => setRatios(p => ({ ...p, [`cupFix${k}`]: v }))}
-                    l10ReadOnly
-                  />
-                  <AssetLossDetail 
-                    title="Stock" 
-                    bs={ratios.cupStockBs} l10={calcL10Ratio} 
-                    bsVal={plant.pdStock * assetDistribution.cupBs.stockRatio}
-                    l10Val={plant.pdStock * assetDistribution.cupL10Floor.stockRatio}
-                    onChange={(k, v) => setRatios(p => ({ ...p, [`cupStock${k}`]: v }))}
                     l10ReadOnly
                   />
                 </div>
