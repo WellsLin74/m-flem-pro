@@ -47,22 +47,30 @@ export function Step5Validation() {
 
     const suggestions: Record<string, FinalRatio> = {};
 
+    /**
+     * FACILITY NEW FORMULA DENOMINATOR:
+     * (FAB總面積 * 全棟FAC總權重 + CUP總面積)
+     */
+    const facDenominator = (totalFabArea * totalFacSum + totalCupArea);
+
     floors.forEach(f => {
       const fData = refinement.floorData[f];
+      const floorArea = f.startsWith('FAB') ? fabFloorArea : cupFloorArea;
       
       /**
-       * FACILITY CALCULATION FORMULA:
-       * Weighted average of Cleanroom (CR) and Non-CR parts based on Global Facility CR Ratio.
-       * Fac_Ratio = (Floor_CR / Total_CR) * Global_Fac_CR_Ratio + (Floor_Fac / Total_Fac) * (1 - Global_Fac_CR_Ratio)
+       * FACILITY CALCULATION FORMULA (UPDATED):
+       * Fac_Ratio = (Floor_CR / Total_CR) * Global_Fac_CR_Ratio 
+       *             + (Floor_Fac * Floor_Area / (FAB_Total_Area * Total_Fac_Sum + CUP_Total_Area)) * (1 - Global_Fac_CR_Ratio)
        */
       const facCrPart = totalCrSum > 0 ? (Number(fData.cr) / totalCrSum) * Number(refinement.facCrRatio) : 0;
-      const facNonCrPart = totalFacSum > 0 ? (Number(fData.fac) / totalFacSum) * (1 - Number(refinement.facCrRatio)) : 0;
+      const facNonCrPart = facDenominator > 0 
+        ? (Number(fData.fac) * floorArea / facDenominator) * (1 - Number(refinement.facCrRatio)) 
+        : 0;
       const calcFac = facCrPart + facNonCrPart;
 
       /**
        * TOOLS CALCULATION FORMULA:
-       * Same weighted logic as Facility, but using the Global Tools CR Ratio (default 0.9).
-       * Tool_Ratio = (Floor_CR / Total_CR) * Global_Tool_CR_Ratio + (Floor_Fac / Total_Fac) * (1 - Global_Tool_CR_Ratio)
+       * Based on Global Tools CR Ratio.
        */
       const toolCrPart = totalCrSum > 0 ? (Number(fData.cr) / totalCrSum) * Number(refinement.toolsCrRatio) : 0;
       const toolNonCrPart = totalFacSum > 0 ? (Number(fData.fac) / totalFacSum) * (1 - Number(refinement.toolsCrRatio)) : 0;
@@ -74,11 +82,7 @@ export function Step5Validation() {
        */
       let bldgRatio = 0;
       if (plantTotalArea > 0) {
-        if (f.startsWith('FAB')) {
-          bldgRatio = fabFloorArea / plantTotalArea;
-        } else if (f.startsWith('CUP')) {
-          bldgRatio = cupFloorArea / plantTotalArea;
-        }
+        bldgRatio = floorArea / plantTotalArea;
       }
 
       /**
