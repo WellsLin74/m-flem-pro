@@ -59,7 +59,7 @@ export function Step6Estimation() {
   }, [plant, finalRatios]);
 
   const calcL10Ratio = useMemo(() => {
-    if (l10Height === 0) return 0;
+    if (l10Height <= 0) return 0;
     return Math.min(100, Math.max(0, (floodHeight / l10Height) * 100));
   }, [floodHeight, l10Height]);
 
@@ -146,7 +146,7 @@ export function Step6Estimation() {
           <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
             <Waves className="w-6 h-6 text-accent" /> Environmental Impact Modeling
           </CardTitle>
-          <CardDescription>Simulate flood events using validated asset distribution ratios (NTD Million). Ratios for L20+ floors are 0%.</CardDescription>
+          <CardDescription>Simulate flood events using validated asset distribution ratios (NTD Million). Numbers are formatted with thousands separators.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-2xl bg-primary/5 border border-primary/10">
@@ -309,36 +309,58 @@ function AssetLossDetail({
   title: string, bs: number, l10: number, bsVal: number, l10Val: number, 
   onChange: (k: string, v: number) => void
 }) {
+  const bsLossAmount = (bs / 100) * bsVal;
+  const l10LossAmount = (l10 / 100) * l10Val;
+
   return (
-    <div className="p-3 rounded-xl border-2 border-primary/5 bg-white space-y-3 shadow-sm hover:border-accent/30 transition-colors">
-      <h4 className="text-[10px] font-black uppercase tracking-wider text-primary border-b border-primary/5 pb-2 truncate">{title}</h4>
-      <div className="space-y-3">
-        <div className="space-y-1">
-          <div className="flex justify-between items-center text-[9px] font-bold text-muted-foreground uppercase">
+    <div className="p-4 rounded-xl border-2 border-primary/5 bg-white space-y-4 shadow-sm hover:border-accent/30 transition-colors">
+      <h4 className="text-[11px] font-black uppercase tracking-wider text-primary border-b border-primary/5 pb-2 truncate">{title}</h4>
+      <div className="space-y-6">
+        {/* Basement Section */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
             <span>Basement</span>
-            <span className="text-primary">NTD {bsVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M</span>
+            <span className="text-primary font-mono">NTD {bsVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M</span>
           </div>
-          <div className="flex items-center gap-2 bg-muted/20 p-1.5 rounded-lg">
-            <span className="text-[8px] font-bold text-muted-foreground/60 uppercase flex-grow">Loss %</span>
-            <Input 
-              type="number" value={bs} 
-              onChange={(e) => onChange('Bs', parseFloat(e.target.value) || 0)}
-              className="h-5 w-12 p-1 text-right font-mono text-[10px] border-none bg-white/50" 
-            />
+          <div className="flex flex-col gap-1.5 bg-muted/10 p-2.5 rounded-lg">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black text-muted-foreground/60 uppercase flex-grow">Loss %</span>
+              <Input 
+                type="number" value={bs} 
+                onChange={(e) => onChange('Bs', parseFloat(e.target.value) || 0)}
+                className="h-8 w-20 p-1 text-right font-mono text-sm font-bold border-none bg-white shadow-sm" 
+              />
+            </div>
+            <div className="flex flex-col pt-1.5 border-t border-muted/20">
+              <span className="text-[8px] font-black text-destructive uppercase">Loss Value</span>
+              <span className="text-destructive font-mono text-sm font-black tabular-nums">
+                NTD {bsLossAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M
+              </span>
+            </div>
           </div>
         </div>
-        <div className="space-y-1">
-          <div className="flex justify-between items-center text-[9px] font-bold text-muted-foreground uppercase">
+
+        {/* L10 Section */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
             <span>L10 Floor</span>
-            <span className="text-primary">NTD {l10Val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M</span>
+            <span className="text-primary font-mono">NTD {l10Val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M</span>
           </div>
-          <div className="flex items-center gap-2 bg-muted/20 p-1.5 rounded-lg">
-            <span className="text-[8px] font-bold text-muted-foreground/60 uppercase flex-grow">Loss %</span>
-            <Input 
-              type="number" value={l10} 
-              onChange={(e) => onChange('L10', parseFloat(e.target.value) || 0)}
-              className="h-5 w-12 p-1 text-right font-mono text-[10px] border-none bg-white/50" 
-            />
+          <div className="flex flex-col gap-1.5 bg-muted/10 p-2.5 rounded-lg">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black text-muted-foreground/60 uppercase flex-grow">Loss %</span>
+              <Input 
+                type="number" value={l10} 
+                onChange={(e) => onChange('L10', parseFloat(e.target.value) || 0)}
+                className="h-8 w-20 p-1 text-right font-mono text-sm font-bold border-none bg-white shadow-sm" 
+              />
+            </div>
+            <div className="flex flex-col pt-1.5 border-t border-muted/20">
+              <span className="text-[8px] font-black text-destructive uppercase">Loss Value</span>
+              <span className="text-destructive font-mono text-sm font-black tabular-nums">
+                NTD {l10LossAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M
+              </span>
+            </div>
           </div>
         </div>
       </div>
