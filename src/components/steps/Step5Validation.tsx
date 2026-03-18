@@ -44,18 +44,16 @@ export function Step5Validation() {
   }, [plant]);
 
   /**
-   * 使用使用者提供的精確公式生成建議值:
+   * 精確公式生成邏輯:
    * 
    * 1. FAB區CR總面積 = (FAB單一樓層面積) * (P4之FAB Vertical Distribution Matrix之Cleanroom %總和)
-   * 2. FAB區non-CR總面積 = (FAB總面積) - (FAB區CR總面積)
+   * 2. FAB區non-CR總面積 = (FAB總建築面積) - (FAB區CR總面積)
    * 
-   * [Facility% 計算]
-   * 各樓層Facility% = (P4之Fac-CR Ratio) * (該層面積 * 該層CR%) / (FAB區CR總面積) 
-   *                + (1 - P4之Fac-CR Ratio) * (該層面積 * (1-該層CR%)) / (FAB區non-CR總面積 + CUP總面積)
+   * [FACILITY% 分佈] (含 CUP)
+   * 各層Fac% = (P4之Fac-CR Ratio * Area * CR%) / Area_CR + (1 - P4之Fac-CR Ratio * Area * Non-CR%) / (Area_NonCR + CUP總面積)
    * 
-   * [TOOLS% 計算]
-   * 各樓層TOOLS% = (P4之 Global Tools Ratio) * (該樓層面積 * 該樓層CR%) / (FAB區CR總面積) 
-   *               + (1 - P4之Global Tools Ratio) * (該樓層面積 * (1-該層CR%)) / (FAB區non-CR總面積)
+   * [TOOLS% & FIXTURE% 分佈] (僅 FAB)
+   * 各層Tools% = (P4之Global Tools Ratio * Area * CR%) / Area_CR + (1 - P4之Global Tools Ratio * Area * Non-CR%) / Area_NonCR
    */
   const generateSuggestions = useCallback(() => {
     if (!plant || !refinement) return {};
@@ -97,21 +95,19 @@ export function Step5Validation() {
         : 0;
       const finalFacRatio = facPartA + facPartB;
 
-      // [TOOLS% 計算] (公式分母僅為 FAB區 Non-CR 總面積)
+      // [TOOLS% 計算] (僅限 FAB)
       let finalToolRatio = 0;
       if (isFab) {
         const toolsPartA = fabCrTotalArea > 0 ? (globalToolsRatio * area * crOcc) / fabCrTotalArea : 0;
         const toolsPartB = fabNonCrTotalArea > 0 ? ((1 - globalToolsRatio) * area * nonCrOcc) / fabNonCrTotalArea : 0;
         finalToolRatio = toolsPartA + toolsPartB;
-      } else {
-        finalToolRatio = 0; // CUP 通常不分配 Tools
       }
+
+      // [Fixture% 計算] (跟隨 Tools 邏輯)
+      const finalFixRatio = finalToolRatio;
 
       // [Building% 計算] (面積比例)
       const finalBldgRatio = totalBuildingArea > 0 ? area / totalBuildingArea : 0;
-
-      // [Fixture% 計算] (跟隨 Tools)
-      const finalFixRatio = finalToolRatio;
 
       suggestions[f] = {
         bldg: finalBldgRatio,
@@ -271,7 +267,7 @@ export function Step5Validation() {
             <div className="ml-2">
               <AlertTitle className="font-black text-sm uppercase">Formula Confirmed</AlertTitle>
               <AlertDescription className="text-xs font-bold opacity-90 leading-tight">
-                TOOLS% and FACILITY% calculated using specific FAB/CUP area weighted distribution.
+                TOOLS%, FACILITY% and FIXTURE% calculated using precise FAB/CUP CR area weighting.
               </AlertDescription>
             </div>
           </Alert>
@@ -305,7 +301,7 @@ export function Step5Validation() {
                           type="number" step="0.0001"
                           value={localRatios[floor]?.[field as keyof FinalRatio] ?? 0}
                           onChange={(e) => handleUpdate(floor, field as keyof FinalRatio, e.target.value)}
-                          disabled={isReader || (field === 'tool' && floor.startsWith('CUP'))}
+                          disabled={isReader || ((field === 'tool' || field === 'fix') && floor.startsWith('CUP'))}
                           className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
                           suppressHydrationWarning
                         />
