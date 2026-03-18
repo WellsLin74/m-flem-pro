@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
-import { CheckCircle2, AlertTriangle, ChevronRight, ArrowLeft, ShieldCheck, RefreshCw, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, ChevronRight, ArrowLeft, ShieldCheck, RefreshCw, Loader2, Info } from 'lucide-react';
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
@@ -43,7 +43,6 @@ export function Step5Validation() {
 
   const generateSuggestions = useCallback(() => {
     if (!plant || !refinement) return {};
-    console.log('P5: Calculating system-guided asset distribution...');
     
     const fabFloorArea = plant.fabLength * plant.fabWidth;
     const cupFloorArea = plant.cupLength * plant.cupWidth;
@@ -71,8 +70,6 @@ export function Step5Validation() {
   // Unified Hydration Phase
   useEffect(() => {
     if (!isHydrated && !loadingStatus && !loadingCol) {
-      console.log('P5: Hydrating financial distribution matrix...');
-      
       if (remoteFloorRatios && remoteFloorRatios.length > 0) {
         const mapped: Record<string, FinalRatio> = {};
         allFloors.forEach(f => {
@@ -165,137 +162,171 @@ export function Step5Validation() {
   }
 
   return (
-    <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+    <Card className="border-none shadow-xl bg-white/90 backdrop-blur-md overflow-hidden">
       <div className="h-2 bg-accent w-full" />
-      <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20">
-        <div>
+      <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 py-6">
+        <div className="space-y-1">
           <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
-            <ShieldCheck className="w-6 h-6 text-accent" /> Asset Distribution Matrix
+            <ShieldCheck className="w-7 h-7 text-accent" /> Asset Distribution Matrix
           </CardTitle>
-          <CardDescription>Verify distribution sums for {plant?.plantName}.</CardDescription>
+          <CardDescription className="font-medium">Verify financial distribution sums for {plant?.plantName} site segments.</CardDescription>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setIsHydrated(false)} className="gap-2 font-bold">
-          <RefreshCw className="w-3 h-3" /> Re-sync Remote
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setIsHydrated(false)} 
+          className="gap-2 font-bold border-primary/20 text-primary hover:bg-primary/5"
+        >
+          <RefreshCw className="w-3 h-3" /> Sync Database
         </Button>
       </CardHeader>
       <CardContent className="space-y-6 pb-10 mt-6">
-        {!isValidated ? (
-          <Alert variant="destructive" className="bg-destructive/10 text-destructive border-none">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle className="font-bold">Verification Pending</AlertTitle>
-            <AlertDescription className="text-xs opacity-80">
-              Columns must sum to 1.0000. Run Audit to confirm status.
-            </AlertDescription>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {!isValidated ? (
+            <Alert variant="destructive" className="bg-destructive/10 text-destructive border-none shadow-sm">
+              <AlertTriangle className="h-5 w-5" />
+              <div className="ml-2">
+                <AlertTitle className="font-black text-sm uppercase">Audit Required</AlertTitle>
+                <AlertDescription className="text-xs font-bold opacity-80">
+                  Asset columns must sum to exactly 1.0000. Current matrix is out of balance.
+                </AlertDescription>
+              </div>
+            </Alert>
+          ) : (
+            <Alert className="bg-emerald-50 text-emerald-700 border-none shadow-sm">
+              <CheckCircle2 className="h-5 w-5" />
+              <div className="ml-2">
+                <AlertTitle className="font-black text-sm uppercase">Matrix Integrity Verified</AlertTitle>
+                <AlertDescription className="text-xs font-bold opacity-80">
+                  Financial distribution is audited across all site vertical segments.
+                </AlertDescription>
+              </div>
+            </Alert>
+          )}
+          <Alert className="bg-primary/5 text-primary border-none shadow-sm">
+            <Info className="h-5 w-5 text-accent" />
+            <div className="ml-2">
+              <AlertTitle className="font-black text-sm uppercase">System Guidance</AlertTitle>
+              <AlertDescription className="text-xs font-bold opacity-80">
+                Blue rows indicate CUP facilities. Input percentages as decimals (e.g. 0.25).
+              </AlertDescription>
+            </div>
           </Alert>
-        ) : (
-          <Alert className="bg-emerald-50 text-emerald-700 border-none">
-            <CheckCircle2 className="h-4 w-4" />
-            <AlertTitle className="font-bold">Matrix Integrity Confirmed</AlertTitle>
-            <AlertDescription className="text-xs opacity-80">
-              Value distribution is verified across all site vertical segments.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <div className="border rounded-2xl overflow-hidden shadow-sm bg-white max-h-[500px] overflow-y-auto custom-scrollbar">
-          <Table>
-            <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
-              <TableRow>
-                <TableHead className="text-[10px] font-black uppercase text-primary">Floor ID</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right text-primary">Building</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right text-primary">Facility</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right text-primary">Tools</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right text-primary">Fixture</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right text-primary">Stock</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {allFloors.map(floor => (
-                <TableRow key={floor} className={floor.startsWith('CUP') ? 'bg-blue-50/30' : ''}>
-                  <TableCell className="font-mono text-[10px] font-bold py-2">{floor}</TableCell>
-                  <TableCell className="py-1">
-                    <Input 
-                      type="number" step="0.0001"
-                      value={localRatios[floor]?.bldg ?? 0}
-                      onChange={(e) => handleUpdate(floor, 'bldg', e.target.value)}
-                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right font-bold"
-                    />
-                  </TableCell>
-                  <TableCell className="py-1">
-                    <Input 
-                      type="number" step="0.0001"
-                      value={localRatios[floor]?.fac ?? 0}
-                      onChange={(e) => handleUpdate(floor, 'fac', e.target.value)}
-                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right font-bold"
-                    />
-                  </TableCell>
-                  <TableCell className="py-1">
-                    <Input 
-                      type="number" step="0.0001"
-                      value={localRatios[floor]?.tool ?? 0}
-                      onChange={(e) => handleUpdate(floor, 'tool', e.target.value)}
-                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right font-bold"
-                    />
-                  </TableCell>
-                  <TableCell className="py-1">
-                    <Input 
-                      type="number" step="0.0001"
-                      value={localRatios[floor]?.fix ?? 0}
-                      onChange={(e) => handleUpdate(floor, 'fix', e.target.value)}
-                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right font-bold"
-                      disabled={floor.startsWith('CUP')}
-                    />
-                  </TableCell>
-                  <TableCell className="py-1">
-                    <Input 
-                      type="number" step="0.0001"
-                      value={localRatios[floor]?.stock ?? 0}
-                      onChange={(e) => handleUpdate(floor, 'stock', e.target.value)}
-                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right font-bold"
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-            <TableFooter className="bg-primary/5 sticky bottom-0 z-10 font-bold border-t-2">
-              <TableRow>
-                <TableCell className="text-[10px] uppercase">TOTAL</TableCell>
-                <TableCell className={`text-right font-mono text-[10px] ${Math.abs(sums.bldg - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
-                  {sums.bldg.toFixed(4)}
-                </TableCell>
-                <TableCell className={`text-right font-mono text-[10px] ${Math.abs(sums.fac - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
-                  {sums.fac.toFixed(4)}
-                </TableCell>
-                <TableCell className={`text-right font-mono text-[10px] ${Math.abs(sums.tool - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
-                  {sums.tool.toFixed(4)}
-                </TableCell>
-                <TableCell className={`text-right font-mono text-[10px] ${Math.abs(sums.fix - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
-                  {sums.fix.toFixed(4)}
-                </TableCell>
-                <TableCell className={`text-right font-mono text-[10px] ${sums.stock <= 1.0001 ? 'text-emerald-600' : 'text-destructive'}`}>
-                  {sums.stock.toFixed(4)}
-                </TableCell>
-              </TableRow>
-            </TableFooter>
-          </Table>
         </div>
 
-        <div className="flex justify-between pt-6">
-          <Button variant="ghost" onClick={() => setStep(4)} className="font-bold text-muted-foreground gap-2">
-            <ArrowLeft className="w-4 h-4" /> Spatial Refinement
+        <div className="border rounded-2xl overflow-hidden shadow-2xl bg-white">
+          <div className="max-h-[550px] overflow-y-auto custom-scrollbar">
+            <Table>
+              <TableHeader className="bg-muted/80 backdrop-blur-sm sticky top-0 z-20 shadow-md">
+                <TableRow className="border-b-2 border-primary/10">
+                  <TableHead className="w-[140px] text-[11px] font-black uppercase text-primary bg-muted/50">Floor Identifier</TableHead>
+                  <TableHead className="text-[11px] font-black uppercase text-right text-primary">Building %</TableHead>
+                  <TableHead className="text-[11px] font-black uppercase text-right text-primary">Facility %</TableHead>
+                  <TableHead className="text-[11px] font-black uppercase text-right text-primary">Tools %</TableHead>
+                  <TableHead className="text-[11px] font-black uppercase text-right text-primary">Fixture %</TableHead>
+                  <TableHead className="text-[11px] font-black uppercase text-right text-primary">Stock %</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allFloors.map(floor => (
+                  <TableRow 
+                    key={floor} 
+                    className={`hover:bg-accent/5 transition-colors ${floor.startsWith('CUP') ? 'bg-blue-50/40' : ''}`}
+                  >
+                    <TableCell className="font-mono text-[11px] font-black py-3 border-r bg-muted/5">{floor}</TableCell>
+                    <TableCell className="py-1 px-2 border-r">
+                      <Input 
+                        type="number" step="0.0001"
+                        value={localRatios[floor]?.bldg ?? 0}
+                        onChange={(e) => handleUpdate(floor, 'bldg', e.target.value)}
+                        className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
+                        suppressHydrationWarning
+                      />
+                    </TableCell>
+                    <TableCell className="py-1 px-2 border-r">
+                      <Input 
+                        type="number" step="0.0001"
+                        value={localRatios[floor]?.fac ?? 0}
+                        onChange={(e) => handleUpdate(floor, 'fac', e.target.value)}
+                        className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
+                        suppressHydrationWarning
+                      />
+                    </TableCell>
+                    <TableCell className="py-1 px-2 border-r">
+                      <Input 
+                        type="number" step="0.0001"
+                        value={localRatios[floor]?.tool ?? 0}
+                        onChange={(e) => handleUpdate(floor, 'tool', e.target.value)}
+                        className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
+                        suppressHydrationWarning
+                      />
+                    </TableCell>
+                    <TableCell className="py-1 px-2 border-r">
+                      <Input 
+                        type="number" step="0.0001"
+                        value={localRatios[floor]?.fix ?? 0}
+                        onChange={(e) => handleUpdate(floor, 'fix', e.target.value)}
+                        className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
+                        disabled={floor.startsWith('CUP')}
+                        suppressHydrationWarning
+                      />
+                    </TableCell>
+                    <TableCell className="py-1 px-2">
+                      <Input 
+                        type="number" step="0.0001"
+                        value={localRatios[floor]?.stock ?? 0}
+                        onChange={(e) => handleUpdate(floor, 'stock', e.target.value)}
+                        className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
+                        suppressHydrationWarning
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+              <TableFooter className="bg-primary/95 text-primary-foreground sticky bottom-0 z-20 font-black border-t-2 border-accent">
+                <TableRow className="hover:bg-primary/95">
+                  <TableCell className="text-[11px] uppercase tracking-widest border-r">Cumulative Total</TableCell>
+                  <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.bldg - 1) < 0.001 ? 'text-accent' : 'text-destructive-foreground underline'}`}>
+                    {sums.bldg.toFixed(4)}
+                  </TableCell>
+                  <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.fac - 1) < 0.001 ? 'text-accent' : 'text-destructive-foreground underline'}`}>
+                    {sums.fac.toFixed(4)}
+                  </TableCell>
+                  <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.tool - 1) < 0.001 ? 'text-accent' : 'text-destructive-foreground underline'}`}>
+                    {sums.tool.toFixed(4)}
+                  </TableCell>
+                  <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.fix - 1) < 0.001 ? 'text-accent' : 'text-destructive-foreground underline'}`}>
+                    {sums.fix.toFixed(4)}
+                  </TableCell>
+                  <TableCell className={`text-right font-mono text-xs px-4 ${sums.stock <= 1.0001 ? 'text-accent' : 'text-destructive-foreground underline'}`}>
+                    {sums.stock.toFixed(4)}
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center pt-8 border-t">
+          <Button 
+            variant="ghost" 
+            onClick={() => setStep(4)} 
+            className="font-bold text-muted-foreground gap-2 hover:bg-primary/5 transition-all"
+          >
+            <ArrowLeft className="w-5 h-5" /> Spatial Refinement
           </Button>
           <div className="flex gap-4">
             <Button 
               variant="outline"
               onClick={validate}
-              className="border-primary text-primary font-black hover:bg-primary/5"
+              className="border-2 border-primary text-primary font-black hover:bg-primary hover:text-white px-8 h-12 rounded-xl transition-all active:scale-95"
             >
-              Run Audit
+              Run Audit & Lock
             </Button>
             <Button 
               disabled={!isValidated}
               onClick={() => setStep(6)}
-              className="bg-primary hover:bg-primary/90 text-white font-black px-10 py-6 text-lg gap-2 shadow-lg shadow-primary/20"
+              className="bg-primary hover:bg-primary/90 text-white font-black px-12 h-12 rounded-xl gap-2 shadow-xl shadow-primary/20 transition-all hover:translate-x-1 disabled:opacity-40 disabled:translate-x-0"
             >
               Risk Analysis <ChevronRight className="w-5 h-5" />
             </Button>
