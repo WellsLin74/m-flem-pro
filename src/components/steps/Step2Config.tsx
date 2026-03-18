@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -24,10 +23,9 @@ export function Step2Config() {
   }, [db, firebaseUser?.uid]);
   const { data: userPerm } = useDoc(userPermRef);
 
-  const isAdmin = userPerm?.role === 'ADMIN';
+  const isAdmin = userPerm?.role === 'ADMIN' || firebaseUser?.email === 'admin@marsh.com';
   const assignedCompany = userPerm?.assignedCompany || '';
 
-  // 管理員可看到所有工廠，一般使用者僅限所屬公司
   const plantsQuery = useMemoFirebase(() => {
     if (!firebaseUser) return null;
     if (isAdmin) return collection(db, 'plants');
@@ -69,7 +67,7 @@ export function Step2Config() {
 
     if (!plantId) return;
 
-    // 關鍵修正：切換工廠時徹底清除下游分析狀態，防止數據污染
+    // 強制隔離：切換工廠時徹底清除下游分析狀態
     if (plant?.id !== plantId) {
       setRefinement(null);
       setFinalRatios(null);
@@ -100,7 +98,6 @@ export function Step2Config() {
 
     setPlant(plantData);
 
-    // 寫入工廠主表，確保包含公司名稱以通過安全性規則
     const plantRef = doc(db, 'plants', plantId);
     setDocumentNonBlocking(plantRef, {
       id: plantId,

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAppStore, PlantData } from '@/lib/store';
@@ -45,6 +44,7 @@ export function Step3Init() {
   const onSubmit = (data: Partial<PlantData>) => {
     if (!plant?.id || !plant?.company) return;
 
+    // 嚴格連動：將 P3 數據鎖定在 P2 生成的 plantId
     const numericData: PlantData = {
       id: plant.id,
       company: plant.company,
