@@ -3,7 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() { return request.auth != null; }
-    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     
     // Improved user data retrieval with default fallback
     function getUserData() {
@@ -22,24 +21,27 @@ service cloud.firestore {
       let userData = getUserData();
       return (
         userData.role == 'ADMIN' || 
-        userData.assignedCompany == companyName ||
-        (request.auth.token != null && request.auth.token.assignedCompany == companyName)
+        userData.assignedCompany == companyName
       );
     }
 
     match /user_permissions/{userId} {
       allow get: if isSignedIn();
-      allow create, update, delete: if isOwner(userId) || isAdmin();
+      allow create, update, delete: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
     }
 
     match /plants/{plantId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if hasCompanyAccess(request.resource.data.companyName || resource.data.companyName);
+      allow create: if hasCompanyAccess(request.resource.data.companyName);
+      allow update: if hasCompanyAccess(request.resource.data.companyName) && hasCompanyAccess(resource.data.companyName);
+      allow delete: if hasCompanyAccess(resource.data.companyName);
     }
 
     match /fab_cleanroom_occupancy/{id} {
       allow read: if isSignedIn();
-      allow write: if hasCompanyAccess(request.resource.data.companyName || resource.data.companyName);
+      allow create: if hasCompanyAccess(request.resource.data.companyName);
+      allow update: if hasCompanyAccess(request.resource.data.companyName) && hasCompanyAccess(resource.data.companyName);
+      allow delete: if hasCompanyAccess(resource.data.companyName);
       
       match /floor_ratios/{fid} { 
         allow read: if isSignedIn();
@@ -49,7 +51,9 @@ service cloud.firestore {
 
     match /building_value_ratios/{id} {
       allow read: if isSignedIn();
-      allow write: if hasCompanyAccess(request.resource.data.companyName || resource.data.companyName);
+      allow create: if hasCompanyAccess(request.resource.data.companyName);
+      allow update: if hasCompanyAccess(request.resource.data.companyName) && hasCompanyAccess(resource.data.companyName);
+      allow delete: if hasCompanyAccess(resource.data.companyName);
       
       match /floor_ratios/{fid} { 
         allow read: if isSignedIn();
@@ -59,7 +63,9 @@ service cloud.firestore {
 
     match /flood_loss_estimations/{id} {
       allow read: if isSignedIn();
-      allow write: if hasCompanyAccess(request.resource.data.companyName || resource.data.companyName);
+      allow create: if hasCompanyAccess(request.resource.data.companyName);
+      allow update: if hasCompanyAccess(request.resource.data.companyName) && hasCompanyAccess(resource.data.companyName);
+      allow delete: if hasCompanyAccess(resource.data.companyName);
     }
   }
 }
