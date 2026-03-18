@@ -14,7 +14,7 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step2Config() {
   const { user: firebaseUser } = useUser();
-  const { plant, setPlant, setStep } = useAppStore();
+  const { plant, setPlant, setStep, setRefinement, setFinalRatios, setIsValidated } = useAppStore();
   const db = useFirestore();
 
   // 1. Fetch User Permission to get assigned company
@@ -57,8 +57,15 @@ export function Step2Config() {
     // If it's an existing plant, we pre-fill some data if available
     const existingData = existingPlants?.find(p => p.id === selectedPlantId);
 
+    // CRITICAL: If switching to a different plant, clear previous analysis data to prevent collisions
+    if (plant?.id !== buildingInfoId) {
+      setRefinement(null);
+      setFinalRatios(null);
+      setIsValidated(false);
+    }
+
     const plantData: any = {
-      id: buildingInfoId, // Critical: Store the ID
+      id: buildingInfoId,
       company: companyName,
       plantName: finalPlantName,
       lat: existingData?.latitude || plant?.lat || 24.774,

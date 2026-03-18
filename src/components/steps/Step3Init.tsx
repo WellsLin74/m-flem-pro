@@ -57,11 +57,12 @@ export function Step3Init() {
   }, [values]);
 
   const onSubmit = (data: Partial<PlantData>) => {
-    if (!plant) return;
+    if (!plant || !plant.id) return;
 
-    // 確保 ID 被完整傳遞
+    // 確保使用從 Step 2 傳遞過來的 ID，並同步數字類型
     const numericData: PlantData = {
-      id: plant.id, // 關鍵：保留工廠編號
+      ...data,
+      id: plant.id, // 強制使用 Step 2 的 ID
       company: plant.company,
       plantName: plant.plantName,
       lat: Number(data.lat) || 0,
@@ -80,13 +81,13 @@ export function Step3Init() {
       pdFixture: Number(data.pdFixture) || 0,
       pdStock: Number(data.pdStock) || 0,
       bi12m: Number(data.bi12m) || 0,
-    };
+    } as PlantData;
 
     setPlant(numericData);
 
     const plantId = plant.id;
 
-    // 1. 更新 Building Info，使用工廠編號作為 ID
+    // 1. 更新 Building Info，嚴格鎖定 ID
     const buildingRef = doc(db, 'building_info', plantId);
     setDocumentNonBlocking(buildingRef, {
       id: plantId,
