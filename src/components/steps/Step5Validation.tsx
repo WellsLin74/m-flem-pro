@@ -45,20 +45,48 @@ export function Step5Validation() {
 
   const generateSuggestions = useCallback(() => {
     if (!plant || !refinement) return {};
+    
     const fabFloorArea = plant.fabLength * plant.fabWidth;
     const cupFloorArea = plant.cupLength * plant.cupWidth;
-    const siteTotalArea = (fabFloorArea * (plant.fabAl + plant.fabBl)) + (cupFloorArea * (plant.cupAl + plant.cupBl));
-    const suggestions: Record<string, FinalRatio> = {};
-    const fabFloorsList = allFloors.filter(f => f.startsWith('FAB'));
+    
+    // 1. Calculate weighted distributions
+    const weights: Record<string, { bldg: number; fac: number; tool: number; fix: number; stock: number }> = {};
+    let totalBldgW = 0, totalFacW = 0, totalToolW = 0, totalFixW = 0;
+
     allFloors.forEach(f => {
       const isFab = f.startsWith('FAB');
-      const floorArea = isFab ? fabFloorArea : cupFloorArea;
+      const area = isFab ? fabFloorArea : cupFloorArea;
+      
+      // Building is distributed by area
+      const bldgW = area;
+      
+      // Facility is distributed by (Area * Facility Occupancy from P4)
+      const facOcc = isFab ? (refinement.floorData[f]?.fac || 0) : 1.0;
+      const facW = area * facOcc;
+      
+      // Tools is distributed by (Area * Cleanroom Occupancy from P4)
+      const crOcc = isFab ? (refinement.floorData[f]?.cr || 0) : 0;
+      const toolW = area * crOcc;
+
+      // Fixtures generally follow tools
+      const fixW = toolW;
+
+      weights[f] = { bldg: bldgW, fac: facW, tool: toolW, fix: fixW, stock: 0 };
+      totalBldgW += bldgW;
+      totalFacW += facW;
+      totalToolW += toolW;
+      totalFixW += fixW;
+    });
+
+    const suggestions: Record<string, FinalRatio> = {};
+    allFloors.forEach(f => {
+      const w = weights[f];
       suggestions[f] = {
-        bldg: siteTotalArea > 0 ? floorArea / siteTotalArea : 0,
-        fac: siteTotalArea > 0 ? floorArea / siteTotalArea : 0,
-        tool: isFab ? (1.0 / fabFloorsList.length) : 0,
-        fix: isFab ? (1.0 / fabFloorsList.length) : 0,
-        stock: f === 'FAB-L10' ? 1.0 : 0.0
+        bldg: totalBldgW > 0 ? w.bldg / totalBldgW : 0,
+        fac: totalFacW > 0 ? w.fac / totalFacW : 0,
+        tool: totalToolW > 0 ? w.tool / totalToolW : 0,
+        fix: totalFixW > 0 ? w.fix / totalFixW : 0,
+        stock: f === 'FAB-L10' ? 1.0 : 0.0 // Default all stock to L10
       };
     });
     return suggestions;
@@ -210,7 +238,7 @@ export function Step5Validation() {
             <div className="ml-2">
               <AlertTitle className="font-black text-sm uppercase">System Guidance</AlertTitle>
               <AlertDescription className="text-xs font-bold opacity-90">
-                Blue rows indicate CUP facilities. Percentages must be entered as decimals.
+                Blue rows indicate CUP facilities. Percentages must be entered as decimals (e.g. 0.1234).
               </AlertDescription>
             </div>
           </Alert>
@@ -244,7 +272,7 @@ export function Step5Validation() {
                           type="number" step="0.0001"
                           value={localRatios[floor]?.[field as keyof FinalRatio] ?? 0}
                           onChange={(e) => handleUpdate(floor, field as keyof FinalRatio, e.target.value)}
-                          disabled={isReader || (field === 'fix' && floor.startsWith('CUP'))}
+                          disabled={isReader || (field === 'tool' && floor.startsWith('CUP'))}
                           className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
                         />
                       </TableCell>
