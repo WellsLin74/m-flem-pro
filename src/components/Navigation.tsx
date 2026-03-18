@@ -37,13 +37,16 @@ export function Navigation() {
 
   const handleLogout = () => {
     signOut(auth);
-    // Reset ALL store state on logout to prevent stale data hydration issues
+    // 重點：登出時必須徹底清除本地 Store 狀態，防止重新登入後發生 Hydration 衝突
     setUser(null);
     setPlant(null);
     setRefinement(null);
     setFinalRatios(null);
     setIsValidated(false);
     setStep(1);
+    
+    // 強制重整頁面以清除所有 React Context 殘留
+    window.location.reload();
   };
 
   return (

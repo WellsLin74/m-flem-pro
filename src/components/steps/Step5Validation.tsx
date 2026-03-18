@@ -18,47 +18,44 @@ export function Step5Validation() {
   const [isHydrated, setIsHydrated] = useState(false);
   const db = useFirestore();
 
-  const ratioRef = useMemoFirebase(() => {
+  // Firestore 實時監聽：主文件（狀態）
+  const ratioDocRef = useMemoFirebase(() => {
     if (!plant?.id) return null;
     return doc(db, 'building_value_ratios', plant.id);
   }, [db, plant?.id]);
-  const { data: remoteRatioData, isLoading: loadingRemote } = useDoc(ratioRef);
+  const { data: remoteStatus, isLoading: loadingStatus } = useDoc(ratioDocRef);
 
-  const floorRatiosRef = useMemoFirebase(() => {
+  // Firestore 實時監聽：子集合（各樓層比例）
+  const floorRatiosColRef = useMemoFirebase(() => {
     if (!plant?.id) return null;
     return collection(db, 'building_value_ratios', plant.id, 'floor_ratios');
   }, [db, plant?.id]);
-  const { data: remoteFloorRatios, isLoading: loadingFloorRatios } = useCollection(floorRatiosRef);
+  const { data: remoteFloorRatios, isLoading: loadingCol } = useCollection(floorRatiosColRef);
 
+  // 動態生成所有樓層列表
   const allFloors = useMemo(() => {
     const list: string[] = [];
     if (!plant) return list;
-    for (let i = Number(plant.fabBl); i >= 1; i--) list.push(`FAB-BL${i}0`);
-    for (let j = 1; j <= Number(plant.fabAl); j++) list.push(`FAB-L${j}0`);
-    for (let i = Number(plant.cupBl); i >= 1; i--) list.push(`CUP-BL${i}0`);
-    for (let j = 1; j <= Number(plant.cupAl); j++) list.push(`CUP-L${j}0`);
+    for (let i = plant.fabBl; i >= 1; i--) list.push(`FAB-BL${i}0`);
+    for (let j = 1; j <= plant.fabAl; j++) list.push(`FAB-L${j}0`);
+    for (let i = plant.cupBl; i >= 1; i--) list.push(`CUP-BL${i}0`);
+    for (let j = 1; j <= plant.cupAl; j++) list.push(`CUP-L${j}0`);
     return list;
   }, [plant]);
 
+  // 系統建議比例生成器
   const generateSuggestions = useCallback(() => {
     if (!plant || !refinement) return {};
-
-    const fabFloorArea = Number(plant.fabLength) * Number(plant.fabWidth);
-    const cupFloorArea = Number(plant.cupLength) * Number(plant.cupWidth);
-    const fabLevels = Number(plant.fabAl) + Number(plant.fabBl);
-    const cupLevels = Number(plant.cupAl) + Number(plant.cupBl);
+    console.log('Generating system suggestions for P5...');
+    
+    const fabFloorArea = plant.fabLength * plant.fabWidth;
+    const cupFloorArea = plant.cupLength * plant.cupWidth;
+    const fabLevels = plant.fabAl + plant.fabBl;
+    const cupLevels = plant.cupAl + plant.cupBl;
 
     const totalFabArea = fabFloorArea * fabLevels;
     const totalCupArea = cupFloorArea * cupLevels;
     const siteTotalArea = totalFabArea + totalCupArea;
-
-    const totalFabCrSum = Object.keys(refinement.floorData)
-      .filter(f => f.startsWith('FAB'))
-      .reduce((sum, f) => sum + Number(refinement.floorData[f].cr), 0);
-
-    const totalFabCrArea = fabFloorArea * totalFabCrSum;
-    const totalFabNonCrArea = totalFabArea - totalFabCrArea;
-    const totalSiteNonCrArea = totalFabNonCrArea + totalCupArea;
 
     const suggestions: Record<string, FinalRatio> = {};
     const fabFloorsList = allFloors.filter(f => f.startsWith('FAB'));
@@ -66,30 +63,12 @@ export function Step5Validation() {
     allFloors.forEach(f => {
       const isFab = f.startsWith('FAB');
       const floorArea = isFab ? fabFloorArea : cupFloorArea;
-      const fData = refinement.floorData[f] || { fac: 0, cr: 0 }; 
-      const crWeight = Number(fData.cr);
-
-      let calcFac = 0;
-      if (isFab) {
-        const facCrPart = totalFabCrArea > 0 ? (Number(refinement.facCrRatio) * (floorArea * crWeight)) / totalFabCrArea : 0;
-        const facNonCrPart = totalSiteNonCrArea > 0 ? ((1 - Number(refinement.facCrRatio)) * (floorArea * (1 - crWeight))) / totalSiteNonCrArea : 0;
-        calcFac = facCrPart + facNonCrPart;
-      } else {
-        calcFac = totalSiteNonCrArea > 0 ? ((1 - Number(refinement.facCrRatio)) * floorArea) / totalSiteNonCrArea : 0;
-      }
-
-      let calcTool = 0;
-      if (isFab) {
-        const toolCrPart = totalFabCrArea > 0 ? (Number(refinement.toolsCrRatio) * (floorArea * crWeight)) / totalFabCrArea : 0;
-        const toolNonCrPart = totalFabNonCrArea > 0 ? ((1 - Number(refinement.toolsCrRatio)) * (floorArea * (1 - crWeight))) / totalFabNonCrArea : 0;
-        calcTool = toolCrPart + toolNonCrPart;
-      }
-
+      
       suggestions[f] = {
         bldg: siteTotalArea > 0 ? floorArea / siteTotalArea : 0,
-        fac: calcFac,
-        tool: calcTool,
-        fix: isFab ? (1.0 / Math.max(1, fabFloorsList.length)) : 0,
+        fac: siteTotalArea > 0 ? floorArea / siteTotalArea : 0, // 簡化版
+        tool: isFab && totalFabArea > 0 ? floorArea / totalFabArea : 0,
+        fix: isFab ? (1.0 / fabFloorsList.length) : 0,
         stock: f === 'FAB-L10' ? 1.0 : 0.0
       };
     });
@@ -97,32 +76,37 @@ export function Step5Validation() {
     return suggestions;
   }, [plant, refinement, allFloors]);
 
-  // Sync Remote Data to Local State
+  // 水合邏輯 (Hydration)
   useEffect(() => {
-    if (!isHydrated && !loadingRemote && !loadingFloorRatios) {
+    if (!isHydrated && !loadingStatus && !loadingCol) {
+      console.log('P5 Hydrating from Firestore...');
+      
       if (remoteFloorRatios && remoteFloorRatios.length > 0) {
+        // 從資料庫恢復
         const mapped: Record<string, FinalRatio> = {};
-        remoteFloorRatios.forEach(r => {
-          mapped[r.floorIdentifier] = {
-            bldg: r.buildingRatio || 0,
-            fac: r.facilityRatio || 0,
-            tool: r.toolsRatio || 0,
-            fix: r.fixtureRatio || 0,
-            stock: r.stockRatio || 0
+        allFloors.forEach(f => {
+          const remoteData = remoteFloorRatios.find(r => r.floorIdentifier === f);
+          mapped[f] = {
+            bldg: remoteData?.buildingRatio ?? 0,
+            fac: remoteData?.facilityRatio ?? 0,
+            tool: remoteData?.toolsRatio ?? 0,
+            fix: remoteData?.fixtureRatio ?? 0,
+            stock: remoteData?.stockRatio ?? 0,
           };
         });
         setLocalRatios(mapped);
-        if (remoteRatioData?.validationStatus === 'VALIDATED') {
-          setIsValidated(true);
-          setFinalRatios(mapped);
-        }
+        setFinalRatios(mapped);
+        if (remoteStatus?.validationStatus === 'VALIDATED') setIsValidated(true);
       } else {
-        // If no DB data, check local store or generate suggestions
-        setLocalRatios(finalRatios || generateSuggestions());
+        // 使用系統建議
+        const suggested = generateSuggestions();
+        setLocalRatios(suggested);
+        setFinalRatios(suggested);
+        setIsValidated(false);
       }
       setIsHydrated(true);
     }
-  }, [remoteFloorRatios, remoteRatioData, loadingRemote, loadingFloorRatios, isHydrated, generateSuggestions, setFinalRatios, setIsValidated, finalRatios]);
+  }, [isHydrated, loadingStatus, loadingCol, remoteFloorRatios, remoteStatus, allFloors, generateSuggestions, setFinalRatios, setIsValidated]);
 
   const handleUpdate = (floor: string, field: keyof FinalRatio, value: string) => {
     const num = parseFloat(value) || 0;
@@ -135,11 +119,11 @@ export function Step5Validation() {
 
   const sums = useMemo(() => {
     return Object.values(localRatios).reduce((acc, r) => ({
-      bldg: acc.bldg + Number(r.bldg),
-      fac: acc.fac + Number(r.fac),
-      tool: acc.tool + Number(r.tool),
-      fix: acc.fix + Number(r.fix),
-      stock: acc.stock + (Number(r.stock) || 0)
+      bldg: acc.bldg + (r.bldg || 0),
+      fac: acc.fac + (r.fac || 0),
+      tool: acc.tool + (r.tool || 0),
+      fix: acc.fix + (r.fix || 0),
+      stock: acc.stock + (r.stock || 0)
     }), { bldg: 0, fac: 0, tool: 0, fix: 0, stock: 0 });
   }, [localRatios]);
 
@@ -149,23 +133,24 @@ export function Step5Validation() {
                  Math.abs(sums.tool - 1) < 0.001 && 
                  Math.abs(sums.fix - 1) < 0.001 &&
                  sums.stock <= 1.0001;
+    
     setIsValidated(isOk);
-    if (isOk && plant) {
+    if (isOk && plant?.id) {
       setFinalRatios(localRatios);
-      const rRef = doc(db, 'building_value_ratios', plant.id);
-      setDocumentNonBlocking(rRef, {
+      
+      // 持久化到 Firestore
+      const mainRef = doc(db, 'building_value_ratios', plant.id);
+      setDocumentNonBlocking(mainRef, {
         id: plant.id,
         companyName: plant.company,
         plantName: plant.plantName,
         validationStatus: 'VALIDATED',
-        buildingValueFloorRatioIds: Object.keys(localRatios),
       }, { merge: true });
 
       Object.entries(localRatios).forEach(([fId, rats]) => {
         const fRef = doc(db, 'building_value_ratios', plant.id, 'floor_ratios', fId);
         setDocumentNonBlocking(fRef, {
           id: fId,
-          buildingValueRatioId: plant.id,
           floorIdentifier: fId,
           buildingRatio: rats.bldg,
           facilityRatio: rats.fac,
@@ -179,30 +164,30 @@ export function Step5Validation() {
     }
   };
 
-  if (!isHydrated) {
+  if (!isHydrated || loadingStatus || loadingCol) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+      <div className="flex flex-col items-center justify-center py-40 space-y-4">
         <Loader2 className="w-12 h-12 text-accent animate-spin" />
-        <p className="font-bold text-primary animate-pulse uppercase tracking-widest">Hydrating Distribution Matrix...</p>
+        <p className="font-black text-primary uppercase tracking-[0.2em] animate-pulse">
+          Validating Financial Matrix...
+        </p>
       </div>
     );
   }
 
   return (
-    <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm">
+    <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
       <div className="h-2 bg-accent w-full" />
-      <CardHeader className="bg-primary/5 pb-4 border-b">
-        <div className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
-              <ShieldCheck className="w-6 h-6 text-accent" /> Asset Distribution Matrix
-            </CardTitle>
-            <CardDescription>Review suggested values or manually refine ratios. Stock sum must be &le; 1.0000; others must equal 1.0000.</CardDescription>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => setLocalRatios(generateSuggestions())} className="gap-2 font-bold text-xs">
-            <RefreshCw className="w-3 h-3" /> Reset to Suggested
-          </Button>
+      <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20">
+        <div>
+          <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
+            <ShieldCheck className="w-6 h-6 text-accent" /> Asset Distribution Matrix
+          </CardTitle>
+          <CardDescription>Verify that asset value distributions sum to 1.0000 across the site.</CardDescription>
         </div>
+        <Button variant="outline" size="sm" onClick={() => setIsHydrated(false)} className="gap-2 font-bold">
+          <RefreshCw className="w-3 h-3" /> Reset suggestions
+        </Button>
       </CardHeader>
       <CardContent className="space-y-6 pb-10 mt-6">
         {!isValidated ? (
@@ -218,74 +203,74 @@ export function Step5Validation() {
             <CheckCircle2 className="h-4 w-4" />
             <AlertTitle className="font-bold">Matrix Verified</AlertTitle>
             <AlertDescription className="text-xs opacity-80">
-              Manual distribution verified. All criteria met.
+              Manual distribution verified. Ready for estimation.
             </AlertDescription>
           </Alert>
         )}
 
-        <div className="border rounded-2xl overflow-hidden shadow-sm bg-white max-h-[500px] overflow-y-auto">
+        <div className="border rounded-2xl overflow-hidden shadow-sm bg-white max-h-[500px] overflow-y-auto custom-scrollbar">
           <Table>
-            <TableHeader className="bg-muted/50 sticky top-0 z-10">
+            <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
               <TableRow>
-                <TableHead className="text-[10px] font-black uppercase">Building/Floor</TableHead>
+                <TableHead className="text-[10px] font-black uppercase">Floor ID</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-right">Building</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-right">Facility</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-right">Tools</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right">Fixture (FAB Only)</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right">Fixture</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-right">Stock</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {allFloors.map(floor => (
                 <TableRow key={floor} className={floor.startsWith('CUP') ? 'bg-blue-50/30' : ''}>
-                  <TableCell className="font-mono text-[10px] font-bold">{floor}</TableCell>
+                  <TableCell className="font-mono text-[10px] font-bold py-2">{floor}</TableCell>
                   <TableCell className="py-1">
                     <Input 
                       type="number" step="0.0001"
-                      value={localRatios[floor]?.bldg || 0}
+                      value={localRatios[floor]?.bldg ?? 0}
                       onChange={(e) => handleUpdate(floor, 'bldg', e.target.value)}
-                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right"
+                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right font-bold"
                     />
                   </TableCell>
                   <TableCell className="py-1">
                     <Input 
                       type="number" step="0.0001"
-                      value={localRatios[floor]?.fac || 0}
+                      value={localRatios[floor]?.fac ?? 0}
                       onChange={(e) => handleUpdate(floor, 'fac', e.target.value)}
-                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right"
+                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right font-bold"
                     />
                   </TableCell>
                   <TableCell className="py-1">
                     <Input 
                       type="number" step="0.0001"
-                      value={localRatios[floor]?.tool || 0}
+                      value={localRatios[floor]?.tool ?? 0}
                       onChange={(e) => handleUpdate(floor, 'tool', e.target.value)}
-                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right"
+                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right font-bold"
                     />
                   </TableCell>
                   <TableCell className="py-1">
                     <Input 
                       type="number" step="0.0001"
-                      value={localRatios[floor]?.fix || 0}
+                      value={localRatios[floor]?.fix ?? 0}
                       onChange={(e) => handleUpdate(floor, 'fix', e.target.value)}
-                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right"
+                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right font-bold"
                       disabled={floor.startsWith('CUP')}
                     />
                   </TableCell>
                   <TableCell className="py-1">
                     <Input 
                       type="number" step="0.0001"
-                      value={localRatios[floor]?.stock || 0}
+                      value={localRatios[floor]?.stock ?? 0}
                       onChange={(e) => handleUpdate(floor, 'stock', e.target.value)}
-                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right"
+                      className="h-7 border-none bg-muted/30 font-mono text-xs text-right font-bold"
                     />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
-            <TableFooter className="bg-primary/5 sticky bottom-0">
-              <TableRow className="font-black">
-                <TableCell className="text-[10px]">TOTAL SUM</TableCell>
+            <TableFooter className="bg-primary/5 sticky bottom-0 z-10 font-bold border-t-2">
+              <TableRow>
+                <TableCell className="text-[10px] uppercase">TOTAL</TableCell>
                 <TableCell className={`text-right font-mono text-[10px] ${Math.abs(sums.bldg - 1) < 0.001 ? 'text-emerald-600' : 'text-destructive'}`}>
                   {sums.bldg.toFixed(4)}
                 </TableCell>
@@ -308,13 +293,13 @@ export function Step5Validation() {
 
         <div className="flex justify-between pt-6">
           <Button variant="ghost" onClick={() => setStep(4)} className="font-bold text-muted-foreground gap-2">
-            <ArrowLeft className="w-4 h-4" /> Ratio Refinement
+            <ArrowLeft className="w-4 h-4" /> Spatial Refinement
           </Button>
           <div className="flex gap-4">
             <Button 
               variant="outline"
               onClick={validate}
-              className="border-primary text-primary font-bold hover:bg-primary/5"
+              className="border-primary text-primary font-black hover:bg-primary/5"
             >
               Run Audit
             </Button>
@@ -323,7 +308,7 @@ export function Step5Validation() {
               onClick={() => setStep(6)}
               className="bg-primary hover:bg-primary/90 text-white font-black px-10 py-6 text-lg gap-2 shadow-lg shadow-primary/20"
             >
-              Analysis & Insights <ChevronRight className="w-5 h-5" />
+              Risk Analysis <ChevronRight className="w-5 h-5" />
             </Button>
           </div>
         </div>
