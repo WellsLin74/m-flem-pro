@@ -44,60 +44,71 @@ export function Step5Validation() {
   }, [plant]);
 
   /**
-   * 精確建議權重公式:
-   * Weight(f) = Area(f) * P4_OccupancyRatio(f)
-   * Ratio(f) = Weight(f) / Total_Weight_Of_Asset_Type
-   * 
-   * 此公式確保全廠 Facility 價值的分配嚴格對應 P4 設定的物理空間比例。
+   * 使用使用者提供的精確公式生成建議值:
+   * 1. FAB區CR總面積 = (FAB單一樓層面積) * (P4之FAB Vertical Distribution Matrix之Cleanroom %總和)
+   * 2. FAB區non-CR總面積 = (FAB總面積) - (FAB區CR總面積)
+   * 3. 各樓層Facility% = (P4之Fac-CR Ratio) * (該層面積 * 該層CR%) / (FAB區CR總面積) 
+   *                    + (1 - P4之Fac-CR Ratio) * (該層面積 * 該層Fac%) / (FAB區non-CR總面積 + CUP總面積)
    */
   const generateSuggestions = useCallback(() => {
     if (!plant || !refinement) return {};
     
     const fabFloorArea = plant.fabLength * plant.fabWidth;
     const cupFloorArea = plant.cupLength * plant.cupWidth;
+    const fabTotalArea = fabFloorArea * (plant.fabAl + plant.fabBl);
+    const cupTotalArea = cupFloorArea * (plant.cupAl + plant.cupBl);
     
-    const weights: Record<string, { bldg: number; fac: number; tool: number; fix: number; stock: number }> = {};
-    let totalBldgW = 0, totalFacW = 0, totalToolW = 0, totalFixW = 0;
+    // 計算 FAB 區 CR 總比例和 (Sum of Cleanroom %)
+    let sumCrOcc = 0;
+    allFloors.forEach(f => {
+      if (f.startsWith('FAB')) {
+        sumCrOcc += refinement.floorData[f]?.cr ?? 0;
+      }
+    });
+
+    const fabCrTotalArea = fabFloorArea * sumCrOcc;
+    const fabNonCrTotalArea = fabTotalArea - fabCrTotalArea;
+    const facCrRatio = refinement.facCrRatio; // P4之Facility Cleanroom Ratio
+
+    const suggestions: Record<string, FinalRatio> = {};
+    
+    // 用於 Tools 的建議 (通常 Tools 跟隨 CR 面積分佈)
+    const totalToolsWeight = fabCrTotalArea;
+
+    // 用於 Building 的建議 (按面積分佈)
+    const totalBuildingArea = fabTotalArea + cupTotalArea;
 
     allFloors.forEach(f => {
       const isFab = f.startsWith('FAB');
       const area = isFab ? fabFloorArea : cupFloorArea;
-      
-      // 1. Building Weight: 直接基於樓板面積
-      const bldgW = area;
-      
-      // 2. Facility Weight: 基於 (面積 * P4 設施空間佔用率)
-      // CUP 預設 100% 設施佔用率
+      const crOcc = isFab ? (refinement.floorData[f]?.cr ?? 0) : 0;
       const facOcc = isFab ? (refinement.floorData[f]?.fac ?? 0) : 1.0;
-      const facW = area * facOcc;
-      
-      // 3. Tools Weight: 基於 (面積 * P4 潔淨室空間佔用率)
-      // CUP 預設 0% 潔淨室工具
-      const crOcc = isFab ? (refinement.floorData[f]?.cr ?? 0) : 0.0;
-      const toolW = area * crOcc;
 
-      // Fixtures 與 Tools 空間屬性相近，採用相同權重分佈
-      const fixW = toolW;
+      // 1. Facility % 計算 (依使用者公式)
+      const ratioA = fabCrTotalArea > 0 ? (facCrRatio * area * crOcc) / fabCrTotalArea : 0;
+      const ratioB = (fabNonCrTotalArea + cupTotalArea) > 0 
+        ? ((1 - facCrRatio) * area * facOcc) / (fabNonCrTotalArea + cupTotalArea) 
+        : 0;
+      const finalFacRatio = ratioA + ratioB;
 
-      weights[f] = { bldg: bldgW, fac: facW, tool: toolW, fix: fixW, stock: 0 };
-      
-      totalBldgW += bldgW;
-      totalFacW += facW;
-      totalToolW += toolW;
-      totalFixW += fixW;
-    });
+      // 2. Building % 計算 (面積比例)
+      const finalBldgRatio = totalBuildingArea > 0 ? area / totalBuildingArea : 0;
 
-    const suggestions: Record<string, FinalRatio> = {};
-    allFloors.forEach(f => {
-      const w = weights[f];
+      // 3. Tools % 計算 (CR 空間比例)
+      const finalToolRatio = totalToolsWeight > 0 ? (area * crOcc) / totalToolsWeight : 0;
+
+      // 4. Fixture % 計算 (跟隨 Tools)
+      const finalFixRatio = finalToolRatio;
+
       suggestions[f] = {
-        bldg: totalBldgW > 0 ? w.bldg / totalBldgW : 0,
-        fac: totalFacW > 0 ? w.fac / totalFacW : 0,
-        tool: totalToolW > 0 ? w.tool / totalToolW : 0,
-        fix: totalFixW > 0 ? w.fix / totalFixW : 0,
-        stock: f === 'FAB-L10' ? 1.0 : 0.0 // Stock 通常預設在 1 樓
+        bldg: finalBldgRatio,
+        fac: finalFacRatio,
+        tool: finalToolRatio,
+        fix: finalFixRatio,
+        stock: f === 'FAB-L10' ? 1.0 : 0.0 // Stock 預設 1 樓
       };
     });
+
     return suggestions;
   }, [plant, refinement, allFloors]);
 
@@ -150,6 +161,7 @@ export function Step5Validation() {
 
   const validate = () => {
     if (isReader) return;
+    // 容許 0.001 浮點數誤差
     const isOk = Math.abs(sums.bldg - 1) < 0.001 && 
                  Math.abs(sums.fac - 1) < 0.001 && 
                  Math.abs(sums.tool - 1) < 0.001 && 
@@ -245,9 +257,9 @@ export function Step5Validation() {
           <Alert className="bg-primary/5 text-primary border-none shadow-md">
             <Info className="h-5 w-5 text-accent" />
             <div className="ml-2">
-              <AlertTitle className="font-black text-sm uppercase">System Guidance</AlertTitle>
-              <AlertDescription className="text-xs font-bold opacity-90">
-                Blue rows indicate CUP facilities. Percentages must be entered as decimals (e.g. 0.1234).
+              <AlertTitle className="font-black text-sm uppercase">Formula Check</AlertTitle>
+              <AlertDescription className="text-xs font-bold opacity-90 leading-tight">
+                Fac% calculates using weighted distribution between CR and Non-CR areas as defined in P4.
               </AlertDescription>
             </div>
           </Alert>

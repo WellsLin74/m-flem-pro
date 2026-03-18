@@ -71,7 +71,7 @@ export function Step4Refinement() {
     if (isReader) return;
     let num = parseFloat(value) || 0;
     
-    // 限制在 0 ~ 1 之間
+    // 嚴格限制在 0 ~ 1 之間
     if (num < 0) num = 0;
     if (num > 1) num = 1;
     
@@ -89,7 +89,7 @@ export function Step4Refinement() {
     for (const floor of fabFloors) {
       const data = floorData[floor];
       const sum = (data?.fac || 0) + (data?.cr || 0);
-      // 容許極小浮點數誤差
+      // 容許極小浮點數誤差 (0.0001)
       if (Math.abs(sum - 1) > 0.0001) {
         return `Validation Failed: Floor ${floor} total occupancy must be exactly 1.0 (Current: ${sum.toFixed(4)}). Please balance Facility and Cleanroom ratios.`;
       }
@@ -197,7 +197,7 @@ export function Step4Refinement() {
             </p>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Global Facility Ratio</Label>
+                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Global Fac-CR Ratio (0-1)</Label>
                 <Input 
                   type="number" step="0.01" 
                   value={facCrRatio} 
@@ -208,7 +208,7 @@ export function Step4Refinement() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Global Tools Ratio</Label>
+                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Global Tools Ratio (0-1)</Label>
                 <Input 
                   type="number" step="0.01" 
                   value={toolsCrRatio} 
