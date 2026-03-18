@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { MapPin, LayoutDashboard, Coins, ChevronRight, ArrowLeft, Maximize, Ruler } from 'lucide-react';
+import { MapPin, LayoutDashboard, Coins, ChevronRight, ArrowLeft, Maximize, Ruler, Square } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useMemo, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
@@ -36,9 +36,19 @@ export function Step3Init() {
     const cAl = Number(values.cupAl) || 0;
     const cBl = Number(values.cupBl) || 0;
 
-    const fabTotal = (fL * fW) * (fAl + fBl);
-    const cupTotal = (cL * cW) * (cAl + cBl);
-    return { plantTotalArea: fabTotal + cupTotal };
+    const fabFloorArea = fL * fW;
+    const fabTotalArea = fabFloorArea * (fAl + fBl);
+    
+    const cupFloorArea = cL * cW;
+    const cupTotalArea = cupFloorArea * (cAl + cBl);
+
+    return { 
+      fabFloorArea,
+      fabTotalArea,
+      cupFloorArea,
+      cupTotalArea,
+      plantTotalArea: fabTotalArea + cupTotalArea 
+    };
   }, [values]);
 
   const onSubmit = (data: Partial<PlantData>) => {
@@ -66,7 +76,6 @@ export function Step3Init() {
       bi12m: Number(data.bi12m) || 0,
     };
 
-    // Update Local State
     setPlant(numericData);
 
     // Persist to Consolidated 'plants' collection
@@ -148,6 +157,16 @@ export function Step3Init() {
                   <Input type="number" {...register('fabBl')} placeholder="2" className="bg-white border-none font-mono font-bold" />
                 </div>
               </div>
+              <div className="pt-2 space-y-1">
+                <div className="flex justify-between text-[10px] font-bold uppercase text-primary/60">
+                  <span>Single Floor Area:</span>
+                  <span className="font-mono">{calculations.fabFloorArea.toLocaleString()} m²</span>
+                </div>
+                <div className="flex justify-between text-[11px] font-black uppercase text-primary">
+                  <span>FAB Total Area:</span>
+                  <span className="font-mono">{calculations.fabTotalArea.toLocaleString()} m²</span>
+                </div>
+              </div>
             </div>
 
             {/* CUP Specs Section */}
@@ -172,6 +191,16 @@ export function Step3Init() {
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Basements</Label>
                   <Input type="number" {...register('cupBl')} placeholder="1" className="bg-white border-none font-mono font-bold" />
+                </div>
+              </div>
+              <div className="pt-2 space-y-1">
+                <div className="flex justify-between text-[10px] font-bold uppercase text-primary/60">
+                  <span>Single Floor Area:</span>
+                  <span className="font-mono">{calculations.cupFloorArea.toLocaleString()} m²</span>
+                </div>
+                <div className="flex justify-between text-[11px] font-black uppercase text-primary">
+                  <span>CUP Total Area:</span>
+                  <span className="font-mono">{calculations.cupTotalArea.toLocaleString()} m²</span>
                 </div>
               </div>
             </div>
@@ -215,8 +244,8 @@ export function Step3Init() {
           {/* Area Summary */}
           <div className="p-4 rounded-xl bg-primary text-primary-foreground flex justify-between items-center shadow-lg">
             <div className="flex items-center gap-2">
-              <Ruler className="w-4 h-4" />
-              <span className="text-xs font-bold uppercase tracking-widest">Total Estimated Construction Area:</span>
+              <Square className="w-4 h-4" />
+              <span className="text-xs font-bold uppercase tracking-widest">Site-wide Total Estimated Construction Area:</span>
             </div>
             <span className="text-xl font-black font-mono tracking-tighter">{calculations.plantTotalArea.toLocaleString()} m²</span>
           </div>
