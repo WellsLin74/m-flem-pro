@@ -45,50 +45,70 @@ export function Step2Config() {
     }
   }, [assignedCompany]);
 
+  // Sync local state with global plant ID if already selected
+  useEffect(() => {
+    if (plant?.id && existingPlants) {
+      const isExisting = existingPlants.some(p => p.id === plant.id);
+      if (isExisting) {
+        setSelectedPlantId(plant.id);
+        setIsNewPlant(false);
+      }
+    }
+  }, [plant?.id, existingPlants]);
+
   const handleNext = () => {
+    // 確定工廠名稱
     const finalPlantName = isNewPlant ? newPlantName : (existingPlants?.find(p => p.id === selectedPlantId)?.plantName || '');
     if (!finalPlantName || !companyName) return;
     
-    // Generate or retrieve the plant ID
+    // 生成唯一的工廠編號 (ID)
     const buildingInfoId = isNewPlant 
       ? `${companyName.replace(/\s+/g, '_')}-${finalPlantName.replace(/\s+/g, '_')}`
       : selectedPlantId;
 
-    // If it's an existing plant, we pre-fill some data if available
-    const existingData = existingPlants?.find(p => p.id === selectedPlantId);
+    if (!buildingInfoId) return;
 
-    // CRITICAL: If switching to a different plant, clear previous analysis data to prevent collisions
+    // CRITICAL: 如果切換工廠，必須清除舊有的分析狀態以防交叉污染
     if (plant?.id !== buildingInfoId) {
       setRefinement(null);
       setFinalRatios(null);
       setIsValidated(false);
     }
 
+    const existingData = existingPlants?.find(p => p.id === buildingInfoId);
+
+    // 構建廠區數據，優先使用資料庫中的現有數據
     const plantData: any = {
       id: buildingInfoId,
       company: companyName,
       plantName: finalPlantName,
-      lat: existingData?.latitude || plant?.lat || 24.774,
-      lon: existingData?.longitude || plant?.lon || 121.013,
-      fabAl: existingData?.fabAboveLevel || plant?.fabAl || 4,
-      fabBl: existingData?.fabBelowLevel || plant?.fabBl || 2,
-      cupAl: existingData?.cupAboveLevel || plant?.cupAl || 2,
-      cupBl: existingData?.cupBelowLevel || plant?.cupBl || 1,
-      fabLength: plant?.fabLength || 200,
-      fabWidth: plant?.fabWidth || 150,
-      cupLength: plant?.cupLength || 100,
-      cupWidth: plant?.cupWidth || 80,
-      pdBuilding: plant?.pdBuilding || 500,
-      pdFacility: plant?.pdFacility || 200,
-      pdTools: plant?.pdTools || 1500,
-      pdFixture: plant?.pdFixture || 50,
-      pdStock: plant?.pdStock || 300,
-      bi12m: plant?.bi12m || 1000,
+      lat: existingData?.latitude ?? 24.774,
+      lon: existingData?.longitude ?? 121.013,
+      fabAl: existingData?.fabAboveLevel ?? 4,
+      fabBl: existingData?.fabBelowLevel ?? 2,
+      cupAl: existingData?.cupAboveLevel ?? 2,
+      cupBl: existingData?.cupBelowLevel ?? 1,
+      // 如果是全新廠區且無歷史數據，則賦予預設值
+      fabLength: 200,
+      fabWidth: 150,
+      cupLength: 100,
+      cupWidth: 80,
+      pdBuilding: 500,
+      pdFacility: 200,
+      pdTools: 1500,
+      pdFixture: 50,
+      pdStock: 300,
+      bi12m: 1000,
     };
+
+    // 如果切換回來的廠區在 store 中已經有值，則保留 store 的值 (除了 ID 相關)
+    if (plant?.id === buildingInfoId) {
+      Object.assign(plantData, plant);
+    }
 
     setPlant(plantData);
 
-    // Persist to Firestore (BuildingInfo) using the ID as the document key
+    // 持久化到 Firestore
     const buildingRef = doc(db, 'building_info', buildingInfoId);
     setDocumentNonBlocking(buildingRef, {
       id: buildingInfoId,
@@ -180,7 +200,7 @@ export function Step2Config() {
                     id="new-plant" 
                     value={newPlantName}
                     onChange={(e) => setNewPlantName(e.target.value)}
-                    placeholder="e.g. Fab-12A Phase 2"
+                    placeholder="e.g. Fab-14P1"
                     className="bg-accent/5 border-accent/20 border font-bold text-primary"
                   />
                 </div>
