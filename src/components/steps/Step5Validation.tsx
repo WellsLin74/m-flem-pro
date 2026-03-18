@@ -43,6 +43,11 @@ export function Step5Validation() {
     return list;
   }, [plant]);
 
+  /**
+   * 精確建議權重公式:
+   * Weight(f) = Area(f) * P4_OccupancyRatio(f)
+   * Ratio(f) = Weight(f) / Total_Weight_Of_Asset_Type
+   */
   const generateSuggestions = useCallback(() => {
     if (!plant || !refinement) return {};
     
@@ -56,23 +61,24 @@ export function Step5Validation() {
       const isFab = f.startsWith('FAB');
       const area = isFab ? fabFloorArea : cupFloorArea;
       
-      // 1. Building Weight: Area based
+      // 1. Building Weight: 直接基於樓板面積
       const bldgW = area;
       
-      // 2. Facility Weight: Area * Facility Occupancy Ratio (from P4)
-      // For CUP, we assume 100% facility occupancy if not specified.
+      // 2. Facility Weight: 基於 (面積 * P4 設施空間佔用率)
+      // CUP 預設 100% 設施佔用率
       const facOcc = isFab ? (refinement.floorData[f]?.fac ?? 0) : 1.0;
       const facW = area * facOcc;
       
-      // 3. Tools Weight: Area * Cleanroom Occupancy Ratio (from P4)
-      // CUP floors generally have 0 cleanroom tools.
+      // 3. Tools Weight: 基於 (面積 * P4 潔淨室空間佔用率)
+      // CUP 預設 0% 潔淨室工具
       const crOcc = isFab ? (refinement.floorData[f]?.cr ?? 0) : 0.0;
       const toolW = area * crOcc;
 
-      // Fixtures/Tools follow the same spatial weight
+      // Fixtures 與 Tools 空間屬性相近，採用相同權重分佈
       const fixW = toolW;
 
       weights[f] = { bldg: bldgW, fac: facW, tool: toolW, fix: fixW, stock: 0 };
+      
       totalBldgW += bldgW;
       totalFacW += facW;
       totalToolW += toolW;
@@ -87,7 +93,7 @@ export function Step5Validation() {
         fac: totalFacW > 0 ? w.fac / totalFacW : 0,
         tool: totalToolW > 0 ? w.tool / totalToolW : 0,
         fix: totalFixW > 0 ? w.fix / totalFixW : 0,
-        stock: f === 'FAB-L10' ? 1.0 : 0.0 
+        stock: f === 'FAB-L10' ? 1.0 : 0.0 // Stock 通常預設在 1 樓
       };
     });
     return suggestions;
@@ -275,6 +281,7 @@ export function Step5Validation() {
                           onChange={(e) => handleUpdate(floor, field as keyof FinalRatio, e.target.value)}
                           disabled={isReader || (field === 'tool' && floor.startsWith('CUP'))}
                           className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
+                          suppressHydrationWarning
                         />
                       </TableCell>
                     ))}

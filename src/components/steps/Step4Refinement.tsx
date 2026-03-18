@@ -70,6 +70,8 @@ export function Step4Refinement() {
   const handleUpdate = (floor: string, type: 'fac' | 'cr', value: string) => {
     if (isReader) return;
     let num = parseFloat(value) || 0;
+    
+    // 限制在 0 ~ 1 之間
     if (num < 0) num = 0;
     if (num > 1) num = 1;
     
@@ -84,8 +86,9 @@ export function Step4Refinement() {
     for (const floor of fabFloors) {
       const data = floorData[floor];
       const sum = (data?.fac || 0) + (data?.cr || 0);
-      if (Math.abs(sum - 1) > 0.001) {
-        return `Validation Failed: Floor ${floor} does not sum to 1.0 (Current: ${sum.toFixed(4)}). Each floor's spatial occupancy must be fully allocated.`;
+      // 容許極小誤差
+      if (Math.abs(sum - 1) > 0.0001) {
+        return `Validation Failed: Floor ${floor} total occupancy must be exactly 1.0 (Current: ${sum.toFixed(4)}). Please balance Facility and Cleanroom ratios.`;
       }
     }
     return null;
@@ -198,6 +201,7 @@ export function Step4Refinement() {
                   onChange={(e) => setFacCrRatio(parseFloat(e.target.value) || 0)}
                   disabled={isReader}
                   className="bg-white border-none font-mono font-bold"
+                  suppressHydrationWarning
                 />
               </div>
               <div className="space-y-2">
@@ -208,6 +212,7 @@ export function Step4Refinement() {
                   onChange={(e) => setToolsCrRatio(parseFloat(e.target.value) || 0)}
                   disabled={isReader}
                   className="bg-white border-none font-mono font-bold"
+                  suppressHydrationWarning
                 />
               </div>
             </div>
@@ -230,7 +235,7 @@ export function Step4Refinement() {
                 <TableBody>
                   {fabFloors.map(floor => {
                     const rowSum = (floorData[floor]?.fac ?? 0) + (floorData[floor]?.cr ?? 0);
-                    const isInvalid = Math.abs(rowSum - 1) > 0.001;
+                    const isInvalid = Math.abs(rowSum - 1) > 0.0001;
                     return (
                       <TableRow key={floor} className={`hover:bg-accent/5 transition-colors ${isInvalid ? 'bg-destructive/5' : ''}`}>
                         <TableCell className="py-3 px-6">
@@ -246,6 +251,7 @@ export function Step4Refinement() {
                             onChange={(e) => handleUpdate(floor, 'fac', e.target.value)}
                             disabled={isReader}
                             className="h-8 border-none bg-muted/30 font-mono text-xs text-right font-black focus-visible:bg-white"
+                            suppressHydrationWarning
                           />
                         </TableCell>
                         <TableCell className="py-2 px-4">
@@ -256,10 +262,11 @@ export function Step4Refinement() {
                             onChange={(e) => handleUpdate(floor, 'cr', e.target.value)}
                             disabled={isReader}
                             className="h-8 border-none bg-muted/30 font-mono text-xs text-right font-black focus-visible:bg-white"
+                            suppressHydrationWarning
                           />
                         </TableCell>
                         <TableCell className={`py-2 px-4 text-right font-mono text-xs font-black ${isInvalid ? 'text-destructive' : 'text-emerald-600'}`}>
-                          {rowSum.toFixed(2)}
+                          {rowSum.toFixed(4)}
                         </TableCell>
                       </TableRow>
                     );
