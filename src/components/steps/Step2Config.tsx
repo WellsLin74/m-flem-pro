@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Factory, ChevronRight, ArrowLeft, PlusCircle } from 'lucide-react';
+import { Building2, Factory, ChevronRight, ArrowLeft, PlusCircle, Shield } from 'lucide-react';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -24,12 +24,17 @@ export function Step2Config() {
   }, [db, firebaseUser?.uid]);
   const { data: userPerm } = useDoc(userPermRef);
 
+  const isAdmin = userPerm?.role === 'ADMIN';
   const assignedCompany = userPerm?.assignedCompany || '';
 
+  // Admins can see all plants, others only their company
   const plantsQuery = useMemoFirebase(() => {
+    if (!firebaseUser) return null;
+    if (isAdmin) return collection(db, 'plants');
     if (!assignedCompany) return null;
     return query(collection(db, 'plants'), where('companyName', '==', assignedCompany));
-  }, [db, assignedCompany]);
+  }, [db, assignedCompany, isAdmin, firebaseUser]);
+
   const { data: existingPlants, isLoading: loadingPlants } = useCollection(plantsQuery);
 
   const [companyName, setCompanyName] = useState('');
@@ -52,10 +57,13 @@ export function Step2Config() {
   }, [plant?.id, existingPlants]);
 
   const handleNext = () => {
-    const finalPlantName = isNewPlant ? newPlantName : (existingPlants?.find(p => p.id === selectedPlantId)?.plantName || '');
-    if (!finalPlantName || !companyName) return;
+    const selectedPlantData = existingPlants?.find(p => p.id === selectedPlantId);
+    const finalPlantName = isNewPlant ? newPlantName : (selectedPlantData?.plantName || '');
+    const finalCompanyName = isNewPlant ? companyName : (selectedPlantData?.companyName || companyName);
     
-    const safeCompany = companyName.trim().replace(/[^a-zA-Z0-9]/g, '_');
+    if (!finalPlantName || !finalCompanyName) return;
+    
+    const safeCompany = finalCompanyName.trim().replace(/[^a-zA-Z0-9]/g, '_');
     const safePlant = finalPlantName.trim().replace(/[^a-zA-Z0-9]/g, '_');
     const plantId = isNewPlant ? `${safeCompany}-${safePlant}` : selectedPlantId;
 
@@ -68,28 +76,26 @@ export function Step2Config() {
       setIsValidated(false);
     }
 
-    const existingData = existingPlants?.find(p => p.id === plantId);
-
     const plantData: any = {
       id: plantId,
-      company: companyName,
+      company: finalCompanyName,
       plantName: finalPlantName,
-      lat: existingData?.latitude ?? 24.774,
-      lon: existingData?.longitude ?? 121.013,
-      fabAl: existingData?.fabAboveLevel ?? 4,
-      fabBl: existingData?.fabBelowLevel ?? 2,
-      cupAl: existingData?.cupAboveLevel ?? 2,
-      cupBl: existingData?.cupBelowLevel ?? 1,
-      fabLength: existingData?.fabLength ?? 200,
-      fabWidth: existingData?.fabWidth ?? 150,
-      cupLength: existingData?.cupLength ?? 100,
-      cupWidth: existingData?.cupWidth ?? 80,
-      pdBuilding: existingData?.buildingValue ?? 500,
-      pdFacility: existingData?.facilityValue ?? 200,
-      pdTools: existingData?.toolsValue ?? 1500,
-      pdFixture: existingData?.fixtureValue ?? 50,
-      pdStock: existingData?.stockValue ?? 300,
-      bi12m: existingData?.bi12mValue ?? 1000,
+      lat: selectedPlantData?.latitude ?? 24.774,
+      lon: selectedPlantData?.longitude ?? 121.013,
+      fabAl: selectedPlantData?.fabAboveLevel ?? 4,
+      fabBl: selectedPlantData?.fabBelowLevel ?? 2,
+      cupAl: selectedPlantData?.cupAboveLevel ?? 2,
+      cupBl: selectedPlantData?.cupBelowLevel ?? 1,
+      fabLength: selectedPlantData?.fabLength ?? 200,
+      fabWidth: selectedPlantData?.fabWidth ?? 150,
+      cupLength: selectedPlantData?.cupLength ?? 100,
+      cupWidth: selectedPlantData?.cupWidth ?? 80,
+      pdBuilding: selectedPlantData?.buildingValue ?? 500,
+      pdFacility: selectedPlantData?.facilityValue ?? 200,
+      pdTools: selectedPlantData?.toolsValue ?? 1500,
+      pdFixture: selectedPlantData?.fixtureValue ?? 50,
+      pdStock: selectedPlantData?.stockValue ?? 300,
+      bi12m: selectedPlantData?.bi12mValue ?? 1000,
     };
 
     setPlant(plantData);
@@ -97,7 +103,7 @@ export function Step2Config() {
     const plantRef = doc(db, 'plants', plantId);
     setDocumentNonBlocking(plantRef, {
       id: plantId,
-      companyName,
+      companyName: finalCompanyName,
       plantName: finalPlantName,
       latitude: plantData.lat,
       longitude: plantData.lon,
@@ -122,8 +128,12 @@ export function Step2Config() {
     <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
       <div className="h-2 bg-accent w-full" />
       <CardHeader>
-        <CardTitle className="font-headline font-black text-2xl text-primary">Organizational Identity</CardTitle>
-        <CardDescription>Define or select the scope of this flood loss assessment.</CardDescription>
+        <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
+          Organizational Identity {isAdmin && <Shield className="w-5 h-5 text-accent animate-pulse" />}
+        </CardTitle>
+        <CardDescription>
+          {isAdmin ? 'Administrative access active. Select from any authorized company.' : 'Define or select the scope of this flood loss assessment.'}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8 pb-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -137,9 +147,10 @@ export function Step2Config() {
               <Input 
                 id="company" 
                 value={companyName}
-                readOnly
-                placeholder="Loading authorization..."
-                className="bg-muted/30 border-none font-bold text-primary cursor-not-allowed"
+                onChange={(e) => isAdmin && setCompanyName(e.target.value)}
+                readOnly={!isAdmin}
+                placeholder={loadingPlants ? "Scanning database..." : "Enter Organization Name"}
+                className={`border-none font-bold text-primary ${isAdmin ? 'bg-accent/5 focus-visible:ring-accent' : 'bg-muted/30 cursor-not-allowed'}`}
               />
             </div>
           </div>
@@ -170,7 +181,9 @@ export function Step2Config() {
                   </SelectTrigger>
                   <SelectContent>
                     {existingPlants?.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.plantName}</SelectItem>
+                      <SelectItem key={p.id} value={p.id}>
+                        {isAdmin ? `[${p.companyName}] ${p.plantName}` : p.plantName}
+                      </SelectItem>
                     ))}
                     <SelectItem value="NEW" className="text-accent font-bold">
                       <div className="flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Add New Plant...</div>

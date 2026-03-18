@@ -5,30 +5,35 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     
-    // 取得當前使用者的權限資料
+    // Improved user data retrieval with default fallback
     function getUserData() {
       let path = /databases/$(database)/documents/user_permissions/$(request.auth.uid);
-      return exists(path) ? get(path).data : {};
+      return exists(path) ? get(path).data : { "role": "READER", "assignedCompany": "" };
     }
 
-    // 檢查使用者是否有權限存取該公司的數據
+    // Role-based check
+    function isAdmin() {
+      return isSignedIn() && getUserData().role == 'ADMIN';
+    }
+
+    // Check company access or admin override
     function hasCompanyAccess(companyName) {
       if (!isSignedIn()) return false;
       let userData = getUserData();
       return (
         userData.role == 'ADMIN' || 
         userData.assignedCompany == companyName ||
-        request.auth.token.assignedCompany == companyName
+        (request.auth.token != null && request.auth.token.assignedCompany == companyName)
       );
     }
 
     match /user_permissions/{userId} {
-      allow get, create, update, delete: if isOwner(userId);
+      allow get: if isSignedIn();
+      allow create, update, delete: if isOwner(userId) || isAdmin();
     }
 
     match /plants/{plantId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get, list: if isSignedIn();
       allow create, update, delete: if hasCompanyAccess(request.resource.data.companyName || resource.data.companyName);
     }
 
@@ -38,7 +43,7 @@ service cloud.firestore {
       
       match /floor_ratios/{fid} { 
         allow read: if isSignedIn();
-        allow write: if isSignedIn(); // 簡化子集合規則以配合非同步更新
+        allow write: if isSignedIn();
       }
     }
 
