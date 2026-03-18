@@ -24,9 +24,8 @@ export function Step2Config() {
   const { data: userPerm, isLoading: loadingPerm } = useDoc(userPermRef);
 
   const isAdmin = userPerm?.role === 'ADMIN' || firebaseUser?.email === 'admin@marsh.com';
-  const assignedCompany = userPerm?.assignedCompany || '';
+  const assignedCompany = userPerm?.assignedCompany?.trim() || '';
 
-  // Data fetching: ADMIN sees everything, others see only their company
   const plantsQuery = useMemoFirebase(() => {
     if (!firebaseUser || loadingPerm) return null;
     if (isAdmin) return collection(db, 'plants');
@@ -41,26 +40,23 @@ export function Step2Config() {
   const [newPlantName, setNewPlantName] = useState('');
   const [isNewPlant, setIsNewPlant] = useState(false);
 
-  // Extract unique companies from the plants collection
   const availableCompanies = useMemo(() => {
     if (!allAvailablePlants) return [];
     if (!isAdmin) return [assignedCompany].filter(Boolean);
-    const companies = Array.from(new Set(allAvailablePlants.map(p => p.companyName)));
+    const companies = Array.from(new Set(allAvailablePlants.map(p => p.companyName?.trim())));
     return companies.sort();
   }, [allAvailablePlants, isAdmin, assignedCompany]);
 
-  // Filter plants based on the SELECTED companyName
   const filteredPlants = useMemo(() => {
     if (!allAvailablePlants) return [];
     if (!companyName) return [];
-    return allAvailablePlants.filter(p => p.companyName === companyName);
+    return allAvailablePlants.filter(p => p.companyName?.trim() === companyName.trim());
   }, [allAvailablePlants, companyName]);
 
   useEffect(() => {
     if (assignedCompany && !companyName) setCompanyName(assignedCompany);
   }, [assignedCompany, companyName]);
 
-  // If company changes, reset selected plant
   const handleCompanyChange = (val: string) => {
     setCompanyName(val);
     setSelectedPlantId('');
@@ -69,13 +65,13 @@ export function Step2Config() {
 
   const handleNext = () => {
     const selectedPlantData = allAvailablePlants?.find(p => p.id === selectedPlantId);
-    const finalPlantName = isNewPlant ? newPlantName : (selectedPlantData?.plantName || '');
-    const finalCompanyName = isNewPlant ? companyName : (selectedPlantData?.companyName || companyName);
+    const finalPlantName = (isNewPlant ? newPlantName : (selectedPlantData?.plantName || '')).trim();
+    const finalCompanyName = (isNewPlant ? companyName : (selectedPlantData?.companyName || companyName)).trim();
     
     if (!finalPlantName || !finalCompanyName) return;
     
-    const safeCompany = finalCompanyName.trim().replace(/\s+/g, '_');
-    const safePlant = finalPlantName.trim().replace(/\s+/g, '_');
+    const safeCompany = finalCompanyName.replace(/\s+/g, '_');
+    const safePlant = finalPlantName.replace(/\s+/g, '_');
     const plantId = isNewPlant ? `${safeCompany}-${safePlant}` : selectedPlantId;
 
     if (!plantId) return;

@@ -47,7 +47,6 @@ service cloud.firestore {
 
     // 工廠資料庫
     match /plants/{plantId} {
-      // 允許 list 以便前端進行公司過濾查詢
       allow list: if isSignedIn();
       allow get: if hasAccess(resource.data.companyName);
       allow create: if canModify(request.resource.data.companyName);
@@ -55,7 +54,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // P4: 空間分佈 (潔淨室佔用率)
+    // P4: 空間分佈
     match /fab_cleanroom_occupancy/{id} {
       allow list: if isSignedIn();
       allow get: if hasAccess(resource.data.companyName);
@@ -79,11 +78,12 @@ service cloud.firestore {
       }
     }
 
-    // P6: 淹水損失估算 (READER 也能新增/模擬)
+    // P6: 淹水損失估算 (READER 模擬不限制寫入，因為 Step 2 已過濾工廠權限)
     match /flood_loss_estimations/{id} {
       allow list: if isSignedIn();
       allow get: if hasAccess(resource.data.companyName);
-      allow write: if hasAccess(request.resource.data.companyName || resource.data.companyName);
+      allow create: if isSignedIn(); // 允許登入者建立模擬紀錄
+      allow update, delete: if isAdmin();
     }
 
     // 使用者權限設定

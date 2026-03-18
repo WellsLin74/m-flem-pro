@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldCheck, UserPlus, LogIn, Building, AlertCircle } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
@@ -18,7 +18,7 @@ export function Step1Login() {
   const { setUser, setStep } = useAppStore();
   const [mode, setMode] = useState<'login' | 'add'>('login');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(''); // Default to empty to force user entry or show validation
+  const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('ADMIN');
   const [company, setCompany] = useState('');
   const [loading, setLoading] = useState(false);
@@ -39,7 +39,7 @@ export function Step1Login() {
 
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, email.trim(), password);
       setStep(2);
     } catch (e: any) {
       let message = "An unknown error occurred.";
@@ -62,7 +62,6 @@ export function Step1Login() {
   };
 
   const handleAddUser = async () => {
-    // 1. Basic field validation
     if (!email || !company || !password) {
       toast({
         variant: "destructive",
@@ -72,7 +71,6 @@ export function Step1Login() {
       return;
     }
 
-    // 2. Password length validation
     if (password.length < 6) {
       toast({
         variant: "destructive",
@@ -83,23 +81,25 @@ export function Step1Login() {
     }
 
     setLoading(true);
+    const cleanEmail = email.trim();
+    const cleanCompany = company.trim();
+    
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const userId = userCredential.user.uid;
       
-      // Persist permissions to Firestore
       const userPermRef = doc(db, 'user_permissions', userId);
       setDocumentNonBlocking(userPermRef, {
         id: userId,
-        email,
+        email: cleanEmail,
         role,
-        assignedCompany: company,
+        assignedCompany: cleanCompany,
       }, { merge: true });
 
       setUser({
-        email,
+        email: cleanEmail,
         role,
-        assignedCompany: company,
+        assignedCompany: cleanCompany,
       });
       
       toast({
@@ -225,7 +225,7 @@ export function Step1Login() {
               className="w-full text-center text-sm font-bold text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-2"
               onClick={() => {
                 setMode(mode === 'login' ? 'add' : 'login');
-                setPassword(''); // Clear password when switching modes
+                setPassword('');
               }}
             >
               {mode === 'login' ? 'Need to add a new user?' : 'Back to Secure Login'}
