@@ -1,12 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 基本登入檢查
+    // Basic Auth
     function isSignedIn() {
       return request.auth != null;
     }
     
-    // 檢查是否為管理員 (優先檢查 Email 以確保系統初始存取權)
+    // Admin Check (Priority)
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "admin@marsh.com" ||
@@ -15,54 +15,60 @@ service cloud.firestore {
       );
     }
 
-    // 檢查公司存取權限
-    function hasAccess(companyName) {
-      return isSignedIn() && (
-        isAdmin() || (
-          exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany == companyName
-        )
-      );
+    // Company Access Logic
+    function getCompany() {
+      return get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany;
     }
 
-    // 使用者權限
+    function hasAccess(compName) {
+      return isSignedIn() && (isAdmin() || getCompany() == compName);
+    }
+
+    // Helper for write operations (checks both request and resource)
+    function canWrite(compName) {
+      return hasAccess(compName);
+    }
+
+    // User Permissions
     match /user_permissions/{userId} {
       allow get: if isSignedIn();
       allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
     }
 
-    // 工廠主表 (包含 P3 的基準數據)
+    // Plant Main Table (Consolidated)
     match /plants/{plantId} {
       allow read: if isSignedIn();
-      allow write: if hasAccess(request.resource.data.companyName);
-      allow delete: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany == resource.data.companyName);
+      allow create, update: if canWrite(request.resource.data.companyName);
+      allow delete: if isAdmin() || (isSignedIn() && getCompany() == resource.data.companyName);
     }
 
-    // 潔淨室佔用比例 (P4)
+    // Cleanroom Ratios (P4)
     match /fab_cleanroom_occupancy/{id} {
       allow read: if isSignedIn();
-      allow write: if hasAccess(request.resource.data.companyName);
+      allow write: if isAdmin() || (isSignedIn() && request.resource.data.companyName != null && hasAccess(request.resource.data.companyName));
+      
       match /floor_ratios/{fid} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn();
+        allow write: if isAdmin() || isSignedIn();
       }
     }
 
-    // 資產價值分佈比例 (P5)
+    // Asset Distribution Matrix (P5)
     match /building_value_ratios/{id} {
       allow read: if isSignedIn();
-      allow write: if hasAccess(request.resource.data.companyName);
+      allow write: if isAdmin() || (isSignedIn() && request.resource.data.companyName != null && hasAccess(request.resource.data.companyName));
+      
       match /floor_ratios/{fid} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn();
+        allow write: if isAdmin() || isSignedIn();
       }
     }
 
-    // 洪水損失模擬紀錄 (P6)
+    // Flood Loss Estimations (P6)
     match /flood_loss_estimations/{id} {
       allow read: if isSignedIn();
-      allow create: if hasAccess(request.resource.data.companyName);
-      allow update, delete: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany == resource.data.companyName);
+      allow create: if canWrite(request.resource.data.companyName);
+      allow update, delete: if isAdmin() || (isSignedIn() && getCompany() == resource.data.companyName);
     }
   }
 }

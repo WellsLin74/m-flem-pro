@@ -6,16 +6,30 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
-import { CheckCircle2, AlertTriangle, ChevronRight, ArrowLeft, ShieldCheck, RefreshCw } from 'lucide-react';
-import { useMemo, useState, useEffect } from 'react';
-import { useFirestore } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { CheckCircle2, AlertTriangle, ChevronRight, ArrowLeft, ShieldCheck, RefreshCw, Loader2 } from 'lucide-react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step5Validation() {
   const { plant, refinement, finalRatios, setFinalRatios, setIsValidated, isValidated, setStep } = useAppStore();
   const [localRatios, setLocalRatios] = useState<Record<string, FinalRatio>>({});
   const db = useFirestore();
+
+  // Firestore Sync: Fetch existing data if store is empty
+  const ratioId = plant?.id || 'none';
+  const ratioRef = useMemoFirebase(() => {
+    if (!plant?.id) return null;
+    return doc(db, 'building_value_ratios', plant.id);
+  }, [db, plant?.id]);
+  const { data: remoteRatioData, isLoading: loadingRemote } = useDoc(ratioRef);
+
+  const floorRatiosRef = useMemoFirebase(() => {
+    if (!plant?.id) return null;
+    return collection(db, 'building_value_ratios', plant.id, 'floor_ratios');
+  }, [db, plant?.id]);
+  const { data: remoteFloorRatios } = useCollection(floorRatiosRef);
 
   const allFloors = useMemo(() => {
     const list: string[] = [];
@@ -29,7 +43,7 @@ export function Step5Validation() {
 
   const fabFloors = useMemo(() => allFloors.filter(f => f.startsWith('FAB')), [allFloors]);
 
-  const generateSuggestions = () => {
+  const generateSuggestions = useCallback(() => {
     if (!plant || !refinement) return;
 
     const fabL = Number(plant.fabLength);
@@ -99,15 +113,30 @@ export function Step5Validation() {
 
     setLocalRatios(suggestions);
     setIsValidated(false);
-  };
+  }, [plant, refinement, allFloors, fabFloors.length, setIsValidated]);
 
+  // Sync Remote Data to Local State
   useEffect(() => {
-    if (finalRatios && Object.keys(finalRatios).length === allFloors.length) {
-      setLocalRatios(finalRatios);
-    } else {
+    if (remoteFloorRatios && remoteFloorRatios.length > 0 && Object.keys(localRatios).length === 0) {
+      const mapped: Record<string, FinalRatio> = {};
+      remoteFloorRatios.forEach(r => {
+        mapped[r.floorIdentifier] = {
+          bldg: r.buildingRatio || 0,
+          fac: r.facilityRatio || 0,
+          tool: r.toolsRatio || 0,
+          fix: r.fixtureRatio || 0,
+          stock: r.stockRatio || 0
+        };
+      });
+      setLocalRatios(mapped);
+      if (remoteRatioData?.validationStatus === 'VALIDATED') {
+        setIsValidated(true);
+        setFinalRatios(mapped);
+      }
+    } else if (!loadingRemote && Object.keys(localRatios).length === 0) {
       generateSuggestions();
     }
-  }, [plant, refinement, allFloors.length]);
+  }, [remoteFloorRatios, remoteRatioData, loadingRemote, localRatios, generateSuggestions, setIsValidated, setFinalRatios]);
 
   const handleUpdate = (floor: string, field: keyof FinalRatio, value: string) => {
     const num = parseFloat(value) || 0;
@@ -139,32 +168,27 @@ export function Step5Validation() {
       setFinalRatios(localRatios);
       
       if (plant?.id) {
-        const plantId = plant.id;
-        // Using plantId directly for the main document ID in this collection
-        const ratioId = plantId;
-
-        // 1. Save main document
-        const ratioRef = doc(db, 'building_value_ratios', ratioId);
-        setDocumentNonBlocking(ratioRef, {
-          id: ratioId,
+        const pId = plant.id;
+        const rRef = doc(db, 'building_value_ratios', pId);
+        setDocumentNonBlocking(rRef, {
+          id: pId,
           companyName: plant.company,
           plantName: plant.plantName,
           validationStatus: 'VALIDATED',
           buildingValueFloorRatioIds: Object.keys(localRatios),
         }, { merge: true });
 
-        // 2. Save each floor_ratio
-        Object.entries(localRatios).forEach(([floorId, ratios]) => {
-          const floorRef = doc(db, 'building_value_ratios', ratioId, 'floor_ratios', floorId);
-          setDocumentNonBlocking(floorRef, {
-            id: floorId,
-            buildingValueRatioId: ratioId,
-            floorIdentifier: floorId,
-            buildingRatio: ratios.bldg,
-            facilityRatio: ratios.fac,
-            toolsRatio: ratios.tool,
-            fixtureRatio: ratios.fix,
-            stockRatio: ratios.stock,
+        Object.entries(localRatios).forEach(([fId, rats]) => {
+          const fRef = doc(db, 'building_value_ratios', pId, 'floor_ratios', fId);
+          setDocumentNonBlocking(fRef, {
+            id: fId,
+            buildingValueRatioId: pId,
+            floorIdentifier: fId,
+            buildingRatio: rats.bldg,
+            facilityRatio: rats.fac,
+            toolsRatio: rats.tool,
+            fixtureRatio: rats.fix,
+            stockRatio: rats.stock,
             companyName: plant.company,
             plantName: plant.plantName,
           }, { merge: true });
@@ -172,6 +196,15 @@ export function Step5Validation() {
       }
     }
   };
+
+  if (loadingRemote && Object.keys(localRatios).length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+        <Loader2 className="w-12 h-12 text-accent animate-spin" />
+        <p className="font-bold text-primary animate-pulse uppercase tracking-widest">Hydrating Distribution Matrix...</p>
+      </div>
+    );
+  }
 
   return (
     <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm">

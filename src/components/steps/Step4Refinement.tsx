@@ -7,21 +7,56 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Layers, Percent, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Layers, Percent, ChevronRight, ArrowLeft, Loader2 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
-import { useFirestore } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step4Refinement() {
   const { plant, refinement, setRefinement, setStep } = useAppStore();
   const db = useFirestore();
   
+  // Local state for ratios
   const [facCrRatio, setFacCrRatio] = useState(refinement?.facCrRatio ?? 0.33);
   const [toolsCrRatio, setToolsCrRatio] = useState(refinement?.toolsCrRatio ?? 0.9);
   const [floorData, setFloorData] = useState<Record<string, { fac: number; cr: number }>>(
     refinement?.floorData || {}
   );
+
+  // Firestore Sync: Fetch existing data if store is empty
+  const occupancyRef = useMemoFirebase(() => {
+    if (!plant?.id) return null;
+    return doc(db, 'fab_cleanroom_occupancy', plant.id);
+  }, [db, plant?.id]);
+  const { data: remoteOccupancy, isLoading: loadingRemote } = useDoc(occupancyRef);
+
+  const floorRatiosRef = useMemoFirebase(() => {
+    if (!plant?.id) return null;
+    return collection(db, 'fab_cleanroom_occupancy', plant.id, 'floor_ratios');
+  }, [db, plant?.id]);
+  const { data: remoteFloorRatios } = useCollection(floorRatiosRef);
+
+  // Sync Remote Data to Local State
+  useEffect(() => {
+    if (remoteOccupancy && !refinement) {
+      setFacCrRatio(remoteOccupancy.overallFacilityCleanroomRatio || 0.33);
+      setToolsCrRatio(remoteOccupancy.overallToolsCleanroomRatio || 0.9);
+    }
+  }, [remoteOccupancy, refinement]);
+
+  useEffect(() => {
+    if (remoteFloorRatios && remoteFloorRatios.length > 0 && Object.keys(floorData).length === 0) {
+      const mapped: Record<string, { fac: number; cr: number }> = {};
+      remoteFloorRatios.forEach(r => {
+        mapped[r.floorIdentifier] = {
+          fac: r.facilityOccupancyRatio || 0,
+          cr: r.cleanroomOccupancyRatio || 0
+        };
+      });
+      setFloorData(mapped);
+    }
+  }, [remoteFloorRatios, floorData]);
 
   const fabFloors = useMemo(() => {
     const list: string[] = [];
@@ -31,19 +66,22 @@ export function Step4Refinement() {
     return list;
   }, [plant]);
 
+  // Fill missing floors with defaults if they don't exist in local or remote data
   useEffect(() => {
-    const initial: Record<string, { fac: number; cr: number }> = { ...floorData };
-    let changed = false;
-    fabFloors.forEach(f => {
-      if (!initial[f]) {
-        initial[f] = { fac: 0, cr: 0 };
-        changed = true;
-      }
-    });
-    if (changed) {
-      setFloorData(initial);
+    if (fabFloors.length > 0) {
+      setFloorData(prev => {
+        const next = { ...prev };
+        let changed = false;
+        fabFloors.forEach(f => {
+          if (!next[f]) {
+            next[f] = { fac: 0, cr: 0 };
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
     }
-  }, [fabFloors, floorData]);
+  }, [fabFloors]);
 
   const handleUpdate = (floor: string, type: 'fac' | 'cr', value: string) => {
     const num = parseFloat(value) || 0;
@@ -59,7 +97,6 @@ export function Step4Refinement() {
 
     if (plant?.id) {
       const plantId = plant.id;
-      // Using plantId directly for the main document ID in this collection
       const occupancyId = plantId;
 
       // 1. Save main document
@@ -90,6 +127,15 @@ export function Step4Refinement() {
 
     setStep(5);
   };
+
+  if (loadingRemote && !refinement) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+        <Loader2 className="w-12 h-12 text-accent animate-spin" />
+        <p className="font-bold text-primary animate-pulse uppercase tracking-widest">Hydrating Spatial Data...</p>
+      </div>
+    );
+  }
 
   return (
     <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm">
