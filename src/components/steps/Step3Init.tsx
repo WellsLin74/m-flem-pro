@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAppStore, PlantData } from '@/lib/store';
@@ -20,12 +21,12 @@ export function Step3Init() {
     defaultValues: plant || {}
   });
 
-  // Reset form when plant ID changes to ensure correct data linkage
+  // Ensure form is synced with current plant data
   useEffect(() => {
-    if (plant?.id) {
+    if (plant) {
       reset(plant);
     }
-  }, [plant?.id, reset]);
+  }, [plant, reset]);
 
   const values = watch();
   
@@ -59,9 +60,11 @@ export function Step3Init() {
 
   const onSubmit = (data: Partial<PlantData>) => {
     const plantId = plant?.id;
-    if (!plantId || !plant?.company) return;
+    if (!plantId || !plant?.company) {
+      console.warn("Step 3: Missing plant context, cannot save.");
+      return;
+    }
 
-    // Explicitly convert and map data to match PlantData and Firestore schemas
     const numericData: PlantData = {
       id: plantId,
       company: plant.company,
@@ -84,10 +87,10 @@ export function Step3Init() {
       bi12m: Number(data.bi12m) || 0,
     };
 
-    // Update global store
+    // 1. Update global store immediately
     setPlant(numericData);
 
-    // 1. Save Physical Parameters to 'building_info'
+    // 2. Persist Physical Parameters to 'building_info' using plantId
     const buildingRef = doc(db, 'building_info', plantId);
     setDocumentNonBlocking(buildingRef, {
       id: plantId,
@@ -101,8 +104,7 @@ export function Step3Init() {
       cupBelowLevel: numericData.cupBl,
     }, { merge: true });
 
-    // 2. Save Initial Financial Values to 'plant_initial_values'
-    // Use the same plantId as the key for strict linkage
+    // 3. Persist Initial Financial Values to 'plant_initial_values' using plantId
     const plantValRef = doc(db, 'plant_initial_values', plantId);
     setDocumentNonBlocking(plantValRef, {
       id: plantId,
@@ -137,11 +139,11 @@ export function Step3Init() {
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-muted-foreground uppercase">Latitude</Label>
-                <Input type="number" step="0.001" {...register('lat')} placeholder="0.000" className="bg-white border-none font-mono" />
+                <Input type="number" step="0.000001" {...register('lat')} placeholder="0.000" className="bg-white border-none font-mono" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-muted-foreground uppercase">Longitude</Label>
-                <Input type="number" step="0.001" {...register('lon')} placeholder="0.000" className="bg-white border-none font-mono" />
+                <Input type="number" step="0.000001" {...register('lon')} placeholder="0.000" className="bg-white border-none font-mono" />
               </div>
             </div>
 

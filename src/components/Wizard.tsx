@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAppStore } from '@/lib/store';
@@ -10,7 +11,7 @@ import { Step6Estimation } from './steps/Step6Estimation';
 import { Progress } from '@/components/ui/progress';
 
 export function Wizard() {
-  const { step } = useAppStore();
+  const { step, plant } = useAppStore();
 
   const progress = (step / 6) * 100;
 
@@ -36,10 +37,11 @@ export function Wizard() {
       <div className="transition-all duration-300 ease-in-out">
         {step === 1 && <Step1Login />}
         {step === 2 && <Step2Config />}
-        {step === 3 && <Step3Init />}
-        {step === 4 && <Step4Refinement />}
-        {step === 5 && <Step5Validation />}
-        {step === 6 && <Step6Estimation />}
+        {/* Force remount on plant ID change to prevent data cross-contamination */}
+        {step === 3 && <Step3Init key={plant?.id} />}
+        {step === 4 && <Step4Refinement key={plant?.id} />}
+        {step === 5 && <Step5Validation key={plant?.id} />}
+        {step === 6 && <Step6Estimation key={plant?.id} />}
       </div>
     </div>
   );
