@@ -49,7 +49,6 @@ export function Step5Validation() {
     const fabFloorArea = plant.fabLength * plant.fabWidth;
     const cupFloorArea = plant.cupLength * plant.cupWidth;
     
-    // 1. Calculate weighted distributions
     const weights: Record<string, { bldg: number; fac: number; tool: number; fix: number; stock: number }> = {};
     let totalBldgW = 0, totalFacW = 0, totalToolW = 0, totalFixW = 0;
 
@@ -57,18 +56,20 @@ export function Step5Validation() {
       const isFab = f.startsWith('FAB');
       const area = isFab ? fabFloorArea : cupFloorArea;
       
-      // Building is distributed by area
+      // 1. Building Weight: Area based
       const bldgW = area;
       
-      // Facility is distributed by (Area * Facility Occupancy from P4)
-      const facOcc = isFab ? (refinement.floorData[f]?.fac || 0) : 1.0;
+      // 2. Facility Weight: Area * Facility Occupancy Ratio (from P4)
+      // For CUP, we assume 100% facility occupancy if not specified.
+      const facOcc = isFab ? (refinement.floorData[f]?.fac ?? 0) : 1.0;
       const facW = area * facOcc;
       
-      // Tools is distributed by (Area * Cleanroom Occupancy from P4)
-      const crOcc = isFab ? (refinement.floorData[f]?.cr || 0) : 0;
+      // 3. Tools Weight: Area * Cleanroom Occupancy Ratio (from P4)
+      // CUP floors generally have 0 cleanroom tools.
+      const crOcc = isFab ? (refinement.floorData[f]?.cr ?? 0) : 0.0;
       const toolW = area * crOcc;
 
-      // Fixtures generally follow tools
+      // Fixtures/Tools follow the same spatial weight
       const fixW = toolW;
 
       weights[f] = { bldg: bldgW, fac: facW, tool: toolW, fix: fixW, stock: 0 };
@@ -86,7 +87,7 @@ export function Step5Validation() {
         fac: totalFacW > 0 ? w.fac / totalFacW : 0,
         tool: totalToolW > 0 ? w.tool / totalToolW : 0,
         fix: totalFixW > 0 ? w.fix / totalFixW : 0,
-        stock: f === 'FAB-L10' ? 1.0 : 0.0 // Default all stock to L10
+        stock: f === 'FAB-L10' ? 1.0 : 0.0 
       };
     });
     return suggestions;
@@ -185,7 +186,7 @@ export function Step5Validation() {
   }
 
   return (
-    <Card className="border-none shadow-2xl bg-white/95 backdrop-blur-md overflow-hidden">
+    <Card className="border-none shadow-2xl bg-white/95 backdrop-blur-md overflow-hidden" suppressHydrationWarning>
       <div className="h-2 bg-accent w-full" />
       <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 py-6 px-8">
         <div className="space-y-1">
@@ -248,7 +249,7 @@ export function Step5Validation() {
           <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
             <Table>
               <TableHeader className="bg-muted/90 backdrop-blur-sm sticky top-0 z-20 shadow-sm border-b-2">
-                <TableRow className="hover:bg-transparent">
+                <TableRow>
                   <TableHead className="w-[180px] text-[11px] font-black uppercase text-primary bg-muted/30 py-4 px-6">Floor Identifier</TableHead>
                   <TableHead className="text-[11px] font-black uppercase text-right text-primary px-4">Building %</TableHead>
                   <TableHead className="text-[11px] font-black uppercase text-right text-primary px-4">Facility %</TableHead>

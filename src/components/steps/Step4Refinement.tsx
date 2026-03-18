@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Layers, Percent, ChevronRight, ArrowLeft, Loader2, RefreshCcw, Lock } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Layers, Percent, ChevronRight, ArrowLeft, Loader2, RefreshCcw, Lock, AlertTriangle } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
@@ -22,6 +23,7 @@ export function Step4Refinement() {
   const [toolsCrRatio, setToolsCrRatio] = useState(0.9);
   const [floorData, setFloorData] = useState<Record<string, { fac: number; cr: number }>>({});
   const [isHydrated, setIsHydrated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const occupancyRef = useMemoFirebase(() => {
     if (!plant?.id) return null;
@@ -55,8 +57,8 @@ export function Step4Refinement() {
       fabFloors.forEach(f => {
         const remoteData = remoteFloorRatios?.find(r => r.floorIdentifier === f);
         mappedFloors[f] = {
-          fac: remoteData?.facilityOccupancyRatio ?? 0,
-          cr: remoteData?.cleanroomOccupancyRatio ?? 0
+          fac: remoteData?.facilityOccupancyRatio ?? 0.5,
+          cr: remoteData?.cleanroomOccupancyRatio ?? 0.5
         };
       });
 
@@ -67,14 +69,35 @@ export function Step4Refinement() {
 
   const handleUpdate = (floor: string, type: 'fac' | 'cr', value: string) => {
     if (isReader) return;
-    const num = parseFloat(value) || 0;
+    let num = parseFloat(value) || 0;
+    if (num < 0) num = 0;
+    if (num > 1) num = 1;
+    
     setFloorData(prev => ({
       ...prev,
       [floor]: { ...prev[floor], [type]: num }
     }));
+    setError(null);
+  };
+
+  const validateMatrix = () => {
+    for (const floor of fabFloors) {
+      const data = floorData[floor];
+      const sum = (data?.fac || 0) + (data?.cr || 0);
+      if (Math.abs(sum - 1) > 0.001) {
+        return `Validation Failed: Floor ${floor} does not sum to 1.0 (Current: ${sum.toFixed(4)}). Each floor's spatial occupancy must be fully allocated.`;
+      }
+    }
+    return null;
   };
 
   const handleNext = () => {
+    const validationError = validateMatrix();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     if (isReader) {
       setStep(5);
       return;
@@ -120,7 +143,7 @@ export function Step4Refinement() {
   }
 
   return (
-    <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+    <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden" suppressHydrationWarning>
       <div className="h-2 bg-accent w-full" />
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
@@ -134,7 +157,7 @@ export function Step4Refinement() {
               </Badge>
             )}
           </div>
-          <CardDescription>Refine cleanroom occupancy ratios for {plant?.plantName}.</CardDescription>
+          <CardDescription>Define how space is divided between Facility and Cleanroom on each FAB floor.</CardDescription>
         </div>
         <Button 
           variant="outline" 
@@ -146,14 +169,29 @@ export function Step4Refinement() {
         </Button>
       </CardHeader>
       <CardContent className="space-y-8 pb-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-4 p-6 rounded-2xl bg-primary/5 border border-primary/10 h-fit">
+        {error && (
+          <Alert variant="destructive" className="bg-destructive/10 text-destructive border-none shadow-lg animate-in shake-1">
+            <AlertTriangle className="h-5 w-5" />
+            <div className="ml-2">
+              <AlertTitle className="font-black text-sm uppercase">Spatial Inconsistency</AlertTitle>
+              <AlertDescription className="text-xs font-bold opacity-90">
+                {error}
+              </AlertDescription>
+            </div>
+          </Alert>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1 space-y-4 p-6 rounded-2xl bg-primary/5 border border-primary/10 h-fit">
             <h3 className="font-headline font-bold text-sm text-primary uppercase tracking-widest flex items-center gap-2">
-              <Percent className="w-4 h-4" /> Global Control Ratios
+              <Percent className="w-4 h-4" /> Ratio Constraints
             </h3>
-            <div className="space-y-4">
+            <p className="text-[10px] font-bold text-muted-foreground leading-relaxed uppercase">
+              Each row in the FAB Matrix must sum to exactly 1.0. This ensures 100% of the floor space is accounted for.
+            </p>
+            <div className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground uppercase">Facility Cleanroom Ratio</Label>
+                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Global Facility Ratio</Label>
                 <Input 
                   type="number" step="0.01" 
                   value={facCrRatio} 
@@ -163,7 +201,7 @@ export function Step4Refinement() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground uppercase">Tools Cleanroom Ratio</Label>
+                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Global Tools Ratio</Label>
                 <Input 
                   type="number" step="0.01" 
                   value={toolsCrRatio} 
@@ -175,62 +213,72 @@ export function Step4Refinement() {
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="lg:col-span-2 space-y-4">
             <h3 className="font-headline font-bold text-sm text-primary uppercase tracking-widest flex items-center gap-2">
               <Layers className="w-4 h-4" /> FAB Vertical Distribution Matrix
             </h3>
-            <div className="border rounded-2xl bg-white overflow-hidden shadow-sm h-[450px] overflow-y-auto custom-scrollbar">
+            <div className="border-2 rounded-2xl bg-white overflow-hidden shadow-2xl h-[450px] overflow-y-auto custom-scrollbar">
               <Table>
-                <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
+                <TableHeader className="bg-muted/90 sticky top-0 z-10 shadow-sm border-b-2">
                   <TableRow>
-                    <TableHead className="text-[10px] font-black uppercase text-primary">Floor ID</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-primary text-center">Facility %</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-primary text-center">Cleanroom %</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-primary px-6">Floor Identifier</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-primary text-right px-4">Facility % (0-1)</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-primary text-right px-4">Cleanroom % (0-1)</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-primary text-right px-4">Row Sum</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {fabFloors.map(floor => (
-                    <TableRow key={floor} className="hover:bg-accent/5">
-                      <TableCell className="py-2">
-                        <Badge variant={floor.includes('BL') ? 'secondary' : 'default'} className="rounded-md font-mono text-[10px]">
-                          {floor}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <Input 
-                          type="number" step="0.1" 
-                          value={floorData[floor]?.fac ?? 0}
-                          onChange={(e) => handleUpdate(floor, 'fac', e.target.value)}
-                          disabled={isReader}
-                          className="h-8 border-none bg-muted/30 font-mono text-xs text-center font-bold"
-                        />
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <Input 
-                          type="number" step="0.1" 
-                          value={floorData[floor]?.cr ?? 0}
-                          onChange={(e) => handleUpdate(floor, 'cr', e.target.value)}
-                          disabled={isReader}
-                          className="h-8 border-none bg-muted/30 font-mono text-xs text-center font-bold"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {fabFloors.map(floor => {
+                    const rowSum = (floorData[floor]?.fac ?? 0) + (floorData[floor]?.cr ?? 0);
+                    const isInvalid = Math.abs(rowSum - 1) > 0.001;
+                    return (
+                      <TableRow key={floor} className={`hover:bg-accent/5 transition-colors ${isInvalid ? 'bg-destructive/5' : ''}`}>
+                        <TableCell className="py-3 px-6">
+                          <Badge variant={floor.includes('BL') ? 'secondary' : 'default'} className="rounded-md font-mono text-[10px] font-black">
+                            {floor}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="py-2 px-4">
+                          <Input 
+                            type="number" step="0.1" 
+                            min="0" max="1"
+                            value={floorData[floor]?.fac ?? 0}
+                            onChange={(e) => handleUpdate(floor, 'fac', e.target.value)}
+                            disabled={isReader}
+                            className="h-8 border-none bg-muted/30 font-mono text-xs text-right font-black focus-visible:bg-white"
+                          />
+                        </TableCell>
+                        <TableCell className="py-2 px-4">
+                          <Input 
+                            type="number" step="0.1" 
+                            min="0" max="1"
+                            value={floorData[floor]?.cr ?? 0}
+                            onChange={(e) => handleUpdate(floor, 'cr', e.target.value)}
+                            disabled={isReader}
+                            className="h-8 border-none bg-muted/30 font-mono text-xs text-right font-black focus-visible:bg-white"
+                          />
+                        </TableCell>
+                        <TableCell className={`py-2 px-4 text-right font-mono text-xs font-black ${isInvalid ? 'text-destructive' : 'text-emerald-600'}`}>
+                          {rowSum.toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-between pt-6">
+        <div className="flex justify-between pt-6 border-t">
           <Button variant="ghost" onClick={() => setStep(3)} className="font-bold text-muted-foreground gap-2">
-            <ArrowLeft className="w-4 h-4" /> Data Init
+            <ArrowLeft className="w-4 h-4" /> Physical Data
           </Button>
           <Button 
             onClick={handleNext}
-            className="bg-primary hover:bg-primary/90 text-white font-black px-10 py-6 text-lg gap-2 shadow-lg shadow-primary/20"
+            className="bg-primary hover:bg-primary/90 text-white font-black px-12 py-6 text-lg gap-2 shadow-xl shadow-primary/20 transition-all active:scale-95"
           >
-            {isReader ? 'Next: Validation' : 'Confirm Spatial Refinement'} <ChevronRight className="w-5 h-5" />
+            {isReader ? 'Next: Validation' : 'Audit & Confirm Spatial Matrix'} <ChevronRight className="w-5 h-5" />
           </Button>
         </div>
       </CardContent>
