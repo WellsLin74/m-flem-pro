@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { MapPin, LayoutDashboard, Coins, ChevronRight, ArrowLeft, Maximize, Ruler, Square } from 'lucide-react';
+import { MapPin, Coins, ChevronRight, ArrowLeft, Maximize, Square } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useMemo, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
@@ -78,7 +78,6 @@ export function Step3Init() {
 
     setPlant(numericData);
 
-    // Persist to Consolidated 'plants' collection
     const plantRef = doc(db, 'plants', plant.id);
     setDocumentNonBlocking(plantRef, {
       id: plant.id,
@@ -114,9 +113,10 @@ export function Step3Init() {
       </CardHeader>
       <CardContent className="pb-10">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Top Section: Location & Financials */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Geo-Location Section */}
-            <div className="p-6 rounded-2xl border-2 border-primary/5 bg-primary/5 space-y-4">
+            <div className="lg:col-span-1 p-6 rounded-2xl border-2 border-primary/5 bg-primary/5 space-y-4">
               <div className="flex items-center gap-2 text-primary">
                 <MapPin className="w-5 h-5" />
                 <h3 className="text-sm font-black uppercase tracking-widest">Site Location</h3>
@@ -133,8 +133,46 @@ export function Step3Init() {
               </div>
             </div>
 
+            {/* Financial Values Section */}
+            <div className="lg:col-span-2 p-6 rounded-2xl border-2 border-accent/10 bg-accent/5 space-y-4">
+              <div className="flex items-center gap-3 border-b border-primary/10 pb-2">
+                <Coins className="w-5 h-5 text-accent" />
+                <h3 className="text-sm font-black uppercase tracking-widest text-primary">Initial Asset Values (Million NTD)</h3>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Building</Label>
+                  <Input type="number" {...register('pdBuilding')} className="bg-white border-none font-mono font-bold h-9" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Facility</Label>
+                  <Input type="number" {...register('pdFacility')} className="bg-white border-none font-mono font-bold h-9" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Tools</Label>
+                  <Input type="number" {...register('pdTools')} className="bg-white border-none font-mono font-bold h-9" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Fixture</Label>
+                  <Input type="number" {...register('pdFixture')} className="bg-white border-none font-mono font-bold h-9" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Stock</Label>
+                  <Input type="number" {...register('pdStock')} className="bg-white border-none font-mono font-bold h-9" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">BI (12M)</Label>
+                  <Input type="number" {...register('bi12m')} className="bg-white border-none font-mono font-bold h-9" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Section: FAB & CUP Specs */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* FAB Specs Section */}
-            <div className="p-6 rounded-2xl border-2 border-accent/10 bg-accent/5 space-y-4">
+            <div className="p-6 rounded-2xl border-2 border-primary/5 bg-primary/5 space-y-4">
               <div className="flex items-center gap-2 text-primary">
                 <Maximize className="w-5 h-5" />
                 <h3 className="text-sm font-black uppercase tracking-widest">FAB Dimensions (m)</h3>
@@ -157,7 +195,7 @@ export function Step3Init() {
                   <Input type="number" {...register('fabBl')} placeholder="2" className="bg-white border-none font-mono font-bold" />
                 </div>
               </div>
-              <div className="pt-2 space-y-1">
+              <div className="pt-2 border-t border-primary/10 space-y-1">
                 <div className="flex justify-between text-[10px] font-bold uppercase text-primary/60">
                   <span>Single Floor Area:</span>
                   <span className="font-mono">{calculations.fabFloorArea.toLocaleString()} m²</span>
@@ -170,7 +208,7 @@ export function Step3Init() {
             </div>
 
             {/* CUP Specs Section */}
-            <div className="p-6 rounded-2xl border-2 border-accent/10 bg-accent/5 space-y-4">
+            <div className="p-6 rounded-2xl border-2 border-primary/5 bg-primary/5 space-y-4">
               <div className="flex items-center gap-2 text-primary">
                 <Maximize className="w-5 h-5" />
                 <h3 className="text-sm font-black uppercase tracking-widest">CUP Dimensions (m)</h3>
@@ -193,7 +231,7 @@ export function Step3Init() {
                   <Input type="number" {...register('cupBl')} placeholder="1" className="bg-white border-none font-mono font-bold" />
                 </div>
               </div>
-              <div className="pt-2 space-y-1">
+              <div className="pt-2 border-t border-primary/10 space-y-1">
                 <div className="flex justify-between text-[10px] font-bold uppercase text-primary/60">
                   <span>Single Floor Area:</span>
                   <span className="font-mono">{calculations.cupFloorArea.toLocaleString()} m²</span>
@@ -202,41 +240,6 @@ export function Step3Init() {
                   <span>CUP Total Area:</span>
                   <span className="font-mono">{calculations.cupTotalArea.toLocaleString()} m²</span>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Financial Values Section */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 border-b-2 border-primary/5 pb-2">
-              <Coins className="w-5 h-5 text-accent" />
-              <h3 className="text-sm font-black uppercase tracking-widest text-primary">Initial Asset Values (Million NTD)</h3>
-            </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Building</Label>
-                <Input type="number" {...register('pdBuilding')} className="bg-muted/30 border-none font-mono font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Facility</Label>
-                <Input type="number" {...register('pdFacility')} className="bg-muted/30 border-none font-mono font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Tools</Label>
-                <Input type="number" {...register('pdTools')} className="bg-muted/30 border-none font-mono font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Fixture</Label>
-                <Input type="number" {...register('pdFixture')} className="bg-muted/30 border-none font-mono font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Stock</Label>
-                <Input type="number" {...register('pdStock')} className="bg-muted/30 border-none font-mono font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">BI (12M)</Label>
-                <Input type="number" {...register('bi12m')} className="bg-muted/30 border-none font-mono font-bold" />
               </div>
             </div>
           </div>
