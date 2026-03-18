@@ -6,8 +6,7 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Admin Check (Priority)
-    // Directly check email to avoid circular get() dependencies or latency
+    // Admin Check (Critical fix: Prioritize email for instant auth)
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "admin@marsh.com" ||
@@ -22,7 +21,7 @@ service cloud.firestore {
     }
 
     function hasAccess(compName) {
-      return isSignedIn() && (isAdmin() || getCompany() == compName);
+      return isSignedIn() && (isAdmin() || (exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && getCompany() == compName));
     }
 
     // Plant Main Table (Consolidated)
@@ -35,7 +34,7 @@ service cloud.firestore {
     // Cleanroom Ratios (P4)
     match /fab_cleanroom_occupancy/{id} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || (isSignedIn() && request.resource.data.companyName != null && hasAccess(request.resource.data.companyName));
+      allow write: if isAdmin() || (isSignedIn() && hasAccess(request.resource.data.companyName));
       
       match /floor_ratios/{fid} {
         allow read: if isSignedIn();
@@ -46,7 +45,7 @@ service cloud.firestore {
     // Asset Distribution Matrix (P5)
     match /building_value_ratios/{id} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || (isSignedIn() && request.resource.data.companyName != null && hasAccess(request.resource.data.companyName));
+      allow write: if isAdmin() || (isSignedIn() && hasAccess(request.resource.data.companyName));
       
       match /floor_ratios/{fid} {
         allow read: if isSignedIn();

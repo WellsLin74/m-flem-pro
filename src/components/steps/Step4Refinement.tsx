@@ -75,7 +75,7 @@ export function Step4Refinement() {
       setFloorData(mapped);
       setIsHydrated(true);
     }
-  }, [remoteOccupancy, remoteFloorRatios, loadingRemote, loadingFloorRatios, isHydrated, fabFloors, floorData]);
+  }, [remoteOccupancy, remoteFloorRatios, loadingRemote, loadingFloorRatios, isHydrated, fabFloors]);
 
   const handleUpdate = (floor: string, type: 'fac' | 'cr', value: string) => {
     const num = parseFloat(value) || 0;
@@ -129,7 +129,7 @@ export function Step4Refinement() {
   }
 
   return (
-    <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm">
+    <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
       <div className="h-2 bg-accent w-full" />
       <CardHeader>
         <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">

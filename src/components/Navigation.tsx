@@ -37,7 +37,7 @@ export function Navigation() {
 
   const handleLogout = () => {
     signOut(auth);
-    // Reset ALL store state on logout
+    // Reset ALL store state on logout to prevent stale data hydration issues
     setUser(null);
     setPlant(null);
     setRefinement(null);
