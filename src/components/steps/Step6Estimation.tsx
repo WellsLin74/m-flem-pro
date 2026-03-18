@@ -228,7 +228,7 @@ export function Step6Estimation() {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
-                  <Waves className="w-6 h-6 text-accent" /> Environmental Risk Simulation
+                  <Waves className="w-6 h-6 text-accent" /> Simulation
                 </CardTitle>
                 <CardDescription>Simulate flood events based on vertical asset distribution profiles.</CardDescription>
               </div>
