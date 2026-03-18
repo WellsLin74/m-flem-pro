@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { MapPin, Coins, ChevronRight, ArrowLeft, Maximize, Square } from 'lucide-react';
+import { MapPin, Coins, ChevronRight, ArrowLeft, Maximize, Square, Lock } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useMemo, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
@@ -13,8 +13,9 @@ import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step3Init() {
-  const { plant, setPlant, setStep } = useAppStore();
+  const { plant, setPlant, setStep, user } = useAppStore();
   const db = useFirestore();
+  const isReader = user?.role === 'READER';
   
   const { register, handleSubmit, reset, watch } = useForm<Partial<PlantData>>({
     defaultValues: plant || {}
@@ -52,6 +53,11 @@ export function Step3Init() {
   }, [values]);
 
   const onSubmit = (data: Partial<PlantData>) => {
+    if (isReader) {
+      setStep(4);
+      return;
+    }
+
     if (!plant?.id || !plant?.company) return;
 
     const numericData: PlantData = {
@@ -108,14 +114,19 @@ export function Step3Init() {
     <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm">
       <div className="h-2 bg-accent w-full" />
       <CardHeader>
-        <CardTitle className="font-headline font-black text-2xl text-primary">Baseline Data Initialization</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle className="font-headline font-black text-2xl text-primary">Baseline Data Initialization</CardTitle>
+          {isReader && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full text-muted-foreground text-[10px] font-black uppercase tracking-widest border">
+              <Lock className="w-3 h-3" /> Read-Only Mode
+            </div>
+          )}
+        </div>
         <CardDescription>Configure physical dimensions and initial financial values for {plant?.plantName}.</CardDescription>
       </CardHeader>
       <CardContent className="pb-10">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-          {/* Top Section: Location & Financials */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Geo-Location Section */}
             <div className="lg:col-span-1 p-6 rounded-2xl border-2 border-primary/5 bg-primary/5 space-y-4">
               <div className="flex items-center gap-2 text-primary">
                 <MapPin className="w-5 h-5" />
@@ -124,16 +135,15 @@ export function Step3Init() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="lat" className="text-[10px] font-bold uppercase text-muted-foreground">Latitude (N)</Label>
-                  <Input id="lat" type="number" step="0.000001" {...register('lat')} className="bg-white border-none font-mono font-bold" />
+                  <Input id="lat" type="number" step="0.000001" {...register('lat')} disabled={isReader} className="bg-white border-none font-mono font-bold" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lon" className="text-[10px] font-bold uppercase text-muted-foreground">Longitude (E)</Label>
-                  <Input id="lon" type="number" step="0.000001" {...register('lon')} className="bg-white border-none font-mono font-bold" />
+                  <Input id="lon" type="number" step="0.000001" {...register('lon')} disabled={isReader} className="bg-white border-none font-mono font-bold" />
                 </div>
               </div>
             </div>
 
-            {/* Financial Values Section */}
             <div className="lg:col-span-2 p-6 rounded-2xl border-2 border-accent/10 bg-accent/5 space-y-4">
               <div className="flex items-center gap-3 border-b border-primary/10 pb-2">
                 <Coins className="w-5 h-5 text-accent" />
@@ -141,37 +151,24 @@ export function Step3Init() {
               </div>
               
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Building</Label>
-                  <Input type="number" {...register('pdBuilding')} className="bg-white border-none font-mono font-bold h-9" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Facility</Label>
-                  <Input type="number" {...register('pdFacility')} className="bg-white border-none font-mono font-bold h-9" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Tools</Label>
-                  <Input type="number" {...register('pdTools')} className="bg-white border-none font-mono font-bold h-9" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Fixture</Label>
-                  <Input type="number" {...register('pdFixture')} className="bg-white border-none font-mono font-bold h-9" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Stock</Label>
-                  <Input type="number" {...register('pdStock')} className="bg-white border-none font-mono font-bold h-9" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">BI (12M)</Label>
-                  <Input type="number" {...register('bi12m')} className="bg-white border-none font-mono font-bold h-9" />
-                </div>
+                {[
+                  { id: 'pdBuilding', label: 'Building' },
+                  { id: 'pdFacility', label: 'Facility' },
+                  { id: 'pdTools', label: 'Tools' },
+                  { id: 'pdFixture', label: 'Fixture' },
+                  { id: 'pdStock', label: 'Stock' },
+                  { id: 'bi12m', label: 'BI (12M)' }
+                ].map(field => (
+                  <div key={field.id} className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">{field.label}</Label>
+                    <Input type="number" {...register(field.id as any)} disabled={isReader} className="bg-white border-none font-mono font-bold h-9" />
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Bottom Section: FAB & CUP Specs */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* FAB Specs Section */}
             <div className="p-6 rounded-2xl border-2 border-primary/5 bg-primary/5 space-y-4">
               <div className="flex items-center gap-2 text-primary">
                 <Maximize className="w-5 h-5" />
@@ -180,19 +177,19 @@ export function Step3Init() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Length</Label>
-                  <Input type="number" {...register('fabLength')} placeholder="200" className="bg-white border-none font-mono font-bold" />
+                  <Input type="number" {...register('fabLength')} disabled={isReader} className="bg-white border-none font-mono font-bold" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Width</Label>
-                  <Input type="number" {...register('fabWidth')} placeholder="150" className="bg-white border-none font-mono font-bold" />
+                  <Input type="number" {...register('fabWidth')} disabled={isReader} className="bg-white border-none font-mono font-bold" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Floors Above</Label>
-                  <Input type="number" {...register('fabAl')} placeholder="4" className="bg-white border-none font-mono font-bold" />
+                  <Input type="number" {...register('fabAl')} disabled={isReader} className="bg-white border-none font-mono font-bold" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Basements</Label>
-                  <Input type="number" {...register('fabBl')} placeholder="2" className="bg-white border-none font-mono font-bold" />
+                  <Input type="number" {...register('fabBl')} disabled={isReader} className="bg-white border-none font-mono font-bold" />
                 </div>
               </div>
               <div className="pt-2 border-t border-primary/10 space-y-1">
@@ -207,7 +204,6 @@ export function Step3Init() {
               </div>
             </div>
 
-            {/* CUP Specs Section */}
             <div className="p-6 rounded-2xl border-2 border-primary/5 bg-primary/5 space-y-4">
               <div className="flex items-center gap-2 text-primary">
                 <Maximize className="w-5 h-5" />
@@ -216,19 +212,19 @@ export function Step3Init() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Length</Label>
-                  <Input type="number" {...register('cupLength')} placeholder="100" className="bg-white border-none font-mono font-bold" />
+                  <Input type="number" {...register('cupLength')} disabled={isReader} className="bg-white border-none font-mono font-bold" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Width</Label>
-                  <Input type="number" {...register('cupWidth')} placeholder="80" className="bg-white border-none font-mono font-bold" />
+                  <Input type="number" {...register('cupWidth')} disabled={isReader} className="bg-white border-none font-mono font-bold" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Floors Above</Label>
-                  <Input type="number" {...register('cupAl')} placeholder="2" className="bg-white border-none font-mono font-bold" />
+                  <Input type="number" {...register('cupAl')} disabled={isReader} className="bg-white border-none font-mono font-bold" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Basements</Label>
-                  <Input type="number" {...register('cupBl')} placeholder="1" className="bg-white border-none font-mono font-bold" />
+                  <Input type="number" {...register('cupBl')} disabled={isReader} className="bg-white border-none font-mono font-bold" />
                 </div>
               </div>
               <div className="pt-2 border-t border-primary/10 space-y-1">
@@ -244,7 +240,6 @@ export function Step3Init() {
             </div>
           </div>
 
-          {/* Area Summary */}
           <div className="p-4 rounded-xl bg-primary text-primary-foreground flex justify-between items-center shadow-lg">
             <div className="flex items-center gap-2">
               <Square className="w-4 h-4" />
@@ -253,13 +248,12 @@ export function Step3Init() {
             <span className="text-xl font-black font-mono tracking-tighter">{calculations.plantTotalArea.toLocaleString()} m²</span>
           </div>
 
-          {/* Navigation Buttons */}
           <div className="flex justify-between pt-6">
-            <Button type="button" variant="ghost" onClick={() => setStep(2)} className="font-bold text-muted-foreground">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Config
-            </Button>
+            <button type="button" onClick={() => setStep(2)} className="font-bold text-muted-foreground flex items-center gap-2 hover:text-primary transition-colors">
+              <ArrowLeft className="w-4 h-4" /> Back to Config
+            </button>
             <Button type="submit" className="bg-primary hover:bg-primary/90 text-white font-black px-10 py-6 text-lg gap-2 shadow-lg shadow-primary/20">
-              Confirm & Refine <ChevronRight className="w-5 h-5" />
+              {isReader ? 'Next: Spatial Matrix' : 'Confirm & Refine'} <ChevronRight className="w-5 h-5" />
             </Button>
           </div>
         </form>

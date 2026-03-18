@@ -6,7 +6,7 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Admin check: Priority on Email for immediate recognition
+    // Admin check: Priority on Email or explicit Role
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "admin@marsh.com" ||
@@ -15,7 +15,7 @@ service cloud.firestore {
       );
     }
 
-    // Authorization context for company data
+    // Access context: ADMIN can see everything, others only their company
     function hasAccess(compName) {
       return isSignedIn() && (
         isAdmin() || 
@@ -24,40 +24,50 @@ service cloud.firestore {
       );
     }
 
+    // Modification context: ADMIN and EDITOR can modify company data
+    function canModify(compName) {
+      return isSignedIn() && (
+        isAdmin() || 
+        (exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.role == 'EDITOR' &&
+         get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany == compName)
+      );
+    }
+
     // Plants Registry
     match /plants/{plantId} {
-      allow read: if isSignedIn();
-      allow create, update: if isAdmin() || (isSignedIn() && hasAccess(request.resource.data.companyName));
+      allow read: if hasAccess(resource.data.companyName);
+      allow create: if canModify(request.resource.data.companyName);
+      allow update: if canModify(resource.data.companyName);
       allow delete: if isAdmin();
     }
 
     // P4: Spatial Distribution
     match /fab_cleanroom_occupancy/{id} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin() || (isSignedIn() && hasAccess(request.resource.data.companyName));
+      allow read: if hasAccess(resource.data.companyName);
+      allow write: if canModify(resource.data.companyName);
       
       match /floor_ratios/{fid} {
-        allow read: if isSignedIn();
-        allow write: if isAdmin() || (isSignedIn() && hasAccess(request.resource.data.companyName));
+        allow read: if isSignedIn(); // Basic read for list
+        allow write: if canModify(get(/databases/$(database)/documents/fab_cleanroom_occupancy/$(id)).data.companyName);
       }
     }
 
     // P5: Asset Matrix
     match /building_value_ratios/{id} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin() || (isSignedIn() && hasAccess(request.resource.data.companyName));
+      allow read: if hasAccess(resource.data.companyName);
+      allow write: if canModify(resource.data.companyName);
       
       match /floor_ratios/{fid} {
         allow read: if isSignedIn();
-        allow write: if isAdmin() || (isSignedIn() && hasAccess(request.resource.data.companyName));
+        allow write: if canModify(get(/databases/$(database)/documents/building_value_ratios/$(id)).data.companyName);
       }
     }
 
-    // P6: Estimations
+    // P6: Estimations (READER can also simulate)
     match /flood_loss_estimations/{id} {
-      allow read: if isSignedIn();
-      allow create: if isAdmin() || (isSignedIn() && hasAccess(request.resource.data.companyName));
-      allow update, delete: if isAdmin();
+      allow read: if hasAccess(resource.data.companyName);
+      allow write: if hasAccess(request.resource.data.companyName);
     }
 
     // User Permissions

@@ -6,14 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
-import { CheckCircle2, AlertTriangle, ChevronRight, ArrowLeft, ShieldCheck, RefreshCw, Loader2, Info } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, ChevronRight, ArrowLeft, ShieldCheck, RefreshCw, Loader2, Info, Lock } from 'lucide-react';
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Badge } from '@/components/ui/badge';
 
 export function Step5Validation() {
-  const { plant, refinement, setFinalRatios, setIsValidated, isValidated, setStep } = useAppStore();
+  const { plant, refinement, setFinalRatios, setIsValidated, isValidated, setStep, user } = useAppStore();
+  const isReader = user?.role === 'READER';
+  
   const [localRatios, setLocalRatios] = useState<Record<string, FinalRatio>>({});
   const [isHydrated, setIsHydrated] = useState(false);
   const db = useFirestore();
@@ -89,6 +92,7 @@ export function Step5Validation() {
   }, [isHydrated, loadingStatus, loadingCol, remoteFloorRatios, remoteStatus, allFloors, generateSuggestions, setFinalRatios, setIsValidated]);
 
   const handleUpdate = (floor: string, field: keyof FinalRatio, value: string) => {
+    if (isReader) return;
     const num = parseFloat(value) || 0;
     setLocalRatios(prev => ({
       ...prev,
@@ -108,6 +112,7 @@ export function Step5Validation() {
   }, [localRatios]);
 
   const validate = () => {
+    if (isReader) return;
     const isOk = Math.abs(sums.bldg - 1) < 0.001 && 
                  Math.abs(sums.fac - 1) < 0.001 && 
                  Math.abs(sums.tool - 1) < 0.001 && 
@@ -156,9 +161,16 @@ export function Step5Validation() {
       <div className="h-2 bg-accent w-full" />
       <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 py-6 px-8">
         <div className="space-y-1">
-          <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
-            <ShieldCheck className="w-7 h-7 text-accent" /> Asset Distribution Matrix
-          </CardTitle>
+          <div className="flex items-center gap-3">
+            <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
+              <ShieldCheck className="w-7 h-7 text-accent" /> Asset Distribution Matrix
+            </CardTitle>
+            {isReader && (
+              <Badge variant="outline" className="text-muted-foreground gap-1 uppercase font-black text-[9px]">
+                <Lock className="w-2 h-2" /> Read Only View
+              </Badge>
+            )}
+          </div>
           <CardDescription className="font-medium">Verify financial distribution sums across all vertical site segments.</CardDescription>
         </div>
         <Button 
@@ -226,52 +238,17 @@ export function Step5Validation() {
                     <TableCell className="font-mono text-[11px] font-black py-3 px-6 border-r bg-muted/5 group-hover:bg-muted/10 transition-colors">
                       {floor}
                     </TableCell>
-                    <TableCell className="py-1 px-2 border-r">
-                      <Input 
-                        type="number" step="0.0001"
-                        value={localRatios[floor]?.bldg ?? 0}
-                        onChange={(e) => handleUpdate(floor, 'bldg', e.target.value)}
-                        className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
-                        suppressHydrationWarning
-                      />
-                    </TableCell>
-                    <TableCell className="py-1 px-2 border-r">
-                      <Input 
-                        type="number" step="0.0001"
-                        value={localRatios[floor]?.fac ?? 0}
-                        onChange={(e) => handleUpdate(floor, 'fac', e.target.value)}
-                        className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
-                        suppressHydrationWarning
-                      />
-                    </TableCell>
-                    <TableCell className="py-1 px-2 border-r">
-                      <Input 
-                        type="number" step="0.0001"
-                        value={localRatios[floor]?.tool ?? 0}
-                        onChange={(e) => handleUpdate(floor, 'tool', e.target.value)}
-                        className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
-                        suppressHydrationWarning
-                      />
-                    </TableCell>
-                    <TableCell className="py-1 px-2 border-r">
-                      <Input 
-                        type="number" step="0.0001"
-                        value={localRatios[floor]?.fix ?? 0}
-                        onChange={(e) => handleUpdate(floor, 'fix', e.target.value)}
-                        className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1 disabled:opacity-20"
-                        disabled={floor.startsWith('CUP')}
-                        suppressHydrationWarning
-                      />
-                    </TableCell>
-                    <TableCell className="py-1 px-2">
-                      <Input 
-                        type="number" step="0.0001"
-                        value={localRatios[floor]?.stock ?? 0}
-                        onChange={(e) => handleUpdate(floor, 'stock', e.target.value)}
-                        className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
-                        suppressHydrationWarning
-                      />
-                    </TableCell>
+                    {['bldg', 'fac', 'tool', 'fix', 'stock'].map(field => (
+                      <TableCell key={field} className="py-1 px-2 border-r">
+                        <Input 
+                          type="number" step="0.0001"
+                          value={localRatios[floor]?.[field as keyof FinalRatio] ?? 0}
+                          onChange={(e) => handleUpdate(floor, field as keyof FinalRatio, e.target.value)}
+                          disabled={isReader || (field === 'fix' && floor.startsWith('CUP'))}
+                          className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
+                        />
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>
@@ -308,15 +285,17 @@ export function Step5Validation() {
             <ArrowLeft className="w-5 h-5" /> Spatial Refinement
           </Button>
           <div className="flex gap-4">
+            {!isReader && (
+              <Button 
+                variant="outline"
+                onClick={validate}
+                className="border-2 border-primary text-primary font-black hover:bg-primary hover:text-white px-8 h-12 rounded-xl transition-all active:scale-95"
+              >
+                Run Audit & Lock
+              </Button>
+            )}
             <Button 
-              variant="outline"
-              onClick={validate}
-              className="border-2 border-primary text-primary font-black hover:bg-primary hover:text-white px-8 h-12 rounded-xl transition-all active:scale-95"
-            >
-              Run Audit & Lock
-            </Button>
-            <Button 
-              disabled={!isValidated}
+              disabled={!isValidated && !isReader}
               onClick={() => setStep(6)}
               className="bg-primary hover:bg-primary/90 text-white font-black px-12 h-12 rounded-xl gap-2 shadow-xl shadow-primary/20 transition-all hover:translate-x-1 disabled:opacity-40"
             >

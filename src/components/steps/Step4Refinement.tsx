@@ -7,22 +7,22 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Layers, Percent, ChevronRight, ArrowLeft, Loader2, RefreshCcw } from 'lucide-react';
+import { Layers, Percent, ChevronRight, ArrowLeft, Loader2, RefreshCcw, Lock } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step4Refinement() {
-  const { plant, setRefinement, setStep } = useAppStore();
+  const { plant, setRefinement, setStep, user } = useAppStore();
   const db = useFirestore();
+  const isReader = user?.role === 'READER';
   
   const [facCrRatio, setFacCrRatio] = useState(0.33);
   const [toolsCrRatio, setToolsCrRatio] = useState(0.9);
   const [floorData, setFloorData] = useState<Record<string, { fac: number; cr: number }>>({});
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Firestore Listeners
   const occupancyRef = useMemoFirebase(() => {
     if (!plant?.id) return null;
     return doc(db, 'fab_cleanroom_occupancy', plant.id);
@@ -43,20 +43,15 @@ export function Step4Refinement() {
     return list;
   }, [plant]);
 
-  // Unified Hydration Logic: Runs only when loading is complete
   useEffect(() => {
     if (!isHydrated && !loadingRemote && !loadingFloorRatios) {
-      console.log('P4: Synchronizing remote spatial intelligence...');
-      
       const mappedFloors: Record<string, { fac: number; cr: number }> = {};
       
-      // Load Overall Ratios
       if (remoteOccupancy) {
         setFacCrRatio(remoteOccupancy.overallFacilityCleanroomRatio ?? 0.33);
         setToolsCrRatio(remoteOccupancy.overallToolsCleanroomRatio ?? 0.9);
       }
 
-      // Load Floor Matrix
       fabFloors.forEach(f => {
         const remoteData = remoteFloorRatios?.find(r => r.floorIdentifier === f);
         mappedFloors[f] = {
@@ -71,6 +66,7 @@ export function Step4Refinement() {
   }, [loadingRemote, loadingFloorRatios, remoteOccupancy, remoteFloorRatios, fabFloors, isHydrated]);
 
   const handleUpdate = (floor: string, type: 'fac' | 'cr', value: string) => {
+    if (isReader) return;
     const num = parseFloat(value) || 0;
     setFloorData(prev => ({
       ...prev,
@@ -79,11 +75,15 @@ export function Step4Refinement() {
   };
 
   const handleNext = () => {
+    if (isReader) {
+      setStep(5);
+      return;
+    }
+
     if (!plant?.id) return;
 
     setRefinement({ facCrRatio, toolsCrRatio, floorData });
 
-    // Persist Main Record
     const mainRef = doc(db, 'fab_cleanroom_occupancy', plant.id);
     setDocumentNonBlocking(mainRef, {
       id: plant.id,
@@ -93,7 +93,6 @@ export function Step4Refinement() {
       overallToolsCleanroomRatio: toolsCrRatio,
     }, { merge: true });
 
-    // Persist Sub-collection
     Object.entries(floorData).forEach(([fId, ratios]) => {
       const fRef = doc(db, 'fab_cleanroom_occupancy', plant.id, 'floor_ratios', fId);
       setDocumentNonBlocking(fRef, {
@@ -125,9 +124,16 @@ export function Step4Refinement() {
       <div className="h-2 bg-accent w-full" />
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
-            <Layers className="w-6 h-6 text-accent" /> Spatial Value Distribution
-          </CardTitle>
+          <div className="flex items-center gap-3">
+            <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
+              <Layers className="w-6 h-6 text-accent" /> Spatial Value Distribution
+            </CardTitle>
+            {isReader && (
+              <Badge variant="outline" className="text-muted-foreground gap-1 uppercase font-black text-[9px]">
+                <Lock className="w-2 h-2" /> Read Only
+              </Badge>
+            )}
+          </div>
           <CardDescription>Refine cleanroom occupancy ratios for {plant?.plantName}.</CardDescription>
         </div>
         <Button 
@@ -152,6 +158,7 @@ export function Step4Refinement() {
                   type="number" step="0.01" 
                   value={facCrRatio} 
                   onChange={(e) => setFacCrRatio(parseFloat(e.target.value) || 0)}
+                  disabled={isReader}
                   className="bg-white border-none font-mono font-bold"
                 />
               </div>
@@ -161,6 +168,7 @@ export function Step4Refinement() {
                   type="number" step="0.01" 
                   value={toolsCrRatio} 
                   onChange={(e) => setToolsCrRatio(parseFloat(e.target.value) || 0)}
+                  disabled={isReader}
                   className="bg-white border-none font-mono font-bold"
                 />
               </div>
@@ -176,8 +184,8 @@ export function Step4Refinement() {
                 <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
                   <TableRow>
                     <TableHead className="text-[10px] font-black uppercase text-primary">Floor ID</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-primary">Facility %</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-primary">Cleanroom %</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-primary text-center">Facility %</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-primary text-center">Cleanroom %</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -193,6 +201,7 @@ export function Step4Refinement() {
                           type="number" step="0.1" 
                           value={floorData[floor]?.fac ?? 0}
                           onChange={(e) => handleUpdate(floor, 'fac', e.target.value)}
+                          disabled={isReader}
                           className="h-8 border-none bg-muted/30 font-mono text-xs text-center font-bold"
                         />
                       </TableCell>
@@ -201,6 +210,7 @@ export function Step4Refinement() {
                           type="number" step="0.1" 
                           value={floorData[floor]?.cr ?? 0}
                           onChange={(e) => handleUpdate(floor, 'cr', e.target.value)}
+                          disabled={isReader}
                           className="h-8 border-none bg-muted/30 font-mono text-xs text-center font-bold"
                         />
                       </TableCell>
@@ -220,7 +230,7 @@ export function Step4Refinement() {
             onClick={handleNext}
             className="bg-primary hover:bg-primary/90 text-white font-black px-10 py-6 text-lg gap-2 shadow-lg shadow-primary/20"
           >
-            Confirm Spatial Refinement <ChevronRight className="w-5 h-5" />
+            {isReader ? 'Next: Validation' : 'Confirm Spatial Refinement'} <ChevronRight className="w-5 h-5" />
           </Button>
         </div>
       </CardContent>
