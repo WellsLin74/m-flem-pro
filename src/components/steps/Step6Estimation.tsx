@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { generateFloodRiskInsights } from '@/ai/flows/generate-flood-risk-insights';
-import { TrendingDown, Waves, Sparkles, ArrowLeft, Building2, Factory, Image as ImageIcon } from 'lucide-react';
+import { TrendingDown, Waves, Sparkles, ArrowLeft, Building2, Factory, Image as ImageIcon, LayoutPanelLeft, Cpu } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -32,6 +32,8 @@ export function Step6Estimation() {
     cupFacBs: 100.0, cupFacL10: 0.0,
   });
 
+  const [fabLoss, setFabLoss] = useState<number | null>(null);
+  const [cupLoss, setCupLoss] = useState<number | null>(null);
   const [totalLoss, setTotalLoss] = useState<number | null>(null);
   const [aiInsights, setAiInsights] = useState<string>('');
   const [loadingAi, setLoadingAi] = useState(false);
@@ -79,27 +81,35 @@ export function Step6Estimation() {
   const calculate = () => {
     if (!plant || !assetDistribution) return;
     
-    let est = 0;
+    let estFab = 0;
+    let estCup = 0;
     const { fabBs, fabL10Floor, cupBs, cupL10Floor } = assetDistribution;
     
-    est += (plant.pdBuilding * fabBs.bldgRatio * (ratios.fabBldgBs / 100));
-    est += (plant.pdBuilding * fabL10Floor.bldgRatio * (ratios.fabBldgL10 / 100));
-    est += (plant.pdFacility * fabBs.facRatio * (ratios.fabFacBs / 100));
-    est += (plant.pdFacility * fabL10Floor.facRatio * (ratios.fabFacL10 / 100));
-    est += (plant.pdTools * fabBs.toolRatio * (ratios.fabToolBs / 100));
-    est += (plant.pdTools * fabL10Floor.toolRatio * (ratios.fabToolL10 / 100));
-    est += (plant.pdFixture * fabBs.fixRatio * (ratios.fabFixBs / 100));
-    est += (plant.pdFixture * fabL10Floor.fixRatio * (ratios.fabFixL10 / 100));
-    est += (plant.pdStock * fabBs.stockRatio * (ratios.fabStockBs / 100));
-    est += (plant.pdStock * fabL10Floor.stockRatio * (ratios.fabStockL10 / 100));
+    // FAB Subtotal
+    estFab += (plant.pdBuilding * fabBs.bldgRatio * (ratios.fabBldgBs / 100));
+    estFab += (plant.pdBuilding * fabL10Floor.bldgRatio * (ratios.fabBldgL10 / 100));
+    estFab += (plant.pdFacility * fabBs.facRatio * (ratios.fabFacBs / 100));
+    estFab += (plant.pdFacility * fabL10Floor.facRatio * (ratios.fabFacL10 / 100));
+    estFab += (plant.pdTools * fabBs.toolRatio * (ratios.fabToolBs / 100));
+    estFab += (plant.pdTools * fabL10Floor.toolRatio * (ratios.fabToolL10 / 100));
+    estFab += (plant.pdFixture * fabBs.fixRatio * (ratios.fabFixBs / 100));
+    estFab += (plant.pdFixture * fabL10Floor.fixRatio * (ratios.fabFixL10 / 100));
+    estFab += (plant.pdStock * fabBs.stockRatio * (ratios.fabStockBs / 100));
+    estFab += (plant.pdStock * fabL10Floor.stockRatio * (ratios.fabStockL10 / 100));
 
-    est += (plant.pdBuilding * cupBs.bldgRatio * (ratios.cupBldgBs / 100));
-    est += (plant.pdBuilding * cupL10Floor.bldgRatio * (ratios.cupBldgL10 / 100));
-    est += (plant.pdFacility * cupBs.facRatio * (ratios.cupFacBs / 100));
-    est += (plant.pdFacility * cupL10Floor.facRatio * (ratios.cupFacL10 / 100));
+    // CUP Subtotal
+    estCup += (plant.pdBuilding * cupBs.bldgRatio * (ratios.cupBldgBs / 100));
+    estCup += (plant.pdBuilding * cupL10Floor.bldgRatio * (ratios.cupBldgL10 / 100));
+    estCup += (plant.pdFacility * cupBs.facRatio * (ratios.cupFacBs / 100));
+    estCup += (plant.pdFacility * cupL10Floor.facRatio * (ratios.cupFacL10 / 100));
 
-    const finalEst = Number(est.toFixed(1));
-    setTotalLoss(finalEst);
+    const finalFab = Number(estFab.toFixed(1));
+    const finalCup = Number(estCup.toFixed(1));
+    const finalTotal = Number((finalFab + finalCup).toFixed(1));
+
+    setFabLoss(finalFab);
+    setCupLoss(finalCup);
+    setTotalLoss(finalTotal);
 
     const plantId = plant.id;
     const estimationId = `${plantId}-${Date.now()}`;
@@ -117,7 +127,9 @@ export function Step6Estimation() {
       toolsL10LossRatio: ratios.fabToolL10,
       ffsBasementLossRatio: ratios.fabFacBs,
       ffsL10LossRatio: ratios.fabFacL10,
-      estimatedTotalLoss: finalEst,
+      estimatedTotalLoss: finalTotal,
+      estimatedFabLoss: finalFab,
+      estimatedCupLoss: finalCup,
       estimationTimestamp: new Date().toISOString(),
     }, { merge: true });
   };
@@ -228,7 +240,7 @@ export function Step6Estimation() {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
-                  <Waves className="w-6 h-6 text-accent" /> Simulation
+                  <Waves className="w-6 h-6 text-accent" /> Risk Estimation Profile
                 </CardTitle>
                 <CardDescription>Simulate flood events based on vertical asset distribution profiles for {plant?.plantName}.</CardDescription>
               </div>
@@ -386,21 +398,40 @@ export function Step6Estimation() {
                 </div>
 
                 {totalLoss !== null && (
-                  <div className="p-10 rounded-[2.5rem] bg-primary text-primary-foreground flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-primary/40 relative overflow-hidden transition-all hover:shadow-primary/50">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                      <TrendingDown className="w-64 h-64" />
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-6 rounded-3xl bg-slate-900 text-white shadow-xl flex items-center justify-between border border-white/10 group hover:scale-[1.02] transition-transform">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/80">Cumulative FAB Financial Impact</p>
+                          <p className="text-3xl font-headline font-black tracking-tighter tabular-nums">NTD {formatNum(fabLoss || 0)}M</p>
+                        </div>
+                        <Factory className="w-10 h-10 text-accent/20 group-hover:text-accent/40 transition-colors" />
+                      </div>
+                      <div className="p-6 rounded-3xl bg-blue-900 text-white shadow-xl flex items-center justify-between border border-white/10 group hover:scale-[1.02] transition-transform">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/80">Cumulative CUP Financial Impact</p>
+                          <p className="text-3xl font-headline font-black tracking-tighter tabular-nums">NTD {formatNum(cupLoss || 0)}M</p>
+                        </div>
+                        <Building2 className="w-10 h-10 text-accent/20 group-hover:text-accent/40 transition-colors" />
+                      </div>
                     </div>
-                    <div className="space-y-2 relative z-10 text-center md:text-left">
-                      <p className="text-sm font-black uppercase tracking-[0.4em] text-accent">Cumulative Site Financial Impact</p>
-                      <h3 className="text-6xl font-headline font-black tracking-tighter tabular-nums">NTD {formatNum(totalLoss)}M</h3>
+
+                    <div className="p-10 rounded-[2.5rem] bg-primary text-primary-foreground flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-primary/40 relative overflow-hidden transition-all hover:shadow-primary/50">
+                      <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                        <TrendingDown className="w-64 h-64" />
+                      </div>
+                      <div className="space-y-2 relative z-10 text-center md:text-left">
+                        <p className="text-sm font-black uppercase tracking-[0.4em] text-accent">Cumulative Site Financial Impact</p>
+                        <h3 className="text-6xl font-headline font-black tracking-tighter tabular-nums">NTD {formatNum(totalLoss)}M</h3>
+                      </div>
+                      <button 
+                        onClick={getAiInsights}
+                        disabled={loadingAi}
+                        className="inline-flex items-center justify-center bg-accent hover:bg-accent/90 text-primary font-black px-10 py-8 rounded-2xl gap-3 shadow-2xl relative z-10 text-lg transition-all hover:scale-105 disabled:opacity-50 disabled:pointer-events-none"
+                      >
+                        {loadingAi ? 'Synthesizing Data...' : <><Sparkles className="w-6 h-6 fill-current" /> Generate AI Insights</>}
+                      </button>
                     </div>
-                    <button 
-                      onClick={getAiInsights}
-                      disabled={loadingAi}
-                      className="inline-flex items-center justify-center bg-accent hover:bg-accent/90 text-primary font-black px-10 py-8 rounded-2xl gap-3 shadow-2xl relative z-10 text-lg transition-all hover:scale-105 disabled:opacity-50 disabled:pointer-events-none"
-                    >
-                      {loadingAi ? 'Synthesizing Data...' : <><Sparkles className="w-6 h-6 fill-current" /> Generate AI Insights</>}
-                    </button>
                   </div>
                 )}
               </div>
