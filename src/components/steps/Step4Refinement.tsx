@@ -82,11 +82,14 @@ export function Step4Refinement() {
     setError(null);
   };
 
+  /**
+   * 嚴格校驗邏輯：單一樓層的 Facility + Cleanroom 必須剛好等於 1.0
+   */
   const validateMatrix = () => {
     for (const floor of fabFloors) {
       const data = floorData[floor];
       const sum = (data?.fac || 0) + (data?.cr || 0);
-      // 容許極小誤差
+      // 容許極小浮點數誤差
       if (Math.abs(sum - 1) > 0.0001) {
         return `Validation Failed: Floor ${floor} total occupancy must be exactly 1.0 (Current: ${sum.toFixed(4)}). Please balance Facility and Cleanroom ratios.`;
       }

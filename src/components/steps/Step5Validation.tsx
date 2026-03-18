@@ -47,6 +47,8 @@ export function Step5Validation() {
    * 精確建議權重公式:
    * Weight(f) = Area(f) * P4_OccupancyRatio(f)
    * Ratio(f) = Weight(f) / Total_Weight_Of_Asset_Type
+   * 
+   * 此公式確保全廠 Facility 價值的分配嚴格對應 P4 設定的物理空間比例。
    */
   const generateSuggestions = useCallback(() => {
     if (!plant || !refinement) return {};
