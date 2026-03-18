@@ -68,8 +68,6 @@ export function Navigation() {
             <div className="flex gap-2 text-[10px] uppercase font-bold tracking-wider text-accent">
               <Shield className="w-2.5 h-2.5" />
               <span>{user.role}</span>
-              <span className="text-primary-foreground/30">•</span>
-              <span>{user.assignedCompany}</span>
             </div>
           </div>
           <Button 
