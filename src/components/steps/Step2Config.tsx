@@ -7,9 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Factory, ChevronRight, ArrowLeft, PlusCircle, Shield, Loader2 } from 'lucide-react';
+import { Building2, Factory, ChevronRight, ArrowLeft, PlusCircle, Shield, Loader2, Zap } from 'lucide-react';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step2Config() {
@@ -39,6 +39,16 @@ export function Step2Config() {
   const [selectedPlantId, setSelectedPlantId] = useState<string>('');
   const [newPlantName, setNewPlantName] = useState('');
   const [isNewPlant, setIsNewPlant] = useState(false);
+  const [isJumping, setIsJumping] = useState(false);
+
+  // Check if P5 is validated for the selected plant
+  const validationRef = useMemoFirebase(() => {
+    if (!selectedPlantId) return null;
+    return doc(db, 'building_value_ratios', selectedPlantId);
+  }, [db, selectedPlantId]);
+  const { data: validationData } = useDoc(validationRef);
+
+  const isFastTrackAvailable = validationData?.validationStatus === 'VALIDATED';
 
   const availableCompanies = useMemo(() => {
     if (!allAvailablePlants) return [];
@@ -63,6 +73,30 @@ export function Step2Config() {
     setIsNewPlant(false);
   };
 
+  const mapPlantData = (selectedPlantData: any) => {
+    return {
+      id: selectedPlantData.id,
+      company: selectedPlantData.companyName,
+      plantName: selectedPlantData.plantName,
+      lat: selectedPlantData.latitude ?? 24.774,
+      lon: selectedPlantData.longitude ?? 121.013,
+      fabAl: selectedPlantData.fabAboveLevel ?? 4,
+      fabBl: selectedPlantData.fabBelowLevel ?? 2,
+      cupAl: selectedPlantData.cupAboveLevel ?? 2,
+      cupBl: selectedPlantData.cupBelowLevel ?? 1,
+      fabLength: selectedPlantData.fabLength ?? 200,
+      fabWidth: selectedPlantData.fabWidth ?? 150,
+      cupLength: selectedPlantData.cupLength ?? 100,
+      cupWidth: selectedPlantData.cupWidth ?? 80,
+      pdBuilding: selectedPlantData.buildingValue ?? 500,
+      pdFacility: selectedPlantData.facilityValue ?? 200,
+      pdTools: selectedPlantData.toolsValue ?? 1500,
+      pdFixture: selectedPlantData.fixtureValue ?? 50,
+      pdStock: selectedPlantData.stockValue ?? 300,
+      bi12m: selectedPlantData.bi12mValue ?? 1000,
+    };
+  };
+
   const handleNext = () => {
     const selectedPlantData = allAvailablePlants?.find(p => p.id === selectedPlantId);
     const finalPlantName = (isNewPlant ? newPlantName : (selectedPlantData?.plantName || '')).trim();
@@ -82,31 +116,10 @@ export function Step2Config() {
       setIsValidated(false);
     }
 
-    const plantData: any = {
-      id: plantId,
-      company: finalCompanyName,
-      plantName: finalPlantName,
-      lat: selectedPlantData?.latitude ?? 24.774,
-      lon: selectedPlantData?.longitude ?? 121.013,
-      fabAl: selectedPlantData?.fabAboveLevel ?? 4,
-      fabBl: selectedPlantData?.fabBelowLevel ?? 2,
-      cupAl: selectedPlantData?.cupAboveLevel ?? 2,
-      cupBl: selectedPlantData?.cupBelowLevel ?? 1,
-      fabLength: selectedPlantData?.fabLength ?? 200,
-      fabWidth: selectedPlantData?.fabWidth ?? 150,
-      cupLength: selectedPlantData?.cupLength ?? 100,
-      cupWidth: selectedPlantData?.cupWidth ?? 80,
-      pdBuilding: selectedPlantData?.buildingValue ?? 500,
-      pdFacility: selectedPlantData?.facilityValue ?? 200,
-      pdTools: selectedPlantData?.toolsValue ?? 1500,
-      pdFixture: selectedPlantData?.fixtureValue ?? 50,
-      pdStock: selectedPlantData?.stockValue ?? 300,
-      bi12m: selectedPlantData?.bi12mValue ?? 1000,
-    };
-
+    const plantData = mapPlantData(selectedPlantData || { id: plantId, companyName: finalCompanyName, plantName: finalPlantName });
     setPlant(plantData);
 
-    if (userPerm?.role !== 'READER') {
+    if (userPerm?.role !== 'READER' && isNewPlant) {
       const plantRef = doc(db, 'plants', plantId);
       setDocumentNonBlocking(plantRef, {
         id: plantId,
@@ -132,6 +145,62 @@ export function Step2Config() {
     }
 
     setStep(3);
+  };
+
+  const handleJumpToP6 = async () => {
+    if (!selectedPlantId) return;
+    setIsJumping(true);
+
+    try {
+      // 1. Fetch P3 Baseline
+      const selectedPlantData = allAvailablePlants?.find(p => p.id === selectedPlantId);
+      if (!selectedPlantData) throw new Error("Plant data not found");
+      const plantData = mapPlantData(selectedPlantData);
+
+      // 2. Fetch P4 Refinement
+      const occDoc = await getDoc(doc(db, 'fab_cleanroom_occupancy', selectedPlantId));
+      const floorRatiosSnapshot = await getDocs(collection(db, 'fab_cleanroom_occupancy', selectedPlantId, 'floor_ratios'));
+      
+      const mappedFloorData: Record<string, { fac: number; cr: number }> = {};
+      floorRatiosSnapshot.forEach(d => {
+        const data = d.data();
+        mappedFloorData[data.floorIdentifier] = {
+          fac: data.facilityOccupancyRatio,
+          cr: data.cleanroomOccupancyRatio
+        };
+      });
+
+      const refinementData = {
+        facCrRatio: occDoc.data()?.overallFacilityCleanroomRatio || 0.33,
+        toolsCrRatio: occDoc.data()?.overallToolsCleanroomRatio || 0.9,
+        floorData: mappedFloorData
+      };
+
+      // 3. Fetch P5 Final Ratios
+      const p5FloorRatiosSnapshot = await getDocs(collection(db, 'building_value_ratios', selectedPlantId, 'floor_ratios'));
+      const finalRatios: Record<string, any> = {};
+      p5FloorRatiosSnapshot.forEach(d => {
+        const data = d.data();
+        finalRatios[data.floorIdentifier] = {
+          bldg: data.buildingRatio,
+          fac: data.facilityRatio,
+          tool: data.toolsRatio,
+          fix: data.fixtureRatio,
+          stock: data.stockRatio
+        };
+      });
+
+      // Populate Store
+      setPlant(plantData);
+      setRefinement(refinementData);
+      setFinalRatios(finalRatios);
+      setIsValidated(true);
+      setStep(6);
+    } catch (err) {
+      console.error("Jump failed:", err);
+    } finally {
+      setIsJumping(false);
+    }
   };
 
   const activePlantName = isNewPlant ? newPlantName : (allAvailablePlants?.find(p => p.id === selectedPlantId)?.plantName || '');
@@ -235,17 +304,31 @@ export function Step2Config() {
           </div>
         )}
 
-        <div className="flex justify-between pt-6">
+        <div className="flex flex-col sm:flex-row justify-between pt-6 gap-4">
           <Button variant="ghost" onClick={() => setStep(1)} className="font-bold text-muted-foreground gap-2">
             <ArrowLeft className="w-4 h-4" /> Back to Auth
           </Button>
-          <Button 
-            onClick={handleNext} 
-            disabled={!activePlantName || !companyName || loadingPerm}
-            className="bg-primary hover:bg-primary/90 text-white font-black px-10 py-6 text-lg gap-2 shadow-lg shadow-primary/20"
-          >
-            Next: Initialization <ChevronRight className="w-5 h-5" />
-          </Button>
+          
+          <div className="flex flex-col sm:flex-row gap-4">
+            {isFastTrackAvailable && !isNewPlant && (
+              <Button 
+                onClick={handleJumpToP6}
+                disabled={isJumping}
+                className="bg-accent hover:bg-accent/90 text-primary font-black px-8 py-6 text-lg gap-2 shadow-lg shadow-accent/20 border-2 border-primary/10 animate-pulse hover:animate-none"
+              >
+                {isJumping ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 fill-current" />}
+                Fast Track to P6
+              </Button>
+            )}
+            
+            <Button 
+              onClick={handleNext} 
+              disabled={!activePlantName || !companyName || loadingPerm || isJumping}
+              className="bg-primary hover:bg-primary/90 text-white font-black px-10 py-6 text-lg gap-2 shadow-lg shadow-primary/20"
+            >
+              Next: Initialization <ChevronRight className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
