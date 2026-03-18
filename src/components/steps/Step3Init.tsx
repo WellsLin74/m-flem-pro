@@ -59,8 +59,9 @@ export function Step3Init() {
   const onSubmit = (data: Partial<PlantData>) => {
     if (!plant) return;
 
+    // 確保 ID 被完整傳遞
     const numericData: PlantData = {
-      id: plant.id, // Ensure the linked ID is used
+      id: plant.id, // 關鍵：保留工廠編號
       company: plant.company,
       plantName: plant.plantName,
       lat: Number(data.lat) || 0,
@@ -85,7 +86,7 @@ export function Step3Init() {
 
     const plantId = plant.id;
 
-    // 1. Update Building Info using the plant ID
+    // 1. 更新 Building Info，使用工廠編號作為 ID
     const buildingRef = doc(db, 'building_info', plantId);
     setDocumentNonBlocking(buildingRef, {
       id: plantId,
@@ -99,7 +100,7 @@ export function Step3Init() {
       cupBelowLevel: numericData.cupBl,
     }, { merge: true });
 
-    // 2. Persist Plant Initial Values using the plant ID as prefix
+    // 2. 持久化 Plant Initial Values，文件 ID 與工廠編號連動
     const plantValId = `${plantId}-init`;
     const plantValRef = doc(db, 'plant_initial_values', plantValId);
     setDocumentNonBlocking(plantValRef, {
