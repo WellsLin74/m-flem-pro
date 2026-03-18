@@ -7,37 +7,33 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // 獲取使用者權限文件
-    function getUserData() {
-      return get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data;
-    }
-
-    // 檢查是否為管理員
+    // 檢查是否為管理員 (優先檢查 Email 以確保初始存取權)
     function isAdmin() {
-      let path = /databases/$(database)/documents/user_permissions/$(request.auth.uid);
-      return isSignedIn() && exists(path) && getUserData().role == 'ADMIN';
+      let isSystemAdmin = isSignedIn() && request.auth.token.email == "admin@marsh.com";
+      let hasAdminDoc = isSignedIn() && exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && 
+                        get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.role == 'ADMIN';
+      return isSystemAdmin || hasAdminDoc;
     }
 
-    // 檢查公司存取權限或管理員覆蓋
+    // 檢查公司存取權限
     function hasAccess(companyName) {
       if (!isSignedIn()) return false;
+      if (isAdmin()) return true;
       let path = /databases/$(database)/documents/user_permissions/$(request.auth.uid);
-      if (!exists(path)) return false;
-      let userData = getUserData();
-      return userData.role == 'ADMIN' || userData.assignedCompany == companyName;
+      return exists(path) && get(path).data.assignedCompany == companyName;
     }
 
-    // 使用者權限 - 只有管理員或本人可管理
+    // 使用者權限
     match /user_permissions/{userId} {
       allow get: if isSignedIn();
       allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
     }
 
-    // 工廠主表 - 管理員或同公司使用者可讀寫
+    // 工廠主表
     match /plants/{plantId} {
       allow read: if isSignedIn();
       allow write: if hasAccess(request.resource.data.companyName);
-      allow delete: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && getUserData().assignedCompany == resource.data.companyName);
+      allow delete: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany == resource.data.companyName);
     }
 
     // 潔淨室佔用比例
@@ -64,7 +60,7 @@ service cloud.firestore {
     match /flood_loss_estimations/{id} {
       allow read: if isSignedIn();
       allow create: if hasAccess(request.resource.data.companyName);
-      allow update, delete: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && getUserData().assignedCompany == resource.data.companyName);
+      allow update, delete: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany == resource.data.companyName);
     }
   }
 }
