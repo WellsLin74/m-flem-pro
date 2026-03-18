@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldCheck, UserPlus, Clock, CheckCircle, UserCheck, AlertCircle } from 'lucide-react';
+import { ShieldCheck, UserPlus, Clock, CheckCircle, UserCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -17,7 +17,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export function Step1Login() {
   const { setUser, setStep } = useAppStore();
-  const { user: firebaseUser, dbUser } = useUser();
+  const { user: firebaseUser, dbUser, isUserLoading } = useUser();
   const [mode, setMode] = useState<'login' | 'add'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,9 +29,12 @@ export function Step1Login() {
   const db = useFirestore();
   const { toast } = useToast();
 
-  const isAdmin = dbUser?.role === 'ADMIN' || firebaseUser?.email === 'admin@marsh.com';
+  // 超級管理員特權判定
+  const isSuperAdmin = firebaseUser?.email === 'admin@marsh.com';
+  const isAdmin = dbUser?.role === 'ADMIN' || isSuperAdmin;
+  const isApproved = dbUser?.isApproved === true || isSuperAdmin;
 
-  // For Admin: List of pending users
+  // 對 ADMIN 顯示待核准清單
   const pendingUsersQuery = useMemoFirebase(() => {
     if (!isAdmin) return null;
     return query(collection(db, 'user_permissions'), where('isApproved', '==', false));
@@ -39,27 +42,29 @@ export function Step1Login() {
   const { data: pendingUsers } = useCollection(pendingUsersQuery);
 
   useEffect(() => {
-    if (firebaseUser && dbUser) {
-      setUser({
-        email: firebaseUser.email || dbUser.email,
-        role: dbUser.role,
-        assignedCompany: dbUser.assignedCompany,
-        isApproved: dbUser.isApproved
-      });
-      if (dbUser.isApproved) {
+    if (firebaseUser) {
+      // 即使 Firestore 文件尚未建立，admin@marsh.com 也能直接通行
+      if (isApproved) {
+        setUser({
+          email: firebaseUser.email || 'Authorized User',
+          role: dbUser?.role || (isSuperAdmin ? 'ADMIN' : 'READER'),
+          assignedCompany: dbUser?.assignedCompany || (isSuperAdmin ? 'Marsh' : 'Guest'),
+          isApproved: true
+        });
         setStep(2);
       }
     }
-  }, [firebaseUser, dbUser, setUser, setStep]);
+  }, [firebaseUser, dbUser, isApproved, isSuperAdmin, setUser, setStep]);
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !password) {
       toast({ variant: "destructive", title: "Missing Information", description: "Please enter both email and security key." });
       return;
     }
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+      await signInWithEmailAndPassword(auth, cleanEmail, password);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials or system interruption." });
     } finally {
@@ -76,16 +81,14 @@ export function Step1Login() {
 
     setLoading(true);
     try {
-      // Logic for Super Admin (admin@marsh.com)
-      const isSuperAdmin = cleanEmail === 'admin@marsh.com';
+      const isRegisteringSuperAdmin = cleanEmail === 'admin@marsh.com';
       let finalRole = role;
       let finalApproved = false;
 
-      if (isSuperAdmin) {
+      if (isRegisteringSuperAdmin) {
         finalRole = 'ADMIN';
         finalApproved = true;
       } else {
-        // Prevent multiple ADMINs unless it's the super admin
         if (role === 'ADMIN') {
           const q = query(collection(db, 'user_permissions'), where('role', '==', 'ADMIN'));
           const snap = await getDocs(q);
@@ -127,7 +130,20 @@ export function Step1Login() {
     toast({ title: "User Approved", description: "Access granted successfully." });
   };
 
-  if (firebaseUser && dbUser && !dbUser.isApproved) {
+  // 載入狀態 UI
+  if (isUserLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-40 space-y-4">
+        <Loader2 className="w-12 h-12 text-accent animate-spin" />
+        <p className="font-black text-primary uppercase tracking-[0.2em] animate-pulse">
+          Authenticating Neural Link...
+        </p>
+      </div>
+    );
+  }
+
+  // 待核准 UI (admin@marsh.com 永遠不應看到此頁面)
+  if (firebaseUser && !isApproved) {
     return (
       <div className="max-w-md mx-auto space-y-6">
         <Card className="border-none shadow-2xl bg-white/80 backdrop-blur-sm overflow-hidden text-center py-10">
@@ -137,7 +153,7 @@ export function Step1Login() {
           </div>
           <CardTitle className="text-2xl font-black text-primary px-6">Access Pending Approval</CardTitle>
           <CardDescription className="px-10 mt-4 font-medium">
-            Your account ({dbUser.email}) is registered for <span className="text-primary font-bold">{dbUser.assignedCompany}</span>.
+            Your account ({firebaseUser.email}) is awaiting verification.
           </CardDescription>
           <div className="p-8">
             <Alert className="bg-primary/5 border-primary/10 text-primary">
@@ -155,6 +171,7 @@ export function Step1Login() {
     );
   }
 
+  // ADMIN 審核儀表板 (若有待審核者)
   if (isAdmin && pendingUsers && pendingUsers.length > 0) {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
@@ -187,6 +204,7 @@ export function Step1Login() {
     );
   }
 
+  // 登入/註冊主畫面
   return (
     <div className="max-w-md mx-auto">
       <Card className="border-none shadow-2xl bg-white/80 backdrop-blur-sm overflow-hidden">
