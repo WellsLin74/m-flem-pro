@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -6,6 +7,12 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    // 檢查是否已核准
+    function isApproved() {
+      return isSignedIn() && 
+             get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.isApproved == true;
+    }
+
     // 管理員判斷：優先檢查 Email 或資料庫 Role
     function isAdmin() {
       return isSignedIn() && (
@@ -15,29 +22,26 @@ service cloud.firestore {
       );
     }
 
-    // 角色檢查函數
+    // 角色檢查函數 (需為已核准身分)
     function isEditor() {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) &&
+      return isApproved() && 
              get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.role == 'EDITOR';
     }
 
     function isReader() {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) &&
+      return isApproved() && 
              get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.role == 'READER';
     }
 
-    // 公司存取權限：ADMIN 可看所有，其餘限所屬公司
+    // 公司存取權限：ADMIN 可看所有，其餘限所屬公司且需已核准
     function hasAccess(compName) {
       return isSignedIn() && (
         isAdmin() || 
-        (exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany == compName)
+        (isApproved() && get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany == compName)
       );
     }
 
-    // 修改權限：ADMIN 與 EDITOR 具備修改權限
+    // 修改權限：ADMIN 與已核准的 EDITOR 具備修改權限
     function canModify(compName) {
       return isSignedIn() && (
         isAdmin() || 
@@ -78,18 +82,20 @@ service cloud.firestore {
       }
     }
 
-    // P6: 淹水損失估算 (READER 模擬不限制寫入，因為 Step 2 已過濾工廠權限)
+    // P6: 淹水損失估算
     match /flood_loss_estimations/{id} {
       allow list: if isSignedIn();
       allow get: if hasAccess(resource.data.companyName);
-      allow create: if isSignedIn(); // 允許登入者建立模擬紀錄
+      allow create: if isSignedIn(); // 模擬不限核准，但 P2 過濾已確保安全性
       allow update, delete: if isAdmin();
     }
 
     // 使用者權限設定
     match /user_permissions/{userId} {
       allow get: if isSignedIn();
-      allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
+      allow create: if isSignedIn();
+      allow update: if isAdmin(); // 只有 ADMIN 可以核准
+      allow delete: if isAdmin();
     }
   }
 }

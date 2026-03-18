@@ -10,9 +10,10 @@
         "id": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "role": { "type": "string" },
-        "assignedCompany": { "type": "string" }
+        "assignedCompany": { "type": "string" },
+        "isApproved": { "type": "boolean", "description": "Whether the user has been approved by an ADMIN." }
       },
-      "required": ["id", "email", "role", "assignedCompany"]
+      "required": ["id", "email", "role", "assignedCompany", "isApproved"]
     },
     "Plant": {
       "$schema": "http://json-schema.org/draft-07/schema#",

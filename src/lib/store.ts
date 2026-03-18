@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 
 export type UserRole = 'ADMIN' | 'EDITOR' | 'READER';
@@ -6,6 +7,7 @@ export interface User {
   email: string;
   role: UserRole;
   assignedCompany: string;
+  isApproved: boolean;
 }
 
 export interface PlantData {
