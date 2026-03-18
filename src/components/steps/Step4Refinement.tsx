@@ -57,11 +57,12 @@ export function Step4Refinement() {
     const data = { facCrRatio, toolsCrRatio, floorData };
     setRefinement(data);
 
-    if (plant) {
+    if (plant?.id) {
       const plantId = plant.id;
-      const occupancyId = `${plantId}-occupancy`;
+      // Using plantId directly for the main document ID in this collection
+      const occupancyId = plantId;
 
-      // 1. Save main document with key linked to plant ID
+      // 1. Save main document
       const occupancyRef = doc(db, 'fab_cleanroom_occupancy', occupancyId);
       setDocumentNonBlocking(occupancyRef, {
         id: occupancyId,

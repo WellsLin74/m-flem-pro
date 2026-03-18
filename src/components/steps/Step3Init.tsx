@@ -20,7 +20,7 @@ export function Step3Init() {
     defaultValues: plant || {}
   });
 
-  // 當廠區 ID 變動時，重置表單內容以符合該廠區的數據
+  // Reset form when plant ID changes to ensure correct data linkage
   useEffect(() => {
     if (plant?.id) {
       reset(plant);
@@ -59,10 +59,10 @@ export function Step3Init() {
 
   const onSubmit = (data: Partial<PlantData>) => {
     const plantId = plant?.id;
-    if (!plantId) return;
+    if (!plantId || !plant?.company) return;
 
+    // Explicitly convert and map data to match PlantData and Firestore schemas
     const numericData: PlantData = {
-      ...data,
       id: plantId,
       company: plant.company,
       plantName: plant.plantName,
@@ -82,13 +82,12 @@ export function Step3Init() {
       pdFixture: Number(data.pdFixture) || 0,
       pdStock: Number(data.pdStock) || 0,
       bi12m: Number(data.bi12m) || 0,
-    } as PlantData;
+    };
 
-    // 更新全域狀態
+    // Update global store
     setPlant(numericData);
 
-    // 1. 儲存物理參數到 'building_info' 集合
-    // CRITICAL: 必須包含 companyName 欄位以通過安全性規則校驗
+    // 1. Save Physical Parameters to 'building_info'
     const buildingRef = doc(db, 'building_info', plantId);
     setDocumentNonBlocking(buildingRef, {
       id: plantId,
@@ -102,11 +101,11 @@ export function Step3Init() {
       cupBelowLevel: numericData.cupBl,
     }, { merge: true });
 
-    // 2. 儲存財務參數到 'plant_initial_values' 集合
-    const plantValId = `${plantId}-init`;
-    const plantValRef = doc(db, 'plant_initial_values', plantValId);
+    // 2. Save Initial Financial Values to 'plant_initial_values'
+    // Use the same plantId as the key for strict linkage
+    const plantValRef = doc(db, 'plant_initial_values', plantId);
     setDocumentNonBlocking(plantValRef, {
-      id: plantValId,
+      id: plantId,
       companyName: plant.company,
       plantName: plant.plantName,
       buildingValue: numericData.pdBuilding,
@@ -210,7 +209,7 @@ export function Step3Init() {
               </div>
             </div>
 
-            {/* Asset Values */}
+            {/* Asset Values Summary */}
             <div className="space-y-4">
               <div className="p-4 rounded-xl border-2 border-primary/10 bg-primary/10 space-y-2">
                 <div className="flex items-center gap-2 text-primary">

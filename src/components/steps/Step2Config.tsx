@@ -60,7 +60,7 @@ export function Step2Config() {
     const finalPlantName = isNewPlant ? newPlantName : (existingPlants?.find(p => p.id === selectedPlantId)?.plantName || '');
     if (!finalPlantName || !companyName) return;
     
-    // Generate safe ID for Document Path
+    // Generate safe ID for Document Path (Strict key mapping: Company-Plant)
     const safeCompany = companyName.trim().replace(/[^a-zA-Z0-9]/g, '_');
     const safePlant = finalPlantName.trim().replace(/[^a-zA-Z0-9]/g, '_');
     const buildingInfoId = isNewPlant 
@@ -89,26 +89,22 @@ export function Step2Config() {
       fabBl: existingData?.fabBelowLevel ?? 2,
       cupAl: existingData?.cupAboveLevel ?? 2,
       cupBl: existingData?.cupBelowLevel ?? 1,
-      fabLength: 200,
-      fabWidth: 150,
-      cupLength: 100,
-      cupWidth: 80,
-      pdBuilding: 500,
-      pdFacility: 200,
-      pdTools: 1500,
-      pdFixture: 50,
-      pdStock: 300,
-      bi12m: 1000,
+      fabLength: existingData?.fabLength ?? 200,
+      fabWidth: existingData?.fabWidth ?? 150,
+      cupLength: existingData?.cupLength ?? 100,
+      cupWidth: existingData?.cupWidth ?? 80,
+      pdBuilding: existingData?.buildingValue ?? 500,
+      pdFacility: existingData?.facilityValue ?? 200,
+      pdTools: existingData?.toolsValue ?? 1500,
+      pdFixture: existingData?.fixtureValue ?? 50,
+      pdStock: existingData?.stockValue ?? 300,
+      bi12m: existingData?.bi12mValue ?? 1000,
     };
 
-    // Preserve existing store values if it's the same plant
-    if (plant?.id === buildingInfoId) {
-      Object.assign(plantData, plant);
-    }
-
+    // Update global store
     setPlant(plantData);
 
-    // Persist identity to Firestore
+    // Persist Identity to Firestore immediately to satisfy security rules
     const buildingRef = doc(db, 'building_info', buildingInfoId);
     setDocumentNonBlocking(buildingRef, {
       id: buildingInfoId,

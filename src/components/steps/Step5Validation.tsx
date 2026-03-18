@@ -138,11 +138,12 @@ export function Step5Validation() {
     if (isOk) {
       setFinalRatios(localRatios);
       
-      if (plant) {
+      if (plant?.id) {
         const plantId = plant.id;
-        const ratioId = `${plantId}-ratios`;
+        // Using plantId directly for the main document ID in this collection
+        const ratioId = plantId;
 
-        // 1. Save building_value_ratios with ID linked to plant
+        // 1. Save main document
         const ratioRef = doc(db, 'building_value_ratios', ratioId);
         setDocumentNonBlocking(ratioRef, {
           id: ratioId,
@@ -152,7 +153,7 @@ export function Step5Validation() {
           buildingValueFloorRatioIds: Object.keys(localRatios),
         }, { merge: true });
 
-        // 2. Save each floor_ratio linked to the ratio document
+        // 2. Save each floor_ratio
         Object.entries(localRatios).forEach(([floorId, ratios]) => {
           const floorRef = doc(db, 'building_value_ratios', ratioId, 'floor_ratios', floorId);
           setDocumentNonBlocking(floorRef, {
@@ -175,18 +176,20 @@ export function Step5Validation() {
   return (
     <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm">
       <div className="h-2 bg-accent w-full" />
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
-            <ShieldCheck className="w-6 h-6 text-accent" /> Asset Distribution Matrix
-          </CardTitle>
-          <CardDescription>Review suggested values or manually refine ratios. Stock sum must be &le; 1.0000; others must equal 1.0000.</CardDescription>
+      <CardHeader className="bg-primary/5 pb-4 border-b">
+        <div className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
+              <ShieldCheck className="w-6 h-6 text-accent" /> Asset Distribution Matrix
+            </CardTitle>
+            <CardDescription>Review suggested values or manually refine ratios. Stock sum must be &le; 1.0000; others must equal 1.0000.</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={generateSuggestions} className="gap-2 font-bold text-xs">
+            <RefreshCw className="w-3 h-3" /> Reset to Suggested
+          </Button>
         </div>
-        <Button variant="outline" size="sm" onClick={generateSuggestions} className="gap-2 font-bold text-xs">
-          <RefreshCw className="w-3 h-3" /> Reset to Suggested
-        </Button>
       </CardHeader>
-      <CardContent className="space-y-6 pb-10">
+      <CardContent className="space-y-6 pb-10 mt-6">
         {!isValidated ? (
           <Alert variant="destructive" className="bg-destructive/10 text-destructive border-none">
             <AlertTriangle className="h-4 w-4" />
