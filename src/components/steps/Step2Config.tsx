@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -69,6 +68,13 @@ export function Step2Config() {
   useEffect(() => {
     if (assignedCompany && !companyName) setCompanyName(assignedCompany);
   }, [assignedCompany, companyName]);
+
+  const handleCompanyChange = (val: string) => {
+    setCompanyName(val);
+    setSelectedPlantId('');
+    setIsNewPlant(false);
+    setNewPlantName('');
+  };
 
   const handleApprove = (userId: string) => {
     const userRef = doc(db, 'user_permissions', userId);
