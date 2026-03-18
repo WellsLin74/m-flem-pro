@@ -8,10 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldCheck, UserPlus, Clock, CheckCircle, UserCheck, AlertCircle, Loader2 } from 'lucide-react';
-import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, collection, query, where, getDocs } from 'firebase/firestore';
-import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -65,13 +65,16 @@ export function Step1Login() {
 
   const handleAddUser = async () => {
     const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !company || !password) {
+    const cleanCompany = company.trim();
+    
+    if (!cleanEmail || !cleanCompany || !password) {
       toast({ variant: "destructive", title: "Missing Information", description: "All fields are required." });
       return;
     }
 
     setLoading(true);
     try {
+      // 特別處理 admin@marsh.com 註冊
       const isRegisteringSuperAdmin = cleanEmail === 'admin@marsh.com';
       let finalRole = role;
       let finalApproved = false;
@@ -79,35 +82,31 @@ export function Step1Login() {
       if (isRegisteringSuperAdmin) {
         finalRole = 'ADMIN';
         finalApproved = true;
-      } else {
-        if (role === 'ADMIN') {
-          const q = query(collection(db, 'user_permissions'), where('role', '==', 'ADMIN'));
-          const snap = await getDocs(q);
-          if (!snap.empty) {
-            toast({ variant: "destructive", title: "ADMIN Restricted", description: "Only one system ADMIN is allowed." });
-            setLoading(false);
-            return;
-          }
-        }
       }
 
+      // 建立帳號
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const userId = userCredential.user.uid;
       
+      // 寫入權限文件
       const userPermRef = doc(db, 'user_permissions', userId);
       setDocumentNonBlocking(userPermRef, {
         id: userId,
         email: cleanEmail,
         role: finalRole,
-        assignedCompany: company.trim(),
+        assignedCompany: cleanCompany,
         isApproved: finalApproved
       }, { merge: true });
 
       toast({ 
-        title: "Registration Successful", 
+        title: "Registration Initiated", 
         description: finalApproved ? "Authorized as System Master." : "Account created. Awaiting ADMIN approval." 
       });
-      setMode('login');
+      
+      // 註冊成功後，若不是超級管理員，介面會因為 firebaseUser 存在而自動切換到 Pending 畫面
+      if (!isRegisteringSuperAdmin) {
+        setMode('login');
+      }
     } catch (e: any) {
       let errorMsg = "Registration Failed. Please try again.";
       if (e.code === 'auth/email-already-in-use') {
@@ -134,6 +133,7 @@ export function Step1Login() {
     );
   }
 
+  // 登入中但尚未被核准
   if (firebaseUser && !isApproved) {
     return (
       <div className="max-w-md mx-auto space-y-6">
@@ -187,7 +187,7 @@ export function Step1Login() {
                 type="email" 
                 value={email} 
                 onChange={(e) => setEmail(e.target.value)} 
-                placeholder="admin@marsh.com"
+                placeholder="analyst@marsh.com"
                 className="bg-muted/50 border-none" 
               />
             </div>
@@ -220,8 +220,12 @@ export function Step1Login() {
               </>
             )}
           </div>
-          <Button onClick={mode === 'login' ? handleLogin : handleAddUser} disabled={loading} className="w-full bg-primary py-6 font-black text-lg shadow-lg">
-            {loading ? "Authorizing..." : (mode === 'login' ? 'Enter System' : 'Request Access')}
+          <Button 
+            onClick={mode === 'login' ? handleLogin : handleAddUser} 
+            disabled={loading} 
+            className="w-full bg-primary py-6 font-black text-lg shadow-lg"
+          >
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'login' ? 'Enter System' : 'Request Access')}
           </Button>
           <button 
             type="button" 
