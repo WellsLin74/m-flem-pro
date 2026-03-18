@@ -1,39 +1,32 @@
+
 'use client';
 
 import { useAppStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { LogOut, User as UserIcon, Shield } from 'lucide-react';
-import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useEffect } from 'react';
-import { doc } from 'firebase/firestore';
 
 export function Navigation() {
-  const { user, setUser, setStep, setPlant, setRefinement, setFinalRatios, setIsValidated } = useAppStore();
-  const { user: firebaseUser } = useUser();
+  const { setUser, setStep, setPlant, setRefinement, setFinalRatios, setIsValidated } = useAppStore();
+  const { user: firebaseUser, dbUser } = useUser();
   const auth = useAuth();
-  const db = useFirestore();
-
-  // Fetch actual user permission data from Firestore
-  const userPermRef = useMemoFirebase(() => {
-    if (!firebaseUser?.uid) return null;
-    return doc(db, 'user_permissions', firebaseUser.uid);
-  }, [db, firebaseUser?.uid]);
-
-  const { data: userPerm } = useDoc(userPermRef);
 
   // Sync Firebase Auth and Firestore data with local store
+  // We use dbUser directly from the provider to avoid redundant/unauthenticated Firestore reads
   useEffect(() => {
-    if (firebaseUser && userPerm) {
+    if (firebaseUser && dbUser) {
       setUser({
-        email: firebaseUser.email || userPerm.email || 'Authorized User',
-        role: userPerm.role || 'READER',
-        assignedCompany: userPerm.assignedCompany || 'Unauthorized Org',
+        email: firebaseUser.email || dbUser.email || 'Authorized User',
+        role: dbUser.role || 'READER',
+        assignedCompany: dbUser.assignedCompany || 'Unauthorized Org',
+        isApproved: dbUser.isApproved
       });
     } else if (!firebaseUser) {
       setUser(null);
     }
-  }, [firebaseUser, userPerm, setUser]);
+  }, [firebaseUser, dbUser, setUser]);
 
   const handleLogout = () => {
     signOut(auth);
@@ -49,6 +42,8 @@ export function Navigation() {
     window.location.reload();
   };
 
+  const displayUser = firebaseUser && dbUser;
+
   return (
     <nav className="bg-primary text-primary-foreground shadow-lg px-6 py-4 flex justify-between items-center sticky top-0 z-50">
       <div className="flex items-center gap-3">
@@ -61,13 +56,13 @@ export function Navigation() {
         </div>
       </div>
 
-      {user && (
+      {displayUser && (
         <div className="flex items-center gap-6">
           <div className="hidden md:flex flex-col items-end border-r border-primary-foreground/20 pr-6">
-            <span className="text-sm font-semibold">{user.email}</span>
+            <span className="text-sm font-semibold">{firebaseUser.email}</span>
             <div className="flex gap-2 text-[10px] uppercase font-bold tracking-wider text-accent">
               <Shield className="w-2.5 h-2.5" />
-              <span>{user.role}</span>
+              <span>{dbUser.role}</span>
             </div>
           </div>
           <Button 

@@ -81,13 +81,21 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return;
     }
 
+    let unsubscribeDoc: (() => void) | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(
       auth,
       (firebaseUser) => {
+        // Cleanup any existing doc listener when auth state changes
+        if (unsubscribeDoc) {
+          unsubscribeDoc();
+          unsubscribeDoc = null;
+        }
+
         if (firebaseUser) {
           // If logged in, also listen to their firestore permissions doc
           const userDocRef = doc(firestore, 'user_permissions', firebaseUser.uid);
-          const unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
+          unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
             setUserAuthState({
               user: firebaseUser,
               isUserLoading: false,
@@ -95,9 +103,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
               dbUser: docSnap.exists() ? docSnap.data() : null
             });
           }, (err) => {
-            setUserAuthState(prev => ({ ...prev, user: firebaseUser, isUserLoading: false }));
+            // Permission error often occurs during logout transitions
+            setUserAuthState(prev => ({ 
+              ...prev, 
+              user: firebaseUser, 
+              isUserLoading: false,
+              dbUser: prev.dbUser // Keep old data or set to null based on preference
+            }));
           });
-          return () => unsubscribeDoc();
         } else {
           setUserAuthState({ user: null, isUserLoading: false, userError: null, dbUser: null });
         }
@@ -106,7 +119,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         setUserAuthState({ user: null, isUserLoading: false, userError: error, dbUser: null });
       }
     );
-    return () => unsubscribeAuth();
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeDoc) unsubscribeDoc();
+    };
   }, [auth, firestore]);
 
   // Memoize the context value

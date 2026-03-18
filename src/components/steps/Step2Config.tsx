@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -13,25 +14,21 @@ import { doc, collection, query, where, getDocs, getDoc } from 'firebase/firesto
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step2Config() {
-  const { user: firebaseUser } = useUser();
+  const { user: firebaseUser, dbUser, isUserLoading } = useUser();
   const { plant, setPlant, setStep, setRefinement, setFinalRatios, setIsValidated } = useAppStore();
   const db = useFirestore();
 
-  const userPermRef = useMemoFirebase(() => {
-    if (!firebaseUser?.uid) return null;
-    return doc(db, 'user_permissions', firebaseUser.uid);
-  }, [db, firebaseUser?.uid]);
-  const { data: userPerm, isLoading: loadingPerm } = useDoc(userPermRef);
-
-  const isAdmin = userPerm?.role === 'ADMIN' || firebaseUser?.email === 'admin@marsh.com';
-  const assignedCompany = userPerm?.assignedCompany?.trim() || '';
+  // Use dbUser from useUser() which is already managed by the provider
+  const isAdmin = dbUser?.role === 'ADMIN' || firebaseUser?.email === 'admin@marsh.com';
+  const assignedCompany = dbUser?.assignedCompany?.trim() || '';
 
   const plantsQuery = useMemoFirebase(() => {
-    if (!firebaseUser || loadingPerm) return null;
+    // Wait until user profile is fully synchronized
+    if (!firebaseUser || isUserLoading) return null;
     if (isAdmin) return collection(db, 'plants');
     if (!assignedCompany) return null;
     return query(collection(db, 'plants'), where('companyName', '==', assignedCompany));
-  }, [db, assignedCompany, isAdmin, firebaseUser, loadingPerm]);
+  }, [db, assignedCompany, isAdmin, firebaseUser, isUserLoading]);
 
   const { data: allAvailablePlants, isLoading: loadingPlants } = useCollection(plantsQuery);
 
@@ -119,7 +116,7 @@ export function Step2Config() {
     const plantData = mapPlantData(selectedPlantData || { id: plantId, companyName: finalCompanyName, plantName: finalPlantName });
     setPlant(plantData);
 
-    if (userPerm?.role !== 'READER' && isNewPlant) {
+    if (dbUser?.role !== 'READER' && isNewPlant) {
       const plantRef = doc(db, 'plants', plantId);
       setDocumentNonBlocking(plantRef, {
         id: plantId,
@@ -226,12 +223,12 @@ export function Step2Config() {
             <div className="space-y-2">
               <Label htmlFor="company" className="text-xs font-bold uppercase text-muted-foreground">Select Company</Label>
               <Select 
-                disabled={loadingPerm || !isAdmin}
+                disabled={isUserLoading || !isAdmin}
                 value={companyName}
                 onValueChange={handleCompanyChange}
               >
                 <SelectTrigger className={`border-none font-bold text-primary ${isAdmin ? 'bg-accent/5' : 'bg-muted/30'}`} suppressHydrationWarning>
-                  <SelectValue placeholder={loadingPerm ? "Scanning..." : "Choose Company"} />
+                  <SelectValue placeholder={isUserLoading ? "Scanning..." : "Choose Company"} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableCompanies.map((comp) => (
@@ -251,7 +248,7 @@ export function Step2Config() {
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase text-muted-foreground">Select Plant / Site</Label>
                 <Select 
-                  disabled={loadingPlants || loadingPerm || !companyName}
+                  disabled={loadingPlants || isUserLoading || !companyName}
                   value={isNewPlant ? 'NEW' : selectedPlantId} 
                   onValueChange={(val) => {
                     if (val === 'NEW') {
@@ -272,7 +269,7 @@ export function Step2Config() {
                         {p.plantName}
                       </SelectItem>
                     ))}
-                    {userPerm?.role !== 'READER' && (
+                    {dbUser?.role !== 'READER' && (
                       <SelectItem value="NEW" className="text-accent font-bold border-t">
                         <div className="flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Add New Site...</div>
                       </SelectItem>
@@ -298,7 +295,7 @@ export function Step2Config() {
           </div>
         </div>
 
-        {loadingPerm && (
+        {isUserLoading && (
           <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm font-bold animate-pulse">
             <Loader2 className="w-4 h-4 animate-spin" /> Authorizing Profile...
           </div>
@@ -323,7 +320,7 @@ export function Step2Config() {
             
             <Button 
               onClick={handleNext} 
-              disabled={!activePlantName || !companyName || loadingPerm || isJumping}
+              disabled={!activePlantName || !companyName || isUserLoading || isJumping}
               className="bg-primary hover:bg-primary/90 text-white font-black px-10 py-6 text-lg gap-2 shadow-lg shadow-primary/20"
             >
               Next: Initialization <ChevronRight className="w-5 h-5" />
