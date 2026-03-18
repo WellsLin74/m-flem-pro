@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview This file implements a Genkit flow for generating AI-powered flood risk insights.
@@ -62,21 +63,45 @@ const GenerateFloodRiskInsightsInputSchema = z.object({
 });
 export type GenerateFloodRiskInsightsInput = z.infer<typeof GenerateFloodRiskInsightsInputSchema>;
 
-const GenerateFloodRiskInsightsOutputSchema = z
-  .string()
-  .describe('Narrative insights and detailed explanations of flood risk and loss estimation.');
+const GenerateFloodRiskInsightsOutputSchema = z.object({
+  insights: z.string().describe('Narrative insights and detailed explanations of flood risk and loss estimation.')
+});
 export type GenerateFloodRiskInsightsOutput = z.infer<typeof GenerateFloodRiskInsightsOutputSchema>;
 
+/**
+ * Public wrapper for the flood risk insights flow.
+ */
 export async function generateFloodRiskInsights(
   input: GenerateFloodRiskInsightsInput
-): Promise<GenerateFloodRiskInsightsOutput> {
-  return generateFloodRiskInsightsFlow(input);
+): Promise<string> {
+  const result = await generateFloodRiskInsightsFlow(input);
+  return result.insights;
 }
 
 const prompt = ai.definePrompt({
   name: 'floodRiskInsightsPrompt',
   input: {schema: GenerateFloodRiskInsightsInputSchema},
   output: {schema: GenerateFloodRiskInsightsOutputSchema},
+  config: {
+    safetySettings: [
+      {
+        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_HARASSMENT',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_HATE_SPEECH',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+        threshold: 'BLOCK_NONE',
+      },
+    ],
+  },
   prompt: `You are an expert risk analyst specializing in industrial flood damage assessment.
 Your task is to provide comprehensive narrative insights and detailed explanations for flood loss estimations.
 
@@ -121,7 +146,15 @@ const generateFloodRiskInsightsFlow = ai.defineFlow(
     outputSchema: GenerateFloodRiskInsightsOutputSchema,
   },
   async (input) => {
-    const {output} = await prompt(input);
-    return output!;
+    try {
+      const {output} = await prompt(input);
+      if (!output || !output.insights) {
+        return { insights: "AI Simulation Error: The model could not generate a narrative at this time. This may be due to safety filters or a processing anomaly. Please review your input data and retry." };
+      }
+      return output;
+    } catch (error) {
+      console.error('Flow execution failed:', error);
+      return { insights: "System Alert: The AI insights engine encountered a runtime exception. Please verify system connectivity and API credentials." };
+    }
   }
 );
