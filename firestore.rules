@@ -92,6 +92,7 @@ service cloud.firestore {
 
     // 使用者權限設定
     match /user_permissions/{userId} {
+      allow list: if isAdmin(); // 允許管理員列出所有使用者進行審核
       allow get: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isAdmin(); // 只有 ADMIN 可以核准
