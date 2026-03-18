@@ -20,12 +20,12 @@ export function Step3Init() {
     defaultValues: plant || {}
   });
 
-  // 當全域狀態的 plant 改變時（例如在 Step 2 切換了工廠），重置表單
+  // CRITICAL: Ensure form resets when the plant ID changes (e.g. user went back to P2 and picked a different plant)
   useEffect(() => {
-    if (plant) {
+    if (plant?.id) {
       reset(plant);
     }
-  }, [plant?.id, reset]); // 關鍵：監聽 plant.id
+  }, [plant?.id, reset]);
 
   const values = watch();
   
@@ -58,16 +58,16 @@ export function Step3Init() {
   }, [values]);
 
   const onSubmit = (data: Partial<PlantData>) => {
-    // 嚴格檢查 ID 是否存在，這是防止數據衝突的核心
+    // CRITICAL: Force the use of the plant ID established in Step 2
     const plantId = plant?.id;
     if (!plantId) {
-      console.error("Critical Error: Plant ID is missing in Step 3.");
+      console.error("Critical Error: Plant ID missing in Step 3.");
       return;
     }
 
     const numericData: PlantData = {
       ...data,
-      id: plantId,
+      id: plantId, // Ensure the correct ID is retained
       company: plant.company,
       plantName: plant.plantName,
       lat: Number(data.lat) || 0,
@@ -88,9 +88,10 @@ export function Step3Init() {
       bi12m: Number(data.bi12m) || 0,
     } as PlantData;
 
+    // Update global store
     setPlant(numericData);
 
-    // 1. 更新 Building Info，使用唯一的 plantId
+    // 1. Persist Physical Parameters to 'building_info' collection linked by plantId
     const buildingRef = doc(db, 'building_info', plantId);
     setDocumentNonBlocking(buildingRef, {
       id: plantId,
@@ -104,7 +105,7 @@ export function Step3Init() {
       cupBelowLevel: numericData.cupBl,
     }, { merge: true });
 
-    // 2. 持久化 Plant Initial Values，使用 linked ID
+    // 2. Persist Financial Parameters to 'plant_initial_values' collection linked by plantId
     const plantValId = `${plantId}-init`;
     const plantValRef = doc(db, 'plant_initial_values', plantValId);
     setDocumentNonBlocking(plantValRef, {

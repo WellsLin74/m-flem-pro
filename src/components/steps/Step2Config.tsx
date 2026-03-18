@@ -57,18 +57,19 @@ export function Step2Config() {
   }, [plant?.id, existingPlants]);
 
   const handleNext = () => {
-    // 確定工廠名稱
     const finalPlantName = isNewPlant ? newPlantName : (existingPlants?.find(p => p.id === selectedPlantId)?.plantName || '');
     if (!finalPlantName || !companyName) return;
     
-    // 生成唯一的工廠編號 (ID)
+    // Generate safe ID for Document Path
+    const safeCompany = companyName.trim().replace(/[^a-zA-Z0-9]/g, '_');
+    const safePlant = finalPlantName.trim().replace(/[^a-zA-Z0-9]/g, '_');
     const buildingInfoId = isNewPlant 
-      ? `${companyName.replace(/\s+/g, '_')}-${finalPlantName.replace(/\s+/g, '_')}`
+      ? `${safeCompany}-${safePlant}`
       : selectedPlantId;
 
     if (!buildingInfoId) return;
 
-    // CRITICAL: 如果切換工廠，必須清除舊有的分析狀態以防交叉污染
+    // CRITICAL: If plant ID changes, clear downstream analysis state to prevent data cross-contamination
     if (plant?.id !== buildingInfoId) {
       setRefinement(null);
       setFinalRatios(null);
@@ -77,7 +78,7 @@ export function Step2Config() {
 
     const existingData = existingPlants?.find(p => p.id === buildingInfoId);
 
-    // 構建廠區數據，優先使用資料庫中的現有數據
+    // Build plant data object with the ID as the primary key
     const plantData: any = {
       id: buildingInfoId,
       company: companyName,
@@ -88,7 +89,6 @@ export function Step2Config() {
       fabBl: existingData?.fabBelowLevel ?? 2,
       cupAl: existingData?.cupAboveLevel ?? 2,
       cupBl: existingData?.cupBelowLevel ?? 1,
-      // 如果是全新廠區且無歷史數據，則賦予預設值
       fabLength: 200,
       fabWidth: 150,
       cupLength: 100,
@@ -101,14 +101,14 @@ export function Step2Config() {
       bi12m: 1000,
     };
 
-    // 如果切換回來的廠區在 store 中已經有值，則保留 store 的值 (除了 ID 相關)
+    // Preserve existing store values if it's the same plant
     if (plant?.id === buildingInfoId) {
       Object.assign(plantData, plant);
     }
 
     setPlant(plantData);
 
-    // 持久化到 Firestore
+    // Persist identity to Firestore
     const buildingRef = doc(db, 'building_info', buildingInfoId);
     setDocumentNonBlocking(buildingRef, {
       id: buildingInfoId,
