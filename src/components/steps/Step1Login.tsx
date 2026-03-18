@@ -29,19 +29,9 @@ export function Step1Login() {
   const db = useFirestore();
   const { toast } = useToast();
 
-  // 超級管理員特權判定
+  // 超級管理員判定
   const isSuperAdmin = firebaseUser?.email === 'admin@marsh.com';
-  const isAdmin = dbUser?.role === 'ADMIN' || isSuperAdmin;
-  
-  // 修正判定邏輯：如果是 admin@marsh.com 則自動視為已核准
   const isApproved = isSuperAdmin || dbUser?.isApproved === true;
-
-  // 對 ADMIN 顯示待核准清單
-  const pendingUsersQuery = useMemoFirebase(() => {
-    if (!isAdmin) return null;
-    return query(collection(db, 'user_permissions'), where('isApproved', '==', false));
-  }, [db, isAdmin]);
-  const { data: pendingUsers } = useCollection(pendingUsersQuery);
 
   useEffect(() => {
     if (firebaseUser) {
@@ -131,12 +121,6 @@ export function Step1Login() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleApprove = (userId: string) => {
-    const userRef = doc(db, 'user_permissions', userId);
-    updateDocumentNonBlocking(userRef, { isApproved: true });
-    toast({ title: "User Approved", description: "Access granted successfully." });
   };
 
   if (isUserLoading) {
