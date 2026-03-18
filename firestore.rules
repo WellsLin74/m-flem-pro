@@ -4,10 +4,21 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    
+    // 取得當前使用者的權限資料
+    function getUserData() {
+      let path = /databases/$(database)/documents/user_permissions/$(request.auth.uid);
+      return exists(path) ? get(path).data : {};
+    }
+
+    // 檢查使用者是否有權限存取該公司的數據
     function hasCompanyAccess(companyName) {
-      return isSignedIn() && (
-        (request.auth.token.assignedCompany == companyName) ||
-        (get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany == companyName)
+      if (!isSignedIn()) return false;
+      let userData = getUserData();
+      return (
+        userData.role == 'ADMIN' || 
+        userData.assignedCompany == companyName ||
+        request.auth.token.assignedCompany == companyName
       );
     }
 
@@ -22,17 +33,28 @@ service cloud.firestore {
     }
 
     match /fab_cleanroom_occupancy/{id} {
-      allow read, write: if isSignedIn();
-      match /floor_ratios/{fid} { allow read, write: if isSignedIn(); }
+      allow read: if isSignedIn();
+      allow write: if hasCompanyAccess(request.resource.data.companyName || resource.data.companyName);
+      
+      match /floor_ratios/{fid} { 
+        allow read: if isSignedIn();
+        allow write: if isSignedIn(); // 簡化子集合規則以配合非同步更新
+      }
     }
 
     match /building_value_ratios/{id} {
-      allow read, write: if isSignedIn();
-      match /floor_ratios/{fid} { allow read, write: if isSignedIn(); }
+      allow read: if isSignedIn();
+      allow write: if hasCompanyAccess(request.resource.data.companyName || resource.data.companyName);
+      
+      match /floor_ratios/{fid} { 
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
     }
 
     match /flood_loss_estimations/{id} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow write: if hasCompanyAccess(request.resource.data.companyName || resource.data.companyName);
     }
   }
 }
