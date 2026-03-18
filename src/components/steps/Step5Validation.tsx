@@ -45,10 +45,17 @@ export function Step5Validation() {
 
   /**
    * 使用使用者提供的精確公式生成建議值:
+   * 
    * 1. FAB區CR總面積 = (FAB單一樓層面積) * (P4之FAB Vertical Distribution Matrix之Cleanroom %總和)
    * 2. FAB區non-CR總面積 = (FAB總面積) - (FAB區CR總面積)
-   * 3. 各樓層Facility% = (P4之Fac-CR Ratio) * (該層面積 * 該層CR%) / (FAB區CR總面積) 
-   *                    + (1 - P4之Fac-CR Ratio) * (該層面積 * 該層Fac%) / (FAB區non-CR總面積 + CUP總面積)
+   * 
+   * [Facility% 計算]
+   * 各樓層Facility% = (P4之Fac-CR Ratio) * (該層面積 * 該層CR%) / (FAB區CR總面積) 
+   *                + (1 - P4之Fac-CR Ratio) * (該層面積 * (1-該層CR%)) / (FAB區non-CR總面積 + CUP總面積)
+   * 
+   * [TOOLS% 計算]
+   * 各樓層TOOLS% = (P4之 Global Tools Ratio) * (該樓層面積 * 該樓層CR%) / (FAB區CR總面積) 
+   *               + (1 - P4之Global Tools Ratio) * (該樓層面積 * (1-該層CR%)) / (FAB區non-CR總面積)
    */
   const generateSuggestions = useCallback(() => {
     if (!plant || !refinement) return {};
@@ -58,7 +65,7 @@ export function Step5Validation() {
     const fabTotalArea = fabFloorArea * (plant.fabAl + plant.fabBl);
     const cupTotalArea = cupFloorArea * (plant.cupAl + plant.cupBl);
     
-    // 計算 FAB 區 CR 總比例和 (Sum of Cleanroom %)
+    // 1. FAB區CR總面積
     let sumCrOcc = 0;
     allFloors.forEach(f => {
       if (f.startsWith('FAB')) {
@@ -67,37 +74,43 @@ export function Step5Validation() {
     });
 
     const fabCrTotalArea = fabFloorArea * sumCrOcc;
+    
+    // 2. FAB區non-CR總面積
     const fabNonCrTotalArea = fabTotalArea - fabCrTotalArea;
+    
     const facCrRatio = refinement.facCrRatio; // P4之Facility Cleanroom Ratio
+    const globalToolsRatio = refinement.toolsCrRatio; // P4之Global Tools Ratio
 
     const suggestions: Record<string, FinalRatio> = {};
-    
-    // 用於 Tools 的建議 (通常 Tools 跟隨 CR 面積分佈)
-    const totalToolsWeight = fabCrTotalArea;
-
-    // 用於 Building 的建議 (按面積分佈)
     const totalBuildingArea = fabTotalArea + cupTotalArea;
 
     allFloors.forEach(f => {
       const isFab = f.startsWith('FAB');
       const area = isFab ? fabFloorArea : cupFloorArea;
       const crOcc = isFab ? (refinement.floorData[f]?.cr ?? 0) : 0;
-      const facOcc = isFab ? (refinement.floorData[f]?.fac ?? 0) : 1.0;
+      const nonCrOcc = 1 - crOcc;
 
-      // 1. Facility % 計算 (依使用者公式)
-      const ratioA = fabCrTotalArea > 0 ? (facCrRatio * area * crOcc) / fabCrTotalArea : 0;
-      const ratioB = (fabNonCrTotalArea + cupTotalArea) > 0 
-        ? ((1 - facCrRatio) * area * facOcc) / (fabNonCrTotalArea + cupTotalArea) 
+      // [Facility% 計算]
+      const facPartA = fabCrTotalArea > 0 ? (facCrRatio * area * crOcc) / fabCrTotalArea : 0;
+      const facPartB = (fabNonCrTotalArea + cupTotalArea) > 0 
+        ? ((1 - facCrRatio) * area * nonCrOcc) / (fabNonCrTotalArea + cupTotalArea) 
         : 0;
-      const finalFacRatio = ratioA + ratioB;
+      const finalFacRatio = facPartA + facPartB;
 
-      // 2. Building % 計算 (面積比例)
+      // [TOOLS% 計算] (公式分母僅為 FAB區 Non-CR 總面積)
+      let finalToolRatio = 0;
+      if (isFab) {
+        const toolsPartA = fabCrTotalArea > 0 ? (globalToolsRatio * area * crOcc) / fabCrTotalArea : 0;
+        const toolsPartB = fabNonCrTotalArea > 0 ? ((1 - globalToolsRatio) * area * nonCrOcc) / fabNonCrTotalArea : 0;
+        finalToolRatio = toolsPartA + toolsPartB;
+      } else {
+        finalToolRatio = 0; // CUP 通常不分配 Tools
+      }
+
+      // [Building% 計算] (面積比例)
       const finalBldgRatio = totalBuildingArea > 0 ? area / totalBuildingArea : 0;
 
-      // 3. Tools % 計算 (CR 空間比例)
-      const finalToolRatio = totalToolsWeight > 0 ? (area * crOcc) / totalToolsWeight : 0;
-
-      // 4. Fixture % 計算 (跟隨 Tools)
+      // [Fixture% 計算] (跟隨 Tools)
       const finalFixRatio = finalToolRatio;
 
       suggestions[f] = {
@@ -161,7 +174,6 @@ export function Step5Validation() {
 
   const validate = () => {
     if (isReader) return;
-    // 容許 0.001 浮點數誤差
     const isOk = Math.abs(sums.bldg - 1) < 0.001 && 
                  Math.abs(sums.fac - 1) < 0.001 && 
                  Math.abs(sums.tool - 1) < 0.001 && 
@@ -257,9 +269,9 @@ export function Step5Validation() {
           <Alert className="bg-primary/5 text-primary border-none shadow-md">
             <Info className="h-5 w-5 text-accent" />
             <div className="ml-2">
-              <AlertTitle className="font-black text-sm uppercase">Formula Check</AlertTitle>
+              <AlertTitle className="font-black text-sm uppercase">Formula Confirmed</AlertTitle>
               <AlertDescription className="text-xs font-bold opacity-90 leading-tight">
-                Fac% calculates using weighted distribution between CR and Non-CR areas as defined in P4.
+                TOOLS% and FACILITY% calculated using specific FAB/CUP area weighted distribution.
               </AlertDescription>
             </div>
           </Alert>
