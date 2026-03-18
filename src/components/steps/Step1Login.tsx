@@ -32,7 +32,9 @@ export function Step1Login() {
   // 超級管理員特權判定
   const isSuperAdmin = firebaseUser?.email === 'admin@marsh.com';
   const isAdmin = dbUser?.role === 'ADMIN' || isSuperAdmin;
-  const isApproved = dbUser?.isApproved === true || isSuperAdmin;
+  
+  // 修正判定邏輯：如果是 admin@marsh.com 則自動視為已核准
+  const isApproved = isSuperAdmin || dbUser?.isApproved === true;
 
   // 對 ADMIN 顯示待核准清單
   const pendingUsersQuery = useMemoFirebase(() => {
@@ -43,7 +45,6 @@ export function Step1Login() {
 
   useEffect(() => {
     if (firebaseUser) {
-      // 即使 Firestore 文件尚未建立，admin@marsh.com 也能直接通行
       if (isApproved) {
         setUser({
           email: firebaseUser.email || 'Authorized User',
@@ -118,7 +119,15 @@ export function Step1Login() {
       });
       setMode('login');
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Registration Failed", description: e.message });
+      let errorMsg = "Registration Failed. Please try again.";
+      if (e.code === 'auth/email-already-in-use') {
+        errorMsg = "This email is already registered in the system.";
+      } else if (e.code === 'auth/invalid-email') {
+        errorMsg = "Invalid email format.";
+      } else if (e.code === 'auth/weak-password') {
+        errorMsg = "Password is too weak (min 6 characters).";
+      }
+      toast({ variant: "destructive", title: "Registration Interrupted", description: errorMsg });
     } finally {
       setLoading(false);
     }
@@ -130,7 +139,6 @@ export function Step1Login() {
     toast({ title: "User Approved", description: "Access granted successfully." });
   };
 
-  // 載入狀態 UI
   if (isUserLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-40 space-y-4">
@@ -142,7 +150,6 @@ export function Step1Login() {
     );
   }
 
-  // 待核准 UI (admin@marsh.com 永遠不應看到此頁面)
   if (firebaseUser && !isApproved) {
     return (
       <div className="max-w-md mx-auto space-y-6">
@@ -171,40 +178,6 @@ export function Step1Login() {
     );
   }
 
-  // ADMIN 審核儀表板 (若有待審核者)
-  if (isAdmin && pendingUsers && pendingUsers.length > 0) {
-    return (
-      <div className="max-w-2xl mx-auto space-y-6">
-        <Card className="border-none shadow-2xl bg-white/80 backdrop-blur-sm overflow-hidden">
-          <div className="h-2 bg-emerald-500 w-full" />
-          <CardHeader>
-            <CardTitle className="font-black text-primary flex items-center gap-2">
-              <UserCheck className="w-6 h-6" /> User Approval Dashboard
-            </CardTitle>
-            <CardDescription>Review {pendingUsers.length} analyst requests.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {pendingUsers.map(u => (
-              <div key={u.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50">
-                <div>
-                  <p className="font-bold text-primary">{u.email}</p>
-                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">{u.role} | {u.assignedCompany}</p>
-                </div>
-                <Button onClick={() => handleApprove(u.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2">
-                  <CheckCircle className="w-4 h-4" /> Approve
-                </Button>
-              </div>
-            ))}
-            <Button onClick={() => setStep(2)} className="w-full bg-primary py-6 font-black text-lg mt-6">
-              Continue to Site Config
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // 登入/註冊主畫面
   return (
     <div className="max-w-md mx-auto">
       <Card className="border-none shadow-2xl bg-white/80 backdrop-blur-sm overflow-hidden">
