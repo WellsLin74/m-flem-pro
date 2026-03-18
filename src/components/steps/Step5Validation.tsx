@@ -18,7 +18,6 @@ export function Step5Validation() {
   const [isHydrated, setIsHydrated] = useState(false);
   const db = useFirestore();
 
-  // Firestore Listeners
   const ratioDocRef = useMemoFirebase(() => {
     if (!plant?.id) return null;
     return doc(db, 'building_value_ratios', plant.id);
@@ -43,18 +42,14 @@ export function Step5Validation() {
 
   const generateSuggestions = useCallback(() => {
     if (!plant || !refinement) return {};
-    
     const fabFloorArea = plant.fabLength * plant.fabWidth;
     const cupFloorArea = plant.cupLength * plant.cupWidth;
     const siteTotalArea = (fabFloorArea * (plant.fabAl + plant.fabBl)) + (cupFloorArea * (plant.cupAl + plant.cupBl));
-
     const suggestions: Record<string, FinalRatio> = {};
     const fabFloorsList = allFloors.filter(f => f.startsWith('FAB'));
-
     allFloors.forEach(f => {
       const isFab = f.startsWith('FAB');
       const floorArea = isFab ? fabFloorArea : cupFloorArea;
-      
       suggestions[f] = {
         bldg: siteTotalArea > 0 ? floorArea / siteTotalArea : 0,
         fac: siteTotalArea > 0 ? floorArea / siteTotalArea : 0,
@@ -63,11 +58,9 @@ export function Step5Validation() {
         stock: f === 'FAB-L10' ? 1.0 : 0.0
       };
     });
-
     return suggestions;
   }, [plant, refinement, allFloors]);
 
-  // Unified Hydration Phase
   useEffect(() => {
     if (!isHydrated && !loadingStatus && !loadingCol) {
       if (remoteFloorRatios && remoteFloorRatios.length > 0) {
@@ -120,11 +113,9 @@ export function Step5Validation() {
                  Math.abs(sums.tool - 1) < 0.001 && 
                  Math.abs(sums.fix - 1) < 0.001 &&
                  sums.stock <= 1.0001;
-    
     setIsValidated(isOk);
     if (isOk && plant?.id) {
       setFinalRatios(localRatios);
-      
       const mainRef = doc(db, 'building_value_ratios', plant.id);
       setDocumentNonBlocking(mainRef, {
         id: plant.id,
@@ -132,7 +123,6 @@ export function Step5Validation() {
         plantName: plant.plantName,
         validationStatus: 'VALIDATED',
       }, { merge: true });
-
       Object.entries(localRatios).forEach(([fId, rats]) => {
         const fRef = doc(db, 'building_value_ratios', plant.id, 'floor_ratios', fId);
         setDocumentNonBlocking(fRef, {
@@ -162,14 +152,14 @@ export function Step5Validation() {
   }
 
   return (
-    <Card className="border-none shadow-xl bg-white/90 backdrop-blur-md overflow-hidden">
+    <Card className="border-none shadow-2xl bg-white/95 backdrop-blur-md overflow-hidden">
       <div className="h-2 bg-accent w-full" />
-      <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 py-6">
+      <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 py-6 px-8">
         <div className="space-y-1">
           <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
             <ShieldCheck className="w-7 h-7 text-accent" /> Asset Distribution Matrix
           </CardTitle>
-          <CardDescription className="font-medium">Verify financial distribution sums for {plant?.plantName} site segments.</CardDescription>
+          <CardDescription className="font-medium">Verify financial distribution sums across all vertical site segments.</CardDescription>
         </div>
         <Button 
           variant="outline" 
@@ -180,60 +170,62 @@ export function Step5Validation() {
           <RefreshCw className="w-3 h-3" /> Sync Database
         </Button>
       </CardHeader>
-      <CardContent className="space-y-6 pb-10 mt-6">
+      <CardContent className="space-y-6 pb-10 mt-6 px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {!isValidated ? (
-            <Alert variant="destructive" className="bg-destructive/10 text-destructive border-none shadow-sm">
+            <Alert variant="destructive" className="bg-destructive/10 text-destructive border-none shadow-md">
               <AlertTriangle className="h-5 w-5" />
               <div className="ml-2">
                 <AlertTitle className="font-black text-sm uppercase">Audit Required</AlertTitle>
-                <AlertDescription className="text-xs font-bold opacity-80">
+                <AlertDescription className="text-xs font-bold opacity-90">
                   Asset columns must sum to exactly 1.0000. Current matrix is out of balance.
                 </AlertDescription>
               </div>
             </Alert>
           ) : (
-            <Alert className="bg-emerald-50 text-emerald-700 border-none shadow-sm">
+            <Alert className="bg-emerald-50 text-emerald-700 border-none shadow-md">
               <CheckCircle2 className="h-5 w-5" />
               <div className="ml-2">
                 <AlertTitle className="font-black text-sm uppercase">Matrix Integrity Verified</AlertTitle>
-                <AlertDescription className="text-xs font-bold opacity-80">
-                  Financial distribution is audited across all site vertical segments.
+                <AlertDescription className="text-xs font-bold opacity-90">
+                  Financial distribution is audited and locked for analysis.
                 </AlertDescription>
               </div>
             </Alert>
           )}
-          <Alert className="bg-primary/5 text-primary border-none shadow-sm">
+          <Alert className="bg-primary/5 text-primary border-none shadow-md">
             <Info className="h-5 w-5 text-accent" />
             <div className="ml-2">
               <AlertTitle className="font-black text-sm uppercase">System Guidance</AlertTitle>
-              <AlertDescription className="text-xs font-bold opacity-80">
-                Blue rows indicate CUP facilities. Input percentages as decimals (e.g. 0.25).
+              <AlertDescription className="text-xs font-bold opacity-90">
+                Blue rows indicate CUP facilities. Percentages must be entered as decimals.
               </AlertDescription>
             </div>
           </Alert>
         </div>
 
-        <div className="border rounded-2xl overflow-hidden shadow-2xl bg-white">
-          <div className="max-h-[550px] overflow-y-auto custom-scrollbar">
+        <div className="border-2 rounded-2xl overflow-hidden shadow-2xl bg-white">
+          <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
             <Table>
-              <TableHeader className="bg-muted/80 backdrop-blur-sm sticky top-0 z-20 shadow-md">
-                <TableRow className="border-b-2 border-primary/10">
-                  <TableHead className="w-[140px] text-[11px] font-black uppercase text-primary bg-muted/50">Floor Identifier</TableHead>
-                  <TableHead className="text-[11px] font-black uppercase text-right text-primary">Building %</TableHead>
-                  <TableHead className="text-[11px] font-black uppercase text-right text-primary">Facility %</TableHead>
-                  <TableHead className="text-[11px] font-black uppercase text-right text-primary">Tools %</TableHead>
-                  <TableHead className="text-[11px] font-black uppercase text-right text-primary">Fixture %</TableHead>
-                  <TableHead className="text-[11px] font-black uppercase text-right text-primary">Stock %</TableHead>
+              <TableHeader className="bg-muted/90 backdrop-blur-sm sticky top-0 z-20 shadow-sm border-b-2">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-[180px] text-[11px] font-black uppercase text-primary bg-muted/30 py-4 px-6">Floor Identifier</TableHead>
+                  <TableHead className="text-[11px] font-black uppercase text-right text-primary px-4">Building %</TableHead>
+                  <TableHead className="text-[11px] font-black uppercase text-right text-primary px-4">Facility %</TableHead>
+                  <TableHead className="text-[11px] font-black uppercase text-right text-primary px-4">Tools %</TableHead>
+                  <TableHead className="text-[11px] font-black uppercase text-right text-primary px-4">Fixture %</TableHead>
+                  <TableHead className="text-[11px] font-black uppercase text-right text-primary px-4">Stock %</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {allFloors.map(floor => (
                   <TableRow 
                     key={floor} 
-                    className={`hover:bg-accent/5 transition-colors ${floor.startsWith('CUP') ? 'bg-blue-50/40' : ''}`}
+                    className={`hover:bg-accent/5 transition-colors group ${floor.startsWith('CUP') ? 'bg-blue-50/40' : ''}`}
                   >
-                    <TableCell className="font-mono text-[11px] font-black py-3 border-r bg-muted/5">{floor}</TableCell>
+                    <TableCell className="font-mono text-[11px] font-black py-3 px-6 border-r bg-muted/5 group-hover:bg-muted/10 transition-colors">
+                      {floor}
+                    </TableCell>
                     <TableCell className="py-1 px-2 border-r">
                       <Input 
                         type="number" step="0.0001"
@@ -266,7 +258,7 @@ export function Step5Validation() {
                         type="number" step="0.0001"
                         value={localRatios[floor]?.fix ?? 0}
                         onChange={(e) => handleUpdate(floor, 'fix', e.target.value)}
-                        className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
+                        className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1 disabled:opacity-20"
                         disabled={floor.startsWith('CUP')}
                         suppressHydrationWarning
                       />
@@ -283,22 +275,22 @@ export function Step5Validation() {
                   </TableRow>
                 ))}
               </TableBody>
-              <TableFooter className="bg-primary/95 text-primary-foreground sticky bottom-0 z-20 font-black border-t-2 border-accent">
-                <TableRow className="hover:bg-primary/95">
-                  <TableCell className="text-[11px] uppercase tracking-widest border-r">Cumulative Total</TableCell>
-                  <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.bldg - 1) < 0.001 ? 'text-accent' : 'text-destructive-foreground underline'}`}>
+              <TableFooter className="bg-primary text-primary-foreground sticky bottom-0 z-20 font-black border-t-2 border-accent">
+                <TableRow className="hover:bg-primary">
+                  <TableCell className="text-[11px] uppercase tracking-widest border-r py-4 px-6">Cumulative Totals</TableCell>
+                  <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.bldg - 1) < 0.001 ? 'text-accent' : 'text-red-400 underline'}`}>
                     {sums.bldg.toFixed(4)}
                   </TableCell>
-                  <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.fac - 1) < 0.001 ? 'text-accent' : 'text-destructive-foreground underline'}`}>
+                  <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.fac - 1) < 0.001 ? 'text-accent' : 'text-red-400 underline'}`}>
                     {sums.fac.toFixed(4)}
                   </TableCell>
-                  <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.tool - 1) < 0.001 ? 'text-accent' : 'text-destructive-foreground underline'}`}>
+                  <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.tool - 1) < 0.001 ? 'text-accent' : 'text-red-400 underline'}`}>
                     {sums.tool.toFixed(4)}
                   </TableCell>
-                  <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.fix - 1) < 0.001 ? 'text-accent' : 'text-destructive-foreground underline'}`}>
+                  <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.fix - 1) < 0.001 ? 'text-accent' : 'text-red-400 underline'}`}>
                     {sums.fix.toFixed(4)}
                   </TableCell>
-                  <TableCell className={`text-right font-mono text-xs px-4 ${sums.stock <= 1.0001 ? 'text-accent' : 'text-destructive-foreground underline'}`}>
+                  <TableCell className={`text-right font-mono text-xs px-4 ${sums.stock <= 1.0001 ? 'text-accent' : 'text-red-400 underline'}`}>
                     {sums.stock.toFixed(4)}
                   </TableCell>
                 </TableRow>
@@ -326,7 +318,7 @@ export function Step5Validation() {
             <Button 
               disabled={!isValidated}
               onClick={() => setStep(6)}
-              className="bg-primary hover:bg-primary/90 text-white font-black px-12 h-12 rounded-xl gap-2 shadow-xl shadow-primary/20 transition-all hover:translate-x-1 disabled:opacity-40 disabled:translate-x-0"
+              className="bg-primary hover:bg-primary/90 text-white font-black px-12 h-12 rounded-xl gap-2 shadow-xl shadow-primary/20 transition-all hover:translate-x-1 disabled:opacity-40"
             >
               Risk Analysis <ChevronRight className="w-5 h-5" />
             </Button>
