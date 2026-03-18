@@ -20,7 +20,7 @@ export function Step3Init() {
     defaultValues: plant || {}
   });
 
-  // CRITICAL: Ensure form resets when the plant ID changes (e.g. user went back to P2 and picked a different plant)
+  // 當廠區 ID 變動時，重置表單內容以符合該廠區的數據
   useEffect(() => {
     if (plant?.id) {
       reset(plant);
@@ -58,16 +58,12 @@ export function Step3Init() {
   }, [values]);
 
   const onSubmit = (data: Partial<PlantData>) => {
-    // CRITICAL: Force the use of the plant ID established in Step 2
     const plantId = plant?.id;
-    if (!plantId) {
-      console.error("Critical Error: Plant ID missing in Step 3.");
-      return;
-    }
+    if (!plantId) return;
 
     const numericData: PlantData = {
       ...data,
-      id: plantId, // Ensure the correct ID is retained
+      id: plantId,
       company: plant.company,
       plantName: plant.plantName,
       lat: Number(data.lat) || 0,
@@ -88,15 +84,16 @@ export function Step3Init() {
       bi12m: Number(data.bi12m) || 0,
     } as PlantData;
 
-    // Update global store
+    // 更新全域狀態
     setPlant(numericData);
 
-    // 1. Persist Physical Parameters to 'building_info' collection linked by plantId
+    // 1. 儲存物理參數到 'building_info' 集合
+    // CRITICAL: 必須包含 companyName 欄位以通過安全性規則校驗
     const buildingRef = doc(db, 'building_info', plantId);
     setDocumentNonBlocking(buildingRef, {
       id: plantId,
-      companyName: numericData.company,
-      plantName: numericData.plantName,
+      companyName: plant.company,
+      plantName: plant.plantName,
       latitude: numericData.lat,
       longitude: numericData.lon,
       fabAboveLevel: numericData.fabAl,
@@ -105,13 +102,13 @@ export function Step3Init() {
       cupBelowLevel: numericData.cupBl,
     }, { merge: true });
 
-    // 2. Persist Financial Parameters to 'plant_initial_values' collection linked by plantId
+    // 2. 儲存財務參數到 'plant_initial_values' 集合
     const plantValId = `${plantId}-init`;
     const plantValRef = doc(db, 'plant_initial_values', plantValId);
     setDocumentNonBlocking(plantValRef, {
       id: plantValId,
-      companyName: numericData.company,
-      plantName: numericData.plantName,
+      companyName: plant.company,
+      plantName: plant.plantName,
       buildingValue: numericData.pdBuilding,
       facilityValue: numericData.pdFacility,
       toolsValue: numericData.pdTools,
