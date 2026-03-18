@@ -2,46 +2,49 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isSignedIn() { return request.auth != null; }
+    // Basic Auth Check
+    function isSignedIn() {
+      return request.auth != null;
+    }
     
-    // Improved user data retrieval with default fallback
-    function getUserData() {
-      let path = /databases/$(database)/documents/user_permissions/$(request.auth.uid);
-      return exists(path) ? get(path).data : { "role": "READER", "assignedCompany": "" };
+    // Helper to get user document
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data;
     }
 
-    // Role-based check
+    // Explicit Admin Check
     function isAdmin() {
-      return isSignedIn() && getUserData().role == 'ADMIN';
+      let path = /databases/$(database)/documents/user_permissions/$(request.auth.uid);
+      return isSignedIn() && exists(path) && getUserDoc().role == 'ADMIN';
     }
 
     // Check company access or admin override
     function hasCompanyAccess(companyName) {
       if (!isSignedIn()) return false;
-      let userData = getUserData();
-      return (
-        userData.role == 'ADMIN' || 
-        userData.assignedCompany == companyName
-      );
+      let path = /databases/$(database)/documents/user_permissions/$(request.auth.uid);
+      if (!exists(path)) return false;
+      let userData = getUserDoc();
+      return userData.role == 'ADMIN' || userData.assignedCompany == companyName;
     }
 
+    // User Permissions - Users can manage their own, Admins can manage all
     match /user_permissions/{userId} {
       allow get: if isSignedIn();
-      allow create, update, delete: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
+      allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
     }
 
+    // Plants - Admins or assigned company users
     match /plants/{plantId} {
-      allow get, list: if isSignedIn();
-      allow create: if hasCompanyAccess(request.resource.data.companyName);
-      allow update: if hasCompanyAccess(request.resource.data.companyName) && hasCompanyAccess(resource.data.companyName);
-      allow delete: if hasCompanyAccess(resource.data.companyName);
+      allow read: if isSignedIn();
+      allow create, update: if hasCompanyAccess(request.resource.data.companyName);
+      allow delete: if isAdmin() || hasCompanyAccess(resource.data.companyName);
     }
 
+    // Cleanroom Occupancy
     match /fab_cleanroom_occupancy/{id} {
       allow read: if isSignedIn();
-      allow create: if hasCompanyAccess(request.resource.data.companyName);
-      allow update: if hasCompanyAccess(request.resource.data.companyName) && hasCompanyAccess(resource.data.companyName);
-      allow delete: if hasCompanyAccess(resource.data.companyName);
+      allow create, update: if hasCompanyAccess(request.resource.data.companyName);
+      allow delete: if isAdmin() || hasCompanyAccess(resource.data.companyName);
       
       match /floor_ratios/{fid} { 
         allow read: if isSignedIn();
@@ -49,11 +52,11 @@ service cloud.firestore {
       }
     }
 
+    // Building Value Ratios
     match /building_value_ratios/{id} {
       allow read: if isSignedIn();
-      allow create: if hasCompanyAccess(request.resource.data.companyName);
-      allow update: if hasCompanyAccess(request.resource.data.companyName) && hasCompanyAccess(resource.data.companyName);
-      allow delete: if hasCompanyAccess(resource.data.companyName);
+      allow create, update: if hasCompanyAccess(request.resource.data.companyName);
+      allow delete: if isAdmin() || hasCompanyAccess(resource.data.companyName);
       
       match /floor_ratios/{fid} { 
         allow read: if isSignedIn();
@@ -61,11 +64,11 @@ service cloud.firestore {
       }
     }
 
+    // Flood Loss Estimations
     match /flood_loss_estimations/{id} {
       allow read: if isSignedIn();
       allow create: if hasCompanyAccess(request.resource.data.companyName);
-      allow update: if hasCompanyAccess(request.resource.data.companyName) && hasCompanyAccess(resource.data.companyName);
-      allow delete: if hasCompanyAccess(resource.data.companyName);
+      allow update, delete: if isAdmin() || hasCompanyAccess(resource.data.companyName);
     }
   }
 }
