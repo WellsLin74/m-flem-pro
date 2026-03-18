@@ -7,11 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Factory, ChevronRight, ArrowLeft, PlusCircle, Shield, Loader2, Zap, UserCheck, CheckCircle, Clock } from 'lucide-react';
+import { Building2, Factory, ChevronRight, ArrowLeft, PlusCircle, Shield, Loader2, Zap, UserCheck, CheckCircle, Clock, Trash2, Users } from 'lucide-react';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs, getDoc } from 'firebase/firestore';
-import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 export function Step2Config() {
   const { user: firebaseUser, dbUser, isUserLoading } = useUser();
@@ -22,12 +23,16 @@ export function Step2Config() {
   const isAdmin = dbUser?.role === 'ADMIN' || firebaseUser?.email === 'admin@marsh.com';
   const assignedCompany = dbUser?.assignedCompany?.trim() || '';
 
-  // For Admin: List of pending users to approve
-  const pendingUsersQuery = useMemoFirebase(() => {
+  // ADMIN ONLY: All users in the system
+  const allUsersQuery = useMemoFirebase(() => {
     if (!isAdmin) return null;
-    return query(collection(db, 'user_permissions'), where('isApproved', '==', false));
+    return collection(db, 'user_permissions');
   }, [db, isAdmin]);
-  const { data: pendingUsers } = useCollection(pendingUsersQuery);
+  const { data: allUsers } = useCollection(allUsersQuery);
+
+  const pendingUsers = useMemo(() => {
+    return allUsers?.filter(u => u.isApproved === false) || [];
+  }, [allUsers]);
 
   const plantsQuery = useMemoFirebase(() => {
     if (!firebaseUser || isUserLoading) return null;
@@ -80,6 +85,16 @@ export function Step2Config() {
     const userRef = doc(db, 'user_permissions', userId);
     updateDocumentNonBlocking(userRef, { isApproved: true });
     toast({ title: "User Approved", description: "Access granted successfully." });
+  };
+
+  const handleDeleteUser = (userId: string, email: string) => {
+    if (email === 'admin@marsh.com') {
+      toast({ variant: "destructive", title: "Action Restricted", description: "Master ADMIN cannot be deleted." });
+      return;
+    }
+    const userRef = doc(db, 'user_permissions', userId);
+    deleteDocumentNonBlocking(userRef);
+    toast({ title: "Permission Revoked", description: `Account ${email} has been removed from the system.` });
   };
 
   const mapPlantData = (selectedPlantData: any) => {
@@ -235,9 +250,14 @@ export function Step2Config() {
                     <p className="text-[10px] uppercase font-black text-emerald-600 tracking-widest">{u.role} | {u.assignedCompany}</p>
                   </div>
                 </div>
-                <Button onClick={() => handleApprove(u.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 rounded-lg h-9">
-                  <CheckCircle className="w-4 h-4" /> Approve Access
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => handleApprove(u.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 rounded-lg h-9">
+                    <CheckCircle className="w-4 h-4" /> Approve
+                  </Button>
+                  <Button variant="ghost" onClick={() => handleDeleteUser(u.id, u.email)} className="text-destructive hover:bg-destructive/10 h-9 px-3">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </CardContent>
@@ -337,12 +357,6 @@ export function Step2Config() {
             </div>
           </div>
 
-          {isUserLoading && (
-            <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm font-bold animate-pulse">
-              <Loader2 className="w-4 h-4 animate-spin" /> Authorizing Profile...
-            </div>
-          )}
-
           <div className="flex flex-col sm:flex-row justify-between pt-6 gap-4">
             <Button variant="ghost" onClick={() => setStep(1)} className="font-bold text-muted-foreground gap-2">
               <ArrowLeft className="w-4 h-4" /> Back to Auth
@@ -371,6 +385,53 @@ export function Step2Config() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ADMIN ONLY: All Users Directory */}
+      {isAdmin && allUsers && allUsers.length > 0 && (
+        <Card className="border-none shadow-xl bg-white/50 backdrop-blur-sm overflow-hidden">
+          <CardHeader className="pb-4">
+            <CardTitle className="font-headline font-black text-xl text-primary flex items-center gap-3">
+              <Users className="w-6 h-6 text-accent" /> System User Directory
+            </CardTitle>
+            <CardDescription>Manage all analyst accounts and site-wide permissions.</CardDescription>
+          </CardHeader>
+          <CardContent className="px-6 pb-6">
+            <div className="rounded-xl border bg-white overflow-hidden shadow-sm">
+              <div className="grid grid-cols-1 divide-y">
+                {allUsers.map(u => (
+                  <div key={u.id} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className={`p-2 rounded-full ${u.isApproved ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                        {u.role === 'ADMIN' ? <Shield className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-primary">{u.email}</p>
+                          <Badge variant={u.isApproved ? "default" : "secondary"} className="text-[9px] h-4 uppercase font-black px-1.5">
+                            {u.isApproved ? 'Approved' : 'Pending'}
+                          </Badge>
+                        </div>
+                        <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">{u.role} | {u.assignedCompany}</p>
+                      </div>
+                    </div>
+                    {u.email !== 'admin@marsh.com' && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleDeleteUser(u.id, u.email)}
+                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/5 font-bold gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span className="hidden sm:inline">Revoke Access</span>
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
