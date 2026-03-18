@@ -52,8 +52,12 @@ export function Step5Validation() {
    * [FACILITY% 分佈] (含 CUP)
    * 各層Fac% = (P4之Fac-CR Ratio * Area * CR%) / Area_CR + (1 - P4之Fac-CR Ratio * Area * Non-CR%) / (Area_NonCR + CUP總面積)
    * 
-   * [TOOLS% & FIXTURE% 分佈] (僅 FAB)
+   * [TOOLS% 分佈] (僅 FAB)
    * 各層Tools% = (P4之Global Tools Ratio * Area * CR%) / Area_CR + (1 - P4之Global Tools Ratio * Area * Non-CR%) / Area_NonCR
+   * 
+   * [FIXTURE% 分佈]
+   * FAB各層FIXTURE% = 1 / FAB總樓層數
+   * CUP各層FIXTURE% = 0
    */
   const generateSuggestions = useCallback(() => {
     if (!plant || !refinement) return {};
@@ -63,6 +67,9 @@ export function Step5Validation() {
     const fabTotalArea = fabFloorArea * (plant.fabAl + plant.fabBl);
     const cupTotalArea = cupFloorArea * (plant.cupAl + plant.cupBl);
     
+    const fabFloorsOnly = allFloors.filter(f => f.startsWith('FAB'));
+    const totalFabFloors = fabFloorsOnly.length;
+
     // 1. FAB區CR總面積
     let sumCrOcc = 0;
     allFloors.forEach(f => {
@@ -103,8 +110,9 @@ export function Step5Validation() {
         finalToolRatio = toolsPartA + toolsPartB;
       }
 
-      // [Fixture% 計算] (跟隨 Tools 邏輯)
-      const finalFixRatio = finalToolRatio;
+      // [FIXTURE% 計算] 
+      // FAB各層 = 1 / FAB總樓層數; CUP = 0
+      const finalFixRatio = isFab ? (totalFabFloors > 0 ? 1 / totalFabFloors : 0) : 0;
 
       // [Building% 計算] (面積比例)
       const finalBldgRatio = totalBuildingArea > 0 ? area / totalBuildingArea : 0;
@@ -267,7 +275,7 @@ export function Step5Validation() {
             <div className="ml-2">
               <AlertTitle className="font-black text-sm uppercase">Formula Confirmed</AlertTitle>
               <AlertDescription className="text-xs font-bold opacity-90 leading-tight">
-                TOOLS%, FACILITY% and FIXTURE% calculated using precise FAB/CUP CR area weighting.
+                TOOLS%, FACILITY% calculated using CR area weighting. FIXTURE% averaged across FAB.
               </AlertDescription>
             </div>
           </Alert>
