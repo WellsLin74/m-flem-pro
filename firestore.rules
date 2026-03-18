@@ -2,73 +2,69 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Basic Auth Check
+    // 基本登入檢查
     function isSignedIn() {
       return request.auth != null;
     }
     
-    // Helper to get user document
-    function getUserDoc() {
+    // 獲取使用者權限文件
+    function getUserData() {
       return get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data;
     }
 
-    // Explicit Admin Check
+    // 檢查是否為管理員
     function isAdmin() {
       let path = /databases/$(database)/documents/user_permissions/$(request.auth.uid);
-      return isSignedIn() && exists(path) && getUserDoc().role == 'ADMIN';
+      return isSignedIn() && exists(path) && getUserData().role == 'ADMIN';
     }
 
-    // Check company access or admin override
-    function hasCompanyAccess(companyName) {
+    // 檢查公司存取權限或管理員覆蓋
+    function hasAccess(companyName) {
       if (!isSignedIn()) return false;
       let path = /databases/$(database)/documents/user_permissions/$(request.auth.uid);
       if (!exists(path)) return false;
-      let userData = getUserDoc();
+      let userData = getUserData();
       return userData.role == 'ADMIN' || userData.assignedCompany == companyName;
     }
 
-    // User Permissions - Users can manage their own, Admins can manage all
+    // 使用者權限 - 只有管理員或本人可管理
     match /user_permissions/{userId} {
       allow get: if isSignedIn();
       allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
     }
 
-    // Plants - Admins or assigned company users
+    // 工廠主表 - 管理員或同公司使用者可讀寫
     match /plants/{plantId} {
       allow read: if isSignedIn();
-      allow create, update: if hasCompanyAccess(request.resource.data.companyName);
-      allow delete: if isAdmin() || hasCompanyAccess(resource.data.companyName);
+      allow write: if hasAccess(request.resource.data.companyName);
+      allow delete: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && getUserData().assignedCompany == resource.data.companyName);
     }
 
-    // Cleanroom Occupancy
+    // 潔淨室佔用比例
     match /fab_cleanroom_occupancy/{id} {
       allow read: if isSignedIn();
-      allow create, update: if hasCompanyAccess(request.resource.data.companyName);
-      allow delete: if isAdmin() || hasCompanyAccess(resource.data.companyName);
-      
-      match /floor_ratios/{fid} { 
+      allow write: if hasAccess(request.resource.data.companyName);
+      match /floor_ratios/{fid} {
         allow read: if isSignedIn();
         allow write: if isSignedIn();
       }
     }
 
-    // Building Value Ratios
+    // 資產價值分佈比例
     match /building_value_ratios/{id} {
       allow read: if isSignedIn();
-      allow create, update: if hasCompanyAccess(request.resource.data.companyName);
-      allow delete: if isAdmin() || hasCompanyAccess(resource.data.companyName);
-      
-      match /floor_ratios/{fid} { 
+      allow write: if hasAccess(request.resource.data.companyName);
+      match /floor_ratios/{fid} {
         allow read: if isSignedIn();
         allow write: if isSignedIn();
       }
     }
 
-    // Flood Loss Estimations
+    // 洪水損失模擬紀錄
     match /flood_loss_estimations/{id} {
       allow read: if isSignedIn();
-      allow create: if hasCompanyAccess(request.resource.data.companyName);
-      allow update, delete: if isAdmin() || hasCompanyAccess(resource.data.companyName);
+      allow create: if hasAccess(request.resource.data.companyName);
+      allow update, delete: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && getUserData().assignedCompany == resource.data.companyName);
     }
   }
 }

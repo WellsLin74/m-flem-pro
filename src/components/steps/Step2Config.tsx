@@ -27,7 +27,7 @@ export function Step2Config() {
   const isAdmin = userPerm?.role === 'ADMIN';
   const assignedCompany = userPerm?.assignedCompany || '';
 
-  // Admins can see all plants, others only their company
+  // 管理員可看到所有工廠，一般使用者僅限所屬公司
   const plantsQuery = useMemoFirebase(() => {
     if (!firebaseUser) return null;
     if (isAdmin) return collection(db, 'plants');
@@ -63,13 +63,13 @@ export function Step2Config() {
     
     if (!finalPlantName || !finalCompanyName) return;
     
-    const safeCompany = finalCompanyName.trim().replace(/[^a-zA-Z0-9]/g, '_');
-    const safePlant = finalPlantName.trim().replace(/[^a-zA-Z0-9]/g, '_');
+    const safeCompany = finalCompanyName.trim().replace(/\s+/g, '_');
+    const safePlant = finalPlantName.trim().replace(/\s+/g, '_');
     const plantId = isNewPlant ? `${safeCompany}-${safePlant}` : selectedPlantId;
 
     if (!plantId) return;
 
-    // Reset downstream analysis ONLY if plant ID actually changes
+    // 關鍵修正：切換工廠時徹底清除下游分析狀態，防止數據污染
     if (plant?.id !== plantId) {
       setRefinement(null);
       setFinalRatios(null);
@@ -100,6 +100,7 @@ export function Step2Config() {
 
     setPlant(plantData);
 
+    // 寫入工廠主表，確保包含公司名稱以通過安全性規則
     const plantRef = doc(db, 'plants', plantId);
     setDocumentNonBlocking(plantRef, {
       id: plantId,
@@ -111,6 +112,10 @@ export function Step2Config() {
       fabBelowLevel: plantData.fabBl,
       cupAboveLevel: plantData.cupAl,
       cupBelowLevel: plantData.cupBl,
+      fabLength: plantData.fabLength,
+      fabWidth: plantData.fabWidth,
+      cupLength: plantData.cupLength,
+      cupWidth: plantData.cupWidth,
       buildingValue: plantData.pdBuilding,
       facilityValue: plantData.pdFacility,
       toolsValue: plantData.pdTools,
