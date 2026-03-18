@@ -7,11 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldCheck, UserPlus, Clock, CheckCircle, UserCheck, AlertCircle, Loader2 } from 'lucide-react';
+import { ShieldCheck, UserPlus, Clock, CheckCircle, UserCheck, AlertCircle, Loader2, KeyRound } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -29,12 +28,12 @@ export function Step1Login() {
   const db = useFirestore();
   const { toast } = useToast();
 
-  // 超級管理員判定
+  // 超級管理員判定：Email 優先
   const isSuperAdmin = firebaseUser?.email === 'admin@marsh.com';
   const isApproved = isSuperAdmin || dbUser?.isApproved === true;
 
   useEffect(() => {
-    if (firebaseUser) {
+    if (firebaseUser && !isUserLoading) {
       if (isApproved) {
         setUser({
           email: firebaseUser.email || 'Authorized User',
@@ -45,7 +44,7 @@ export function Step1Login() {
         setStep(2);
       }
     }
-  }, [firebaseUser, dbUser, isApproved, isSuperAdmin, setUser, setStep]);
+  }, [firebaseUser, dbUser, isApproved, isSuperAdmin, isUserLoading, setUser, setStep]);
 
   const handleLogin = async () => {
     const cleanEmail = email.trim().toLowerCase();
@@ -57,6 +56,7 @@ export function Step1Login() {
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, password);
     } catch (e: any) {
+      console.error('Login error:', e);
       toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials or system interruption." });
     } finally {
       setLoading(false);
@@ -68,13 +68,17 @@ export function Step1Login() {
     const cleanCompany = company.trim();
     
     if (!cleanEmail || !cleanCompany || !password) {
-      toast({ variant: "destructive", title: "Missing Information", description: "All fields are required." });
+      toast({ variant: "destructive", title: "Missing Information", description: "All fields are required for access request." });
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({ variant: "destructive", title: "Security Alert", description: "Security key must be at least 6 characters." });
       return;
     }
 
     setLoading(true);
     try {
-      // 特別處理 admin@marsh.com 註冊
       const isRegisteringSuperAdmin = cleanEmail === 'admin@marsh.com';
       let finalRole = role;
       let finalApproved = false;
@@ -88,35 +92,33 @@ export function Step1Login() {
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const userId = userCredential.user.uid;
       
-      // 寫入權限文件
+      // 重要：同步寫入權限文件，確保管理員能立即看到申請
       const userPermRef = doc(db, 'user_permissions', userId);
-      setDocumentNonBlocking(userPermRef, {
+      await setDoc(userPermRef, {
         id: userId,
         email: cleanEmail,
         role: finalRole,
         assignedCompany: cleanCompany,
         isApproved: finalApproved
-      }, { merge: true });
+      });
 
       toast({ 
-        title: "Registration Initiated", 
-        description: finalApproved ? "Authorized as System Master." : "Account created. Awaiting ADMIN approval." 
+        title: "Request Transmitted", 
+        description: finalApproved ? "System Master Authorized." : "Access requested. Awaiting ADMIN verification." 
       });
       
-      // 註冊成功後，若不是超級管理員，介面會因為 firebaseUser 存在而自動切換到 Pending 畫面
-      if (!isRegisteringSuperAdmin) {
-        setMode('login');
-      }
+      // 註冊成功後，狀態會由 FirebaseProvider 偵測並更新 UI
     } catch (e: any) {
-      let errorMsg = "Registration Failed. Please try again.";
+      console.error('Registration error:', e);
+      let errorMsg = "Transmission Failed. Please check your network.";
       if (e.code === 'auth/email-already-in-use') {
         errorMsg = "This email is already registered in the system.";
       } else if (e.code === 'auth/invalid-email') {
-        errorMsg = "Invalid email format.";
+        errorMsg = "Invalid email format detected.";
       } else if (e.code === 'auth/weak-password') {
-        errorMsg = "Password is too weak (min 6 characters).";
+        errorMsg = "Security key is too weak (min 6 characters).";
       }
-      toast({ variant: "destructive", title: "Registration Interrupted", description: errorMsg });
+      toast({ variant: "destructive", title: "Registration Blocked", description: errorMsg });
     } finally {
       setLoading(false);
     }
@@ -127,7 +129,7 @@ export function Step1Login() {
       <div className="flex flex-col items-center justify-center py-40 space-y-4">
         <Loader2 className="w-12 h-12 text-accent animate-spin" />
         <p className="font-black text-primary uppercase tracking-[0.2em] animate-pulse">
-          Authenticating Neural Link...
+          Synchronizing Security Layers...
         </p>
       </div>
     );
@@ -136,26 +138,26 @@ export function Step1Login() {
   // 登入中但尚未被核准
   if (firebaseUser && !isApproved) {
     return (
-      <div className="max-w-md mx-auto space-y-6">
+      <div className="max-w-md mx-auto space-y-6 animate-in fade-in zoom-in-95 duration-500">
         <Card className="border-none shadow-2xl bg-white/80 backdrop-blur-sm overflow-hidden text-center py-10">
           <div className="h-2 bg-accent w-full absolute top-0" />
           <div className="mx-auto bg-amber-100 p-4 rounded-full w-fit mb-6">
             <Clock className="w-12 h-12 text-amber-600 animate-pulse" />
           </div>
-          <CardTitle className="text-2xl font-black text-primary px-6">Access Pending Approval</CardTitle>
-          <CardDescription className="px-10 mt-4 font-medium">
-            Your account ({firebaseUser.email}) is awaiting verification.
+          <CardTitle className="text-2xl font-black text-primary px-6 tracking-tight">Access Pending Approval</CardTitle>
+          <CardDescription className="px-10 mt-4 font-medium text-muted-foreground">
+            Your identity <span className="text-primary font-bold">{firebaseUser.email}</span> is awaiting verification by the System Administrator.
           </CardDescription>
           <div className="p-8">
             <Alert className="bg-primary/5 border-primary/10 text-primary">
-              <AlertCircle className="w-5 h-5" />
+              <ShieldCheck className="w-5 h-5" />
               <AlertDescription className="text-xs font-bold uppercase tracking-wider ml-2 text-left">
-                A system administrator must verify your identity before you can access the modeling terminal.
+                Industrial protocols require manual authentication for all new analyst profiles.
               </AlertDescription>
             </Alert>
           </div>
-          <Button variant="outline" onClick={() => auth.signOut()} className="mt-4 font-bold border-primary text-primary">
-            Sign Out & Re-login
+          <Button variant="outline" onClick={() => auth.signOut()} className="mt-4 font-bold border-primary text-primary hover:bg-primary/5">
+            Switch Account
           </Button>
         </Card>
       </div>
@@ -163,76 +165,85 @@ export function Step1Login() {
   }
 
   return (
-    <div className="max-w-md mx-auto">
+    <div className="max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card className="border-none shadow-2xl bg-white/80 backdrop-blur-sm overflow-hidden">
         <div className="h-2 bg-accent w-full" />
         <CardHeader className="text-center pt-8">
           <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-4">
-            {mode === 'login' ? <ShieldCheck className="w-8 h-8 text-primary" /> : <UserPlus className="w-8 h-8 text-primary" />}
+            {mode === 'login' ? <KeyRound className="w-8 h-8 text-primary" /> : <UserPlus className="w-8 h-8 text-primary" />}
           </div>
-          <CardTitle className="text-2xl font-headline font-black text-primary">
-            {mode === 'login' ? 'System Access' : 'Register Analyst'}
+          <CardTitle className="text-2xl font-headline font-black text-primary tracking-tight">
+            {mode === 'login' ? 'Terminal Access' : 'Register Analyst'}
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="font-medium">
             {mode === 'login' 
-              ? 'Use Admin (admin@marsh.com) to initialize system.' 
-              : 'New accounts require Admin approval to access data.'}
+              ? 'Authorized personnel only. Use security key to enter.' 
+              : 'New profiles require manual ADMIN authorization.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pb-10">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Email Address</Label>
+              <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Analyst Email</Label>
               <Input 
                 type="email" 
                 value={email} 
                 onChange={(e) => setEmail(e.target.value)} 
                 placeholder="analyst@marsh.com"
-                className="bg-muted/50 border-none" 
+                className="bg-muted/50 border-none font-medium focus-visible:ring-accent" 
+                disabled={loading}
               />
             </div>
             <div className="space-y-2">
-              <Label className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Security Key</Label>
+              <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Security Key</Label>
               <Input 
                 type="password" 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
-                placeholder="••••••"
-                className="bg-muted/50 border-none" 
+                placeholder="••••••••"
+                className="bg-muted/50 border-none font-mono tracking-widest focus-visible:ring-accent" 
+                disabled={loading}
               />
             </div>
             {mode === 'add' && (
-              <>
+              <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                 <div className="space-y-2">
-                  <Label className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Requested Role</Label>
-                  <Select value={role} onValueChange={(val: UserRole) => setRole(val)}>
-                    <SelectTrigger className="bg-muted/50 border-none"><SelectValue /></SelectTrigger>
+                  <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Assigned Role</Label>
+                  <Select value={role} onValueChange={(val: UserRole) => setRole(val)} disabled={loading}>
+                    <SelectTrigger className="bg-muted/50 border-none font-bold"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="EDITOR">EDITOR</SelectItem>
-                      <SelectItem value="READER">READER</SelectItem>
+                      <SelectItem value="EDITOR" className="font-bold">EDITOR</SelectItem>
+                      <SelectItem value="READER" className="font-bold">READER</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Organization Name</Label>
-                  <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Marsh McLennan" className="bg-muted/50 border-none" />
+                  <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Organization Name</Label>
+                  <Input 
+                    value={company} 
+                    onChange={(e) => setCompany(e.target.value)} 
+                    placeholder="e.g. Marsh McLennan" 
+                    className="bg-muted/50 border-none font-medium focus-visible:ring-accent"
+                    disabled={loading}
+                  />
                 </div>
-              </>
+              </div>
             )}
           </div>
           <Button 
             onClick={mode === 'login' ? handleLogin : handleAddUser} 
             disabled={loading} 
-            className="w-full bg-primary py-6 font-black text-lg shadow-lg"
+            className="w-full bg-primary hover:bg-primary/90 py-6 font-black text-lg shadow-xl shadow-primary/20 transition-all active:scale-95"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'login' ? 'Enter System' : 'Request Access')}
           </Button>
           <button 
             type="button" 
-            className="w-full text-center text-sm font-bold text-muted-foreground hover:text-primary transition-colors" 
+            disabled={loading}
+            className="w-full text-center text-xs font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest disabled:opacity-50" 
             onClick={() => setMode(mode === 'login' ? 'add' : 'login')}
           >
-            {mode === 'login' ? 'Need to register a new analyst?' : 'Back to Login'}
+            {mode === 'login' ? 'New Analyst? Request Profile' : 'Back to Secure Login'}
           </button>
         </CardContent>
       </Card>
