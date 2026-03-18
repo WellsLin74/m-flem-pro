@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { generateFloodRiskInsights } from '@/ai/flows/generate-flood-risk-insights';
-import { TrendingDown, Waves, Sparkles, ArrowLeft, Building2, Factory, Image as ImageIcon, LayoutPanelLeft, Cpu } from 'lucide-react';
+import { TrendingDown, Waves, Sparkles, ArrowLeft, Building2, Factory, Image as ImageIcon, ShieldAlert } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -18,7 +18,8 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 export function Step6Estimation() {
   const { plant, finalRatios, setStep } = useAppStore();
   const db = useFirestore();
-  const [l10Height, setL10Height] = useState(0);
+  const [fabL10Height, setFabL10Height] = useState(0);
+  const [cupL10Height, setCupL10Height] = useState(0);
   const [floodHeight, setFloodHeight] = useState(0);
   const reportRef = useRef<HTMLDivElement>(null);
   
@@ -62,21 +63,27 @@ export function Step6Estimation() {
     };
   }, [plant, finalRatios]);
 
-  const calcL10Ratio = useMemo(() => {
-    if (l10Height <= 0) return 0;
-    return Math.min(100, Math.max(0, (floodHeight / l10Height) * 100));
-  }, [floodHeight, l10Height]);
+  const calcFabL10Ratio = useMemo(() => {
+    if (fabL10Height <= 0) return 0;
+    return Math.min(100, Math.max(0, (floodHeight / fabL10Height) * 100));
+  }, [floodHeight, fabL10Height]);
+
+  const calcCupL10Ratio = useMemo(() => {
+    if (cupL10Height <= 0) return 0;
+    return Math.min(100, Math.max(0, (floodHeight / cupL10Height) * 100));
+  }, [floodHeight, cupL10Height]);
 
   useEffect(() => {
-    const recommendedL10 = Number(calcL10Ratio.toFixed(1));
+    const recommendedFabL10 = Number(calcFabL10Ratio.toFixed(1));
+    const recommendedCupL10 = Number(calcCupL10Ratio.toFixed(1));
     setRatios(prev => ({
       ...prev,
-      fabFacL10: recommendedL10,
-      fabFixL10: recommendedL10,
-      fabStockL10: recommendedL10,
-      cupFacL10: recommendedL10
+      fabFacL10: recommendedFabL10,
+      fabFixL10: recommendedFabL10,
+      fabStockL10: recommendedFabL10,
+      cupFacL10: recommendedCupL10
     }));
-  }, [calcL10Ratio]);
+  }, [calcFabL10Ratio, calcCupL10Ratio]);
 
   const calculate = () => {
     if (!plant || !assetDistribution) return;
@@ -119,14 +126,9 @@ export function Step6Estimation() {
       id: estimationId,
       companyName: plant.company,
       plantName: plant.plantName,
-      l10Height: l10Height,
+      fabL10Height: fabL10Height,
+      cupL10Height: cupL10Height,
       floodHeightAgl: floodHeight,
-      buildingBasementLossRatio: ratios.fabBldgBs,
-      buildingL10LossRatio: ratios.fabBldgL10,
-      toolsBasementLossRatio: ratios.fabToolBs,
-      toolsL10LossRatio: ratios.fabToolL10,
-      ffsBasementLossRatio: ratios.fabFacBs,
-      ffsL10LossRatio: ratios.fabFacL10,
       estimatedTotalLoss: finalTotal,
       estimatedFabLoss: finalFab,
       estimatedCupLoss: finalCup,
@@ -141,7 +143,8 @@ export function Step6Estimation() {
       const result = await generateFloodRiskInsights({
         companyName: plant.company,
         plantName: plant.plantName,
-        l10HeightMeters: l10Height,
+        fabL10HeightMeters: fabL10Height,
+        cupL10HeightMeters: cupL10Height,
         floodHeightAglMeters: floodHeight,
         buildingInitialValueM: plant.pdBuilding,
         facilityInitialValueM: plant.pdFacility,
@@ -242,7 +245,7 @@ export function Step6Estimation() {
                 <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
                   <Waves className="w-6 h-6 text-accent" /> Risk Estimation Profile
                 </CardTitle>
-                <CardDescription>Simulate flood events based on vertical asset distribution profiles for {plant?.plantName}.</CardDescription>
+                <CardDescription>Simulate flood events for {plant?.plantName} with independent FAB/CUP benchmarks.</CardDescription>
               </div>
               <Button 
                 variant="outline" 
@@ -255,35 +258,44 @@ export function Step6Estimation() {
             </div>
           </CardHeader>
           <CardContent className="space-y-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 rounded-3xl bg-primary/5 border border-primary/10 shadow-inner">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-8 rounded-3xl bg-primary/5 border border-primary/10 shadow-inner">
               <div className="space-y-3 text-center">
-                <Label className="text-xs font-black text-primary uppercase tracking-[0.2em]">L10 Critical Height (m)</Label>
+                <Label className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">FAB L10 Height (m)</Label>
                 <Input 
                   type="number" step="0.1" 
-                  value={l10Height || ''} 
-                  onChange={(e) => setL10Height(parseFloat(e.target.value) || 0)}
-                  className="bg-white border-2 border-primary/10 font-mono text-2xl font-black text-center h-16 rounded-2xl focus-visible:ring-accent"
+                  value={fabL10Height || ''} 
+                  onChange={(e) => setFabL10Height(parseFloat(e.target.value) || 0)}
+                  className="bg-white border-2 border-primary/10 font-mono text-xl font-black text-center h-14 rounded-xl"
                 />
               </div>
               <div className="space-y-3 text-center">
-                <Label className="text-xs font-black text-accent uppercase tracking-[0.2em]">Flood Height AGL (m)</Label>
+                <Label className="text-[10px] font-black text-primary-foreground bg-primary px-2 py-0.5 rounded uppercase tracking-[0.2em]">CUP L10 Height (m)</Label>
+                <Input 
+                  type="number" step="0.1" 
+                  value={cupL10Height || ''} 
+                  onChange={(e) => setCupL10Height(parseFloat(e.target.value) || 0)}
+                  className="bg-white border-2 border-primary/20 font-mono text-xl font-black text-center h-14 rounded-xl"
+                />
+              </div>
+              <div className="space-y-3 text-center">
+                <Label className="text-[10px] font-black text-accent uppercase tracking-[0.2em]">Flood Height AGL (m)</Label>
                 <Input 
                   type="number" step="0.1" 
                   value={floodHeight || ''} 
                   onChange={(e) => setFloodHeight(parseFloat(e.target.value) || 0)}
-                  className="bg-white border-2 border-accent/30 font-mono text-2xl font-black text-accent text-center h-16 rounded-2xl focus-visible:ring-accent"
+                  className="bg-white border-2 border-accent/30 font-mono text-xl font-black text-accent text-center h-14 rounded-xl"
                 />
               </div>
               <Button 
                 onClick={calculate} 
-                className="md:col-span-2 bg-primary hover:bg-primary/90 text-white font-black py-8 text-xl rounded-2xl shadow-xl shadow-primary/20 transition-all hover:scale-[1.01] active:scale-95"
+                className="md:col-span-3 bg-primary hover:bg-primary/90 text-white font-black py-8 text-xl rounded-2xl shadow-xl shadow-primary/20 transition-all active:scale-95"
               >
                 Execute Analysis Engine
               </Button>
             </div>
 
             {plant && assetDistribution && (
-              <div className="space-y-12 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="space-y-12 animate-in fade-in duration-500">
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 text-primary border-b-2 border-primary/10 pb-4">
                     <Factory className="w-8 h-8 text-accent" />
@@ -416,7 +428,7 @@ export function Step6Estimation() {
                       </div>
                     </div>
 
-                    <div className="p-10 rounded-[2.5rem] bg-primary text-primary-foreground flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-primary/40 relative overflow-hidden transition-all hover:shadow-primary/50">
+                    <div className="p-10 rounded-[2.5rem] bg-primary text-primary-foreground flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl relative overflow-hidden transition-all">
                       <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                         <TrendingDown className="w-64 h-64" />
                       </div>
@@ -427,7 +439,7 @@ export function Step6Estimation() {
                       <button 
                         onClick={getAiInsights}
                         disabled={loadingAi}
-                        className="inline-flex items-center justify-center bg-accent hover:bg-accent/90 text-primary font-black px-10 py-8 rounded-2xl gap-3 shadow-2xl relative z-10 text-lg transition-all hover:scale-105 disabled:opacity-50 disabled:pointer-events-none"
+                        className="inline-flex items-center justify-center bg-accent hover:bg-accent/90 text-primary font-black px-10 py-8 rounded-2xl gap-3 shadow-2xl relative z-10 text-lg transition-all active:scale-95 disabled:opacity-50"
                       >
                         {loadingAi ? 'Synthesizing Data...' : <><Sparkles className="w-6 h-6 fill-current" /> Generate AI Insights</>}
                       </button>
