@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,7 @@ export function Step2Config() {
   const isAdmin = userPerm?.role === 'ADMIN' || firebaseUser?.email === 'admin@marsh.com';
   const assignedCompany = userPerm?.assignedCompany || '';
 
+  // Data fetching: ADMIN sees everything to allow linked filtering, others see only their company
   const plantsQuery = useMemoFirebase(() => {
     if (!firebaseUser || loadingPerm) return null;
     if (isAdmin) return collection(db, 'plants');
@@ -33,29 +35,36 @@ export function Step2Config() {
     return query(collection(db, 'plants'), where('companyName', '==', assignedCompany));
   }, [db, assignedCompany, isAdmin, firebaseUser, loadingPerm]);
 
-  const { data: existingPlants, isLoading: loadingPlants } = useCollection(plantsQuery);
+  const { data: allAvailablePlants, isLoading: loadingPlants } = useCollection(plantsQuery);
 
   const [companyName, setCompanyName] = useState('');
   const [selectedPlantId, setSelectedPlantId] = useState<string>('');
   const [newPlantName, setNewPlantName] = useState('');
   const [isNewPlant, setIsNewPlant] = useState(false);
 
-  useEffect(() => {
-    if (assignedCompany) setCompanyName(assignedCompany);
-  }, [assignedCompany]);
+  // Linkage Logic: Filter plants based on the CURRENT companyName input
+  const filteredPlants = useMemo(() => {
+    if (!allAvailablePlants) return [];
+    if (!companyName) return allAvailablePlants;
+    return allAvailablePlants.filter(p => 
+      p.companyName.toLowerCase().includes(companyName.toLowerCase())
+    );
+  }, [allAvailablePlants, companyName]);
 
   useEffect(() => {
-    if (plant?.id && existingPlants) {
-      const isExisting = existingPlants.some(p => p.id === plant.id);
-      if (isExisting) {
-        setSelectedPlantId(plant.id);
-        setIsNewPlant(false);
-      }
+    if (assignedCompany && !companyName) setCompanyName(assignedCompany);
+  }, [assignedCompany, companyName]);
+
+  // If company changes, check if the selected plant is still valid
+  useEffect(() => {
+    if (selectedPlantId && !isNewPlant) {
+      const isValid = filteredPlants.some(p => p.id === selectedPlantId);
+      if (!isValid) setSelectedPlantId('');
     }
-  }, [plant?.id, existingPlants]);
+  }, [companyName, filteredPlants, selectedPlantId, isNewPlant]);
 
   const handleNext = () => {
-    const selectedPlantData = existingPlants?.find(p => p.id === selectedPlantId);
+    const selectedPlantData = allAvailablePlants?.find(p => p.id === selectedPlantId);
     const finalPlantName = isNewPlant ? newPlantName : (selectedPlantData?.plantName || '');
     const finalCompanyName = isNewPlant ? companyName : (selectedPlantData?.companyName || companyName);
     
@@ -125,7 +134,7 @@ export function Step2Config() {
     setStep(3);
   };
 
-  const activePlantName = isNewPlant ? newPlantName : (existingPlants?.find(p => p.id === selectedPlantId)?.plantName || '');
+  const activePlantName = isNewPlant ? newPlantName : (allAvailablePlants?.find(p => p.id === selectedPlantId)?.plantName || '');
 
   return (
     <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden" suppressHydrationWarning>
@@ -135,7 +144,7 @@ export function Step2Config() {
           Organizational Identity {isAdmin && <Shield className="w-5 h-5 text-accent animate-pulse" />}
         </CardTitle>
         <CardDescription>
-          {isAdmin ? 'Administrative access active.' : 'Define or select the scope of this flood loss assessment.'}
+          {isAdmin ? 'Administrative scope management.' : 'Define or select the scope of this flood loss assessment.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8 pb-10" suppressHydrationWarning>
@@ -156,6 +165,9 @@ export function Step2Config() {
                 className={`border-none font-bold text-primary ${isAdmin ? 'bg-accent/5 focus-visible:ring-accent' : 'bg-muted/30 cursor-not-allowed'}`}
                 suppressHydrationWarning
               />
+              {isAdmin && companyName && (
+                <p className="text-[10px] text-accent font-bold uppercase animate-pulse">Filtering facilities for: {companyName}</p>
+              )}
             </div>
           </div>
 
@@ -181,17 +193,17 @@ export function Step2Config() {
                   }}
                 >
                   <SelectTrigger className="bg-muted/50 border-none font-bold text-primary">
-                    <SelectValue placeholder={loadingPlants ? "Scanning database..." : "Choose existing plant"} />
+                    <SelectValue placeholder={loadingPlants ? "Scanning database..." : (filteredPlants.length > 0 ? "Choose existing plant" : "No plants found for this company")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {existingPlants?.map((p) => (
+                    {filteredPlants.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {isAdmin ? `[${p.companyName}] ${p.plantName}` : p.plantName}
                       </SelectItem>
                     ))}
                     {userPerm?.role !== 'READER' && (
-                      <SelectItem value="NEW" className="text-accent font-bold">
-                        <div className="flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Add New Plant...</div>
+                      <SelectItem value="NEW" className="text-accent font-bold border-t">
+                        <div className="flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Add New Site for {companyName || 'this Org'}...</div>
                       </SelectItem>
                     )}
                   </SelectContent>
