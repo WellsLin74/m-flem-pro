@@ -43,22 +43,6 @@ export function Step5Validation() {
     return list;
   }, [plant]);
 
-  /**
-   * 精確公式生成邏輯:
-   * 
-   * 1. FAB區CR總面積 = (FAB單一樓層面積) * (P4之FAB Vertical Distribution Matrix之Cleanroom %總和)
-   * 2. FAB區non-CR總面積 = (FAB總建築面積) - (FAB區CR總面積)
-   * 
-   * [FACILITY% 分佈] (含 CUP)
-   * 各層Fac% = (P4之Fac-CR Ratio * Area * CR%) / Area_CR + (1 - P4之Fac-CR Ratio * Area * Non-CR%) / (Area_NonCR + CUP總面積)
-   * 
-   * [TOOLS% 分佈] (僅 FAB)
-   * 各層Tools% = (P4之Global Tools Ratio * Area * CR%) / Area_CR + (1 - P4之Global Tools Ratio * Area * Non-CR%) / Area_NonCR
-   * 
-   * [FIXTURE% 分佈]
-   * FAB各層FIXTURE% = 1 / FAB總樓層數
-   * CUP各層FIXTURE% = 0
-   */
   const generateSuggestions = useCallback(() => {
     if (!plant || !refinement) return {};
     
@@ -70,7 +54,6 @@ export function Step5Validation() {
     const fabFloorsOnly = allFloors.filter(f => f.startsWith('FAB'));
     const totalFabFloors = fabFloorsOnly.length;
 
-    // 1. FAB區CR總面積
     let sumCrOcc = 0;
     allFloors.forEach(f => {
       if (f.startsWith('FAB')) {
@@ -79,12 +62,10 @@ export function Step5Validation() {
     });
 
     const fabCrTotalArea = fabFloorArea * sumCrOcc;
-    
-    // 2. FAB區non-CR總面積
     const fabNonCrTotalArea = fabTotalArea - fabCrTotalArea;
     
-    const facCrRatio = refinement.facCrRatio; // P4之Facility Cleanroom Ratio
-    const globalToolsRatio = refinement.toolsCrRatio; // P4之Global Tools Ratio
+    const facCrRatio = refinement.facCrRatio;
+    const globalToolsRatio = refinement.toolsCrRatio;
 
     const suggestions: Record<string, FinalRatio> = {};
     const totalBuildingArea = fabTotalArea + cupTotalArea;
@@ -95,14 +76,12 @@ export function Step5Validation() {
       const crOcc = isFab ? (refinement.floorData[f]?.cr ?? 0) : 0;
       const nonCrOcc = 1 - crOcc;
 
-      // [Facility% 計算]
       const facPartA = fabCrTotalArea > 0 ? (facCrRatio * area * crOcc) / fabCrTotalArea : 0;
       const facPartB = (fabNonCrTotalArea + cupTotalArea) > 0 
         ? ((1 - facCrRatio) * area * nonCrOcc) / (fabNonCrTotalArea + cupTotalArea) 
         : 0;
       const finalFacRatio = facPartA + facPartB;
 
-      // [TOOLS% 計算] (僅限 FAB)
       let finalToolRatio = 0;
       if (isFab) {
         const toolsPartA = fabCrTotalArea > 0 ? (globalToolsRatio * area * crOcc) / fabCrTotalArea : 0;
@@ -110,11 +89,7 @@ export function Step5Validation() {
         finalToolRatio = toolsPartA + toolsPartB;
       }
 
-      // [FIXTURE% 計算] 
-      // FAB各層 = 1 / FAB總樓層數; CUP = 0
       const finalFixRatio = isFab ? (totalFabFloors > 0 ? 1 / totalFabFloors : 0) : 0;
-
-      // [Building% 計算] (面積比例)
       const finalBldgRatio = totalBuildingArea > 0 ? area / totalBuildingArea : 0;
 
       suggestions[f] = {
@@ -122,7 +97,7 @@ export function Step5Validation() {
         fac: finalFacRatio,
         tool: finalToolRatio,
         fix: finalFixRatio,
-        stock: f === 'FAB-L10' ? 1.0 : 0.0 // Stock 預設 1 樓
+        stock: f === 'FAB-L10' ? 1.0 : 0.0
       };
     });
 
@@ -236,7 +211,7 @@ export function Step5Validation() {
               </Badge>
             )}
           </div>
-          <CardDescription className="font-medium">Verify financial distribution sums across all vertical site segments.</CardDescription>
+          <CardDescription className="font-medium">Verify financial distribution sums across all vertical site segments for {plant?.plantName}.</CardDescription>
         </div>
         <Button 
           variant="outline" 

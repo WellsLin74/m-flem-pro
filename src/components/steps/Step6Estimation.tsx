@@ -230,7 +230,7 @@ export function Step6Estimation() {
                 <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
                   <Waves className="w-6 h-6 text-accent" /> Simulation
                 </CardTitle>
-                <CardDescription>Simulate flood events based on vertical asset distribution profiles.</CardDescription>
+                <CardDescription>Simulate flood events based on vertical asset distribution profiles for {plant?.plantName}.</CardDescription>
               </div>
               <Button 
                 variant="outline" 
