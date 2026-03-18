@@ -13,26 +13,24 @@ import { doc, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step5Validation() {
-  const { plant, refinement, finalRatios, setFinalRatios, setIsValidated, isValidated, setStep } = useAppStore();
+  const { plant, refinement, setFinalRatios, setIsValidated, isValidated, setStep } = useAppStore();
   const [localRatios, setLocalRatios] = useState<Record<string, FinalRatio>>({});
   const [isHydrated, setIsHydrated] = useState(false);
   const db = useFirestore();
 
-  // Firestore 實時監聽：主文件（狀態）
+  // Firestore Listeners
   const ratioDocRef = useMemoFirebase(() => {
     if (!plant?.id) return null;
     return doc(db, 'building_value_ratios', plant.id);
   }, [db, plant?.id]);
   const { data: remoteStatus, isLoading: loadingStatus } = useDoc(ratioDocRef);
 
-  // Firestore 實時監聽：子集合（各樓層比例）
   const floorRatiosColRef = useMemoFirebase(() => {
     if (!plant?.id) return null;
     return collection(db, 'building_value_ratios', plant.id, 'floor_ratios');
   }, [db, plant?.id]);
   const { data: remoteFloorRatios, isLoading: loadingCol } = useCollection(floorRatiosColRef);
 
-  // 動態生成所有樓層列表
   const allFloors = useMemo(() => {
     const list: string[] = [];
     if (!plant) return list;
@@ -43,19 +41,13 @@ export function Step5Validation() {
     return list;
   }, [plant]);
 
-  // 系統建議比例生成器
   const generateSuggestions = useCallback(() => {
     if (!plant || !refinement) return {};
-    console.log('Generating system suggestions for P5...');
+    console.log('P5: Calculating system-guided asset distribution...');
     
     const fabFloorArea = plant.fabLength * plant.fabWidth;
     const cupFloorArea = plant.cupLength * plant.cupWidth;
-    const fabLevels = plant.fabAl + plant.fabBl;
-    const cupLevels = plant.cupAl + plant.cupBl;
-
-    const totalFabArea = fabFloorArea * fabLevels;
-    const totalCupArea = cupFloorArea * cupLevels;
-    const siteTotalArea = totalFabArea + totalCupArea;
+    const siteTotalArea = (fabFloorArea * (plant.fabAl + plant.fabBl)) + (cupFloorArea * (plant.cupAl + plant.cupBl));
 
     const suggestions: Record<string, FinalRatio> = {};
     const fabFloorsList = allFloors.filter(f => f.startsWith('FAB'));
@@ -66,8 +58,8 @@ export function Step5Validation() {
       
       suggestions[f] = {
         bldg: siteTotalArea > 0 ? floorArea / siteTotalArea : 0,
-        fac: siteTotalArea > 0 ? floorArea / siteTotalArea : 0, // 簡化版
-        tool: isFab && totalFabArea > 0 ? floorArea / totalFabArea : 0,
+        fac: siteTotalArea > 0 ? floorArea / siteTotalArea : 0,
+        tool: isFab ? (1.0 / fabFloorsList.length) : 0,
         fix: isFab ? (1.0 / fabFloorsList.length) : 0,
         stock: f === 'FAB-L10' ? 1.0 : 0.0
       };
@@ -76,13 +68,12 @@ export function Step5Validation() {
     return suggestions;
   }, [plant, refinement, allFloors]);
 
-  // 水合邏輯 (Hydration)
+  // Unified Hydration Phase
   useEffect(() => {
     if (!isHydrated && !loadingStatus && !loadingCol) {
-      console.log('P5 Hydrating from Firestore...');
+      console.log('P5: Hydrating financial distribution matrix...');
       
       if (remoteFloorRatios && remoteFloorRatios.length > 0) {
-        // 從資料庫恢復
         const mapped: Record<string, FinalRatio> = {};
         allFloors.forEach(f => {
           const remoteData = remoteFloorRatios.find(r => r.floorIdentifier === f);
@@ -98,7 +89,6 @@ export function Step5Validation() {
         setFinalRatios(mapped);
         if (remoteStatus?.validationStatus === 'VALIDATED') setIsValidated(true);
       } else {
-        // 使用系統建議
         const suggested = generateSuggestions();
         setLocalRatios(suggested);
         setFinalRatios(suggested);
@@ -138,7 +128,6 @@ export function Step5Validation() {
     if (isOk && plant?.id) {
       setFinalRatios(localRatios);
       
-      // 持久化到 Firestore
       const mainRef = doc(db, 'building_value_ratios', plant.id);
       setDocumentNonBlocking(mainRef, {
         id: plant.id,
@@ -164,12 +153,12 @@ export function Step5Validation() {
     }
   };
 
-  if (!isHydrated || loadingStatus || loadingCol) {
+  if (!isHydrated) {
     return (
       <div className="flex flex-col items-center justify-center py-40 space-y-4">
         <Loader2 className="w-12 h-12 text-accent animate-spin" />
         <p className="font-black text-primary uppercase tracking-[0.2em] animate-pulse">
-          Validating Financial Matrix...
+          Auditing Financial Matrix...
         </p>
       </div>
     );
@@ -183,27 +172,27 @@ export function Step5Validation() {
           <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
             <ShieldCheck className="w-6 h-6 text-accent" /> Asset Distribution Matrix
           </CardTitle>
-          <CardDescription>Verify that asset value distributions sum to 1.0000 across the site.</CardDescription>
+          <CardDescription>Verify distribution sums for {plant?.plantName}.</CardDescription>
         </div>
         <Button variant="outline" size="sm" onClick={() => setIsHydrated(false)} className="gap-2 font-bold">
-          <RefreshCw className="w-3 h-3" /> Reset suggestions
+          <RefreshCw className="w-3 h-3" /> Re-sync Remote
         </Button>
       </CardHeader>
       <CardContent className="space-y-6 pb-10 mt-6">
         {!isValidated ? (
           <Alert variant="destructive" className="bg-destructive/10 text-destructive border-none">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle className="font-bold">Validation Required</AlertTitle>
+            <AlertTitle className="font-bold">Verification Pending</AlertTitle>
             <AlertDescription className="text-xs opacity-80">
-              Columns must sum to 1.0000 (Stock &le; 1.0000). Click "Run Audit" to verify.
+              Columns must sum to 1.0000. Run Audit to confirm status.
             </AlertDescription>
           </Alert>
         ) : (
           <Alert className="bg-emerald-50 text-emerald-700 border-none">
             <CheckCircle2 className="h-4 w-4" />
-            <AlertTitle className="font-bold">Matrix Verified</AlertTitle>
+            <AlertTitle className="font-bold">Matrix Integrity Confirmed</AlertTitle>
             <AlertDescription className="text-xs opacity-80">
-              Manual distribution verified. Ready for estimation.
+              Value distribution is verified across all site vertical segments.
             </AlertDescription>
           </Alert>
         )}
@@ -212,12 +201,12 @@ export function Step5Validation() {
           <Table>
             <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
               <TableRow>
-                <TableHead className="text-[10px] font-black uppercase">Floor ID</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right">Building</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right">Facility</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right">Tools</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right">Fixture</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-right">Stock</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-primary">Floor ID</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right text-primary">Building</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right text-primary">Facility</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right text-primary">Tools</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right text-primary">Fixture</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right text-primary">Stock</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

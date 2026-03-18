@@ -14,7 +14,7 @@ import { doc, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Step4Refinement() {
-  const { plant, refinement, setRefinement, setStep } = useAppStore();
+  const { plant, setRefinement, setStep } = useAppStore();
   const db = useFirestore();
   
   const [facCrRatio, setFacCrRatio] = useState(0.33);
@@ -22,21 +22,19 @@ export function Step4Refinement() {
   const [floorData, setFloorData] = useState<Record<string, { fac: number; cr: number }>>({});
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Firestore 實時監聽：主文件
+  // Firestore Listeners
   const occupancyRef = useMemoFirebase(() => {
     if (!plant?.id) return null;
     return doc(db, 'fab_cleanroom_occupancy', plant.id);
   }, [db, plant?.id]);
   const { data: remoteOccupancy, isLoading: loadingRemote } = useDoc(occupancyRef);
 
-  // Firestore 實時監聽：子集合（樓層比例）
   const floorRatiosRef = useMemoFirebase(() => {
     if (!plant?.id) return null;
     return collection(db, 'fab_cleanroom_occupancy', plant.id, 'floor_ratios');
   }, [db, plant?.id]);
   const { data: remoteFloorRatios, isLoading: loadingFloorRatios } = useCollection(floorRatiosRef);
 
-  // 根據 P3 輸入動態生成 FAB 樓層列表
   const fabFloors = useMemo(() => {
     const list: string[] = [];
     if (!plant) return list;
@@ -45,23 +43,21 @@ export function Step4Refinement() {
     return list;
   }, [plant]);
 
-  // 核心數據水合邏輯 (Hydration)
+  // Unified Hydration Logic: Runs only when loading is complete
   useEffect(() => {
-    // 只有在資料庫讀取完成，且尚未進行本地初始化的情況下執行
     if (!isHydrated && !loadingRemote && !loadingFloorRatios) {
-      console.log('P4 Hydrating from Firestore...');
+      console.log('P4: Synchronizing remote spatial intelligence...');
       
       const mappedFloors: Record<string, { fac: number; cr: number }> = {};
       
-      // 1. 先從 Firestore 恢復主比例
+      // Load Overall Ratios
       if (remoteOccupancy) {
         setFacCrRatio(remoteOccupancy.overallFacilityCleanroomRatio ?? 0.33);
         setToolsCrRatio(remoteOccupancy.overallToolsCleanroomRatio ?? 0.9);
       }
 
-      // 2. 恢復各樓層詳細比例
+      // Load Floor Matrix
       fabFloors.forEach(f => {
-        // 尋找資料庫中是否有對應樓層
         const remoteData = remoteFloorRatios?.find(r => r.floorIdentifier === f);
         mappedFloors[f] = {
           fac: remoteData?.facilityOccupancyRatio ?? 0,
@@ -85,10 +81,9 @@ export function Step4Refinement() {
   const handleNext = () => {
     if (!plant?.id) return;
 
-    const data = { facCrRatio, toolsCrRatio, floorData };
-    setRefinement(data);
+    setRefinement({ facCrRatio, toolsCrRatio, floorData });
 
-    // 數據持久化到 Firestore
+    // Persist Main Record
     const mainRef = doc(db, 'fab_cleanroom_occupancy', plant.id);
     setDocumentNonBlocking(mainRef, {
       id: plant.id,
@@ -98,6 +93,7 @@ export function Step4Refinement() {
       overallToolsCleanroomRatio: toolsCrRatio,
     }, { merge: true });
 
+    // Persist Sub-collection
     Object.entries(floorData).forEach(([fId, ratios]) => {
       const fRef = doc(db, 'fab_cleanroom_occupancy', plant.id, 'floor_ratios', fId);
       setDocumentNonBlocking(fRef, {
@@ -113,13 +109,12 @@ export function Step4Refinement() {
     setStep(5);
   };
 
-  // 數據尚未載入完成時顯示 Loading 畫面
-  if (!isHydrated || loadingRemote || loadingFloorRatios) {
+  if (!isHydrated) {
     return (
       <div className="flex flex-col items-center justify-center py-40 space-y-4">
         <Loader2 className="w-12 h-12 text-accent animate-spin" />
         <p className="font-black text-primary uppercase tracking-[0.2em] animate-pulse">
-          Hydrating Spatial Intelligence...
+          Synchronizing Spatial Intel...
         </p>
       </div>
     );
@@ -133,20 +128,19 @@ export function Step4Refinement() {
           <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
             <Layers className="w-6 h-6 text-accent" /> Spatial Value Distribution
           </CardTitle>
-          <CardDescription>Refine cleanroom occupancy ratios across the vertical FAB profile.</CardDescription>
+          <CardDescription>Refine cleanroom occupancy ratios for {plant?.plantName}.</CardDescription>
         </div>
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={() => setIsHydrated(false)} // 強制重新載入
+          onClick={() => setIsHydrated(false)}
           className="gap-2 font-bold text-xs"
         >
-          <RefreshCcw className="w-3 h-3" /> Sync Remote
+          <RefreshCcw className="w-3 h-3" /> Force Remote Sync
         </Button>
       </CardHeader>
       <CardContent className="space-y-8 pb-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Global Ratios Section */}
           <div className="space-y-4 p-6 rounded-2xl bg-primary/5 border border-primary/10 h-fit">
             <h3 className="font-headline font-bold text-sm text-primary uppercase tracking-widest flex items-center gap-2">
               <Percent className="w-4 h-4" /> Global Control Ratios
@@ -173,7 +167,6 @@ export function Step4Refinement() {
             </div>
           </div>
 
-          {/* Vertical Matrix Section */}
           <div className="space-y-4">
             <h3 className="font-headline font-bold text-sm text-primary uppercase tracking-widest flex items-center gap-2">
               <Layers className="w-4 h-4" /> FAB Vertical Distribution Matrix
@@ -182,9 +175,9 @@ export function Step4Refinement() {
               <Table>
                 <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
                   <TableRow>
-                    <TableHead className="text-[10px] font-black uppercase">Floor ID</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase">Facility %</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase">Cleanroom %</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-primary">Floor ID</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-primary">Facility %</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-primary">Cleanroom %</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

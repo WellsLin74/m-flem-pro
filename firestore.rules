@@ -1,12 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 基本登入檢查
+    // Basic sign-in check
     function isSignedIn() {
       return request.auth != null;
     }
     
-    // 管理員檢查：優先使用 Email 判斷，確保穩定性
+    // Admin check: Priority on Email for immediate recognition
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "admin@marsh.com" ||
@@ -15,27 +15,23 @@ service cloud.firestore {
       );
     }
 
-    // 獲取使用者所屬公司
-    function getUserCompany() {
-      return get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany;
-    }
-
-    // 檢查是否有權限訪問該公司的數據
+    // Authorization context for company data
     function hasAccess(compName) {
       return isSignedIn() && (
         isAdmin() || 
-        (exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && getUserCompany() == compName)
+        (exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany == compName)
       );
     }
 
-    // 工廠主表
+    // Plants Registry
     match /plants/{plantId} {
       allow read: if isSignedIn();
       allow create, update: if isAdmin() || (isSignedIn() && hasAccess(request.resource.data.companyName));
       allow delete: if isAdmin();
     }
 
-    // 潔淨室分佈 (P4)
+    // P4: Spatial Distribution
     match /fab_cleanroom_occupancy/{id} {
       allow read: if isSignedIn();
       allow write: if isAdmin() || (isSignedIn() && hasAccess(request.resource.data.companyName));
@@ -46,7 +42,7 @@ service cloud.firestore {
       }
     }
 
-    // 資產分佈矩陣 (P5)
+    // P5: Asset Matrix
     match /building_value_ratios/{id} {
       allow read: if isSignedIn();
       allow write: if isAdmin() || (isSignedIn() && hasAccess(request.resource.data.companyName));
@@ -57,14 +53,14 @@ service cloud.firestore {
       }
     }
 
-    // 損失評估結果 (P6)
+    // P6: Estimations
     match /flood_loss_estimations/{id} {
       allow read: if isSignedIn();
       allow create: if isAdmin() || (isSignedIn() && hasAccess(request.resource.data.companyName));
       allow update, delete: if isAdmin();
     }
 
-    // 使用者權限
+    // User Permissions
     match /user_permissions/{userId} {
       allow get: if isSignedIn();
       allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
