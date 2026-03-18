@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 import { doc } from 'firebase/firestore';
 
 export function Navigation() {
-  const { user, setUser, setStep } = useAppStore();
+  const { user, setUser, setStep, setPlant, setRefinement, setFinalRatios, setIsValidated } = useAppStore();
   const { user: firebaseUser } = useUser();
   const auth = useAuth();
   const db = useFirestore();
@@ -37,6 +37,12 @@ export function Navigation() {
 
   const handleLogout = () => {
     signOut(auth);
+    // Reset ALL store state on logout
+    setUser(null);
+    setPlant(null);
+    setRefinement(null);
+    setFinalRatios(null);
+    setIsValidated(false);
     setStep(1);
   };
 

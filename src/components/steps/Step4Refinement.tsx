@@ -22,7 +22,8 @@ export function Step4Refinement() {
   const [floorData, setFloorData] = useState<Record<string, { fac: number; cr: number }>>(
     refinement?.floorData || {}
   );
-  const [isHydrated, setIsHydrated] = useState(!!refinement);
+  // Always start unhydrated to force check Firestore on mount
+  const [isHydrated, setIsHydrated] = useState(false);
 
   const occupancyRef = useMemoFirebase(() => {
     if (!plant?.id) return null;
@@ -46,6 +47,7 @@ export function Step4Refinement() {
 
   // Sync Remote Data to Local State
   useEffect(() => {
+    // Only hydrate once per component mount and when loading is done
     if (!isHydrated && !loadingRemote && !loadingFloorRatios) {
       if (remoteOccupancy) {
         setFacCrRatio(remoteOccupancy.overallFacilityCleanroomRatio || 0.33);
@@ -53,11 +55,12 @@ export function Step4Refinement() {
       }
       
       const mapped: Record<string, { fac: number; cr: number }> = {};
-      // 1. Start with defaults for all floors
+      // 1. Initialize with defaults or existing local store data
       fabFloors.forEach(f => {
-        mapped[f] = { fac: 0, cr: 0 };
+        mapped[f] = floorData[f] || { fac: 0, cr: 0 };
       });
-      // 2. Overwrite with remote data if available
+
+      // 2. Overwrite with remote data if it exists in DB
       if (remoteFloorRatios && remoteFloorRatios.length > 0) {
         remoteFloorRatios.forEach(r => {
           if (mapped[r.floorIdentifier]) {
@@ -68,10 +71,11 @@ export function Step4Refinement() {
           }
         });
       }
+      
       setFloorData(mapped);
       setIsHydrated(true);
     }
-  }, [remoteOccupancy, remoteFloorRatios, loadingRemote, loadingFloorRatios, isHydrated, fabFloors]);
+  }, [remoteOccupancy, remoteFloorRatios, loadingRemote, loadingFloorRatios, isHydrated, fabFloors, floorData]);
 
   const handleUpdate = (floor: string, type: 'fac' | 'cr', value: string) => {
     const num = parseFloat(value) || 0;

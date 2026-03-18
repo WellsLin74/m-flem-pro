@@ -15,7 +15,7 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 export function Step5Validation() {
   const { plant, refinement, finalRatios, setFinalRatios, setIsValidated, isValidated, setStep } = useAppStore();
   const [localRatios, setLocalRatios] = useState<Record<string, FinalRatio>>({});
-  const [isHydrated, setIsHydrated] = useState(!!finalRatios);
+  const [isHydrated, setIsHydrated] = useState(false);
   const db = useFirestore();
 
   const ratioRef = useMemoFirebase(() => {
@@ -61,7 +61,7 @@ export function Step5Validation() {
     const totalSiteNonCrArea = totalFabNonCrArea + totalCupArea;
 
     const suggestions: Record<string, FinalRatio> = {};
-    const fabFloors = allFloors.filter(f => f.startsWith('FAB'));
+    const fabFloorsList = allFloors.filter(f => f.startsWith('FAB'));
 
     allFloors.forEach(f => {
       const isFab = f.startsWith('FAB');
@@ -89,7 +89,7 @@ export function Step5Validation() {
         bldg: siteTotalArea > 0 ? floorArea / siteTotalArea : 0,
         fac: calcFac,
         tool: calcTool,
-        fix: isFab ? (1.0 / Math.max(1, fabFloors.length)) : 0,
+        fix: isFab ? (1.0 / Math.max(1, fabFloorsList.length)) : 0,
         stock: f === 'FAB-L10' ? 1.0 : 0.0
       };
     });
@@ -117,11 +117,12 @@ export function Step5Validation() {
           setFinalRatios(mapped);
         }
       } else {
-        setLocalRatios(generateSuggestions());
+        // If no DB data, check local store or generate suggestions
+        setLocalRatios(finalRatios || generateSuggestions());
       }
       setIsHydrated(true);
     }
-  }, [remoteFloorRatios, remoteRatioData, loadingRemote, loadingFloorRatios, isHydrated, generateSuggestions, setFinalRatios, setIsValidated]);
+  }, [remoteFloorRatios, remoteRatioData, loadingRemote, loadingFloorRatios, isHydrated, generateSuggestions, setFinalRatios, setIsValidated, finalRatios]);
 
   const handleUpdate = (floor: string, field: keyof FinalRatio, value: string) => {
     const num = parseFloat(value) || 0;
