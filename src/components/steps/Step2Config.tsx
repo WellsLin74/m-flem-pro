@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Factory, ChevronRight, ArrowLeft, PlusCircle, Shield } from 'lucide-react';
+import { Building2, Factory, ChevronRight, ArrowLeft, PlusCircle, Shield, Loader2 } from 'lucide-react';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -21,17 +21,17 @@ export function Step2Config() {
     if (!firebaseUser?.uid) return null;
     return doc(db, 'user_permissions', firebaseUser.uid);
   }, [db, firebaseUser?.uid]);
-  const { data: userPerm } = useDoc(userPermRef);
+  const { data: userPerm, isLoading: loadingPerm } = useDoc(userPermRef);
 
   const isAdmin = userPerm?.role === 'ADMIN' || firebaseUser?.email === 'admin@marsh.com';
   const assignedCompany = userPerm?.assignedCompany || '';
 
   const plantsQuery = useMemoFirebase(() => {
-    if (!firebaseUser) return null;
+    if (!firebaseUser || loadingPerm) return null;
     if (isAdmin) return collection(db, 'plants');
     if (!assignedCompany) return null;
     return query(collection(db, 'plants'), where('companyName', '==', assignedCompany));
-  }, [db, assignedCompany, isAdmin, firebaseUser]);
+  }, [db, assignedCompany, isAdmin, firebaseUser, loadingPerm]);
 
   const { data: existingPlants, isLoading: loadingPlants } = useCollection(plantsQuery);
 
@@ -67,7 +67,6 @@ export function Step2Config() {
 
     if (!plantId) return;
 
-    // 強制隔離：切換工廠時徹底清除下游分析狀態
     if (plant?.id !== plantId) {
       setRefinement(null);
       setFinalRatios(null);
@@ -98,28 +97,30 @@ export function Step2Config() {
 
     setPlant(plantData);
 
-    const plantRef = doc(db, 'plants', plantId);
-    setDocumentNonBlocking(plantRef, {
-      id: plantId,
-      companyName: finalCompanyName,
-      plantName: finalPlantName,
-      latitude: plantData.lat,
-      longitude: plantData.lon,
-      fabAboveLevel: plantData.fabAl,
-      fabBelowLevel: plantData.fabBl,
-      cupAboveLevel: plantData.cupAl,
-      cupBelowLevel: plantData.cupBl,
-      fabLength: plantData.fabLength,
-      fabWidth: plantData.fabWidth,
-      cupLength: plantData.cupLength,
-      cupWidth: plantData.cupWidth,
-      buildingValue: plantData.pdBuilding,
-      facilityValue: plantData.pdFacility,
-      toolsValue: plantData.pdTools,
-      fixtureValue: plantData.pdFixture,
-      stockValue: plantData.pdStock,
-      bi12mValue: plantData.bi12m,
-    }, { merge: true });
+    if (userPerm?.role !== 'READER') {
+      const plantRef = doc(db, 'plants', plantId);
+      setDocumentNonBlocking(plantRef, {
+        id: plantId,
+        companyName: finalCompanyName,
+        plantName: finalPlantName,
+        latitude: plantData.lat,
+        longitude: plantData.lon,
+        fabAboveLevel: plantData.fabAl,
+        fabBelowLevel: plantData.fabBl,
+        cupAboveLevel: plantData.cupAl,
+        cupBelowLevel: plantData.cupBl,
+        fabLength: plantData.fabLength,
+        fabWidth: plantData.fabWidth,
+        cupLength: plantData.cupLength,
+        cupWidth: plantData.cupWidth,
+        buildingValue: plantData.pdBuilding,
+        facilityValue: plantData.pdFacility,
+        toolsValue: plantData.pdTools,
+        fixtureValue: plantData.pdFixture,
+        stockValue: plantData.pdStock,
+        bi12mValue: plantData.bi12m,
+      }, { merge: true });
+    }
 
     setStep(3);
   };
@@ -127,17 +128,17 @@ export function Step2Config() {
   const activePlantName = isNewPlant ? newPlantName : (existingPlants?.find(p => p.id === selectedPlantId)?.plantName || '');
 
   return (
-    <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+    <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden" suppressHydrationWarning>
       <div className="h-2 bg-accent w-full" />
       <CardHeader>
         <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
           Organizational Identity {isAdmin && <Shield className="w-5 h-5 text-accent animate-pulse" />}
         </CardTitle>
         <CardDescription>
-          {isAdmin ? 'Administrative access active. Select from any authorized company.' : 'Define or select the scope of this flood loss assessment.'}
+          {isAdmin ? 'Administrative access active.' : 'Define or select the scope of this flood loss assessment.'}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-8 pb-10">
+      <CardContent className="space-y-8 pb-10" suppressHydrationWarning>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-4">
             <div className="flex items-center gap-3 text-primary">
@@ -151,8 +152,9 @@ export function Step2Config() {
                 value={companyName}
                 onChange={(e) => isAdmin && setCompanyName(e.target.value)}
                 readOnly={!isAdmin}
-                placeholder={loadingPlants ? "Scanning database..." : "Enter Organization Name"}
+                placeholder={loadingPerm ? "Scanning permissions..." : "Enter Organization Name"}
                 className={`border-none font-bold text-primary ${isAdmin ? 'bg-accent/5 focus-visible:ring-accent' : 'bg-muted/30 cursor-not-allowed'}`}
+                suppressHydrationWarning
               />
             </div>
           </div>
@@ -166,7 +168,7 @@ export function Step2Config() {
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase text-muted-foreground">Select Plant / Site</Label>
                 <Select 
-                  disabled={loadingPlants}
+                  disabled={loadingPlants || loadingPerm}
                   value={isNewPlant ? 'NEW' : selectedPlantId} 
                   onValueChange={(val) => {
                     if (val === 'NEW') {
@@ -187,9 +189,11 @@ export function Step2Config() {
                         {isAdmin ? `[${p.companyName}] ${p.plantName}` : p.plantName}
                       </SelectItem>
                     ))}
-                    <SelectItem value="NEW" className="text-accent font-bold">
-                      <div className="flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Add New Plant...</div>
-                    </SelectItem>
+                    {userPerm?.role !== 'READER' && (
+                      <SelectItem value="NEW" className="text-accent font-bold">
+                        <div className="flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Add New Plant...</div>
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -203,6 +207,7 @@ export function Step2Config() {
                     onChange={(e) => setNewPlantName(e.target.value)}
                     placeholder="e.g. Fab-14P1"
                     className="bg-accent/5 border-accent/20 border font-bold text-primary"
+                    suppressHydrationWarning
                   />
                 </div>
               )}
@@ -210,13 +215,19 @@ export function Step2Config() {
           </div>
         </div>
 
+        {loadingPerm && (
+          <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm font-bold animate-pulse">
+            <Loader2 className="w-4 h-4 animate-spin" /> Authorizing Profile...
+          </div>
+        )}
+
         <div className="flex justify-between pt-6">
           <Button variant="ghost" onClick={() => setStep(1)} className="font-bold text-muted-foreground gap-2">
             <ArrowLeft className="w-4 h-4" /> Back to Auth
           </Button>
           <Button 
             onClick={handleNext} 
-            disabled={!activePlantName || !companyName}
+            disabled={!activePlantName || !companyName || loadingPerm}
             className="bg-primary hover:bg-primary/90 text-white font-black px-10 py-6 text-lg gap-2 shadow-lg shadow-primary/20"
           >
             Next: Initialization <ChevronRight className="w-5 h-5" />
