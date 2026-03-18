@@ -17,14 +17,13 @@ export function Step4Refinement() {
   const { plant, refinement, setRefinement, setStep } = useAppStore();
   const db = useFirestore();
   
-  // Local state for ratios
   const [facCrRatio, setFacCrRatio] = useState(refinement?.facCrRatio ?? 0.33);
   const [toolsCrRatio, setToolsCrRatio] = useState(refinement?.toolsCrRatio ?? 0.9);
   const [floorData, setFloorData] = useState<Record<string, { fac: number; cr: number }>>(
     refinement?.floorData || {}
   );
+  const [isHydrated, setIsHydrated] = useState(!!refinement);
 
-  // Firestore Sync: Fetch existing data if store is empty
   const occupancyRef = useMemoFirebase(() => {
     if (!plant?.id) return null;
     return doc(db, 'fab_cleanroom_occupancy', plant.id);
@@ -35,28 +34,7 @@ export function Step4Refinement() {
     if (!plant?.id) return null;
     return collection(db, 'fab_cleanroom_occupancy', plant.id, 'floor_ratios');
   }, [db, plant?.id]);
-  const { data: remoteFloorRatios } = useCollection(floorRatiosRef);
-
-  // Sync Remote Data to Local State
-  useEffect(() => {
-    if (remoteOccupancy && !refinement) {
-      setFacCrRatio(remoteOccupancy.overallFacilityCleanroomRatio || 0.33);
-      setToolsCrRatio(remoteOccupancy.overallToolsCleanroomRatio || 0.9);
-    }
-  }, [remoteOccupancy, refinement]);
-
-  useEffect(() => {
-    if (remoteFloorRatios && remoteFloorRatios.length > 0 && Object.keys(floorData).length === 0) {
-      const mapped: Record<string, { fac: number; cr: number }> = {};
-      remoteFloorRatios.forEach(r => {
-        mapped[r.floorIdentifier] = {
-          fac: r.facilityOccupancyRatio || 0,
-          cr: r.cleanroomOccupancyRatio || 0
-        };
-      });
-      setFloorData(mapped);
-    }
-  }, [remoteFloorRatios, floorData]);
+  const { data: remoteFloorRatios, isLoading: loadingFloorRatios } = useCollection(floorRatiosRef);
 
   const fabFloors = useMemo(() => {
     const list: string[] = [];
@@ -66,22 +44,34 @@ export function Step4Refinement() {
     return list;
   }, [plant]);
 
-  // Fill missing floors with defaults if they don't exist in local or remote data
+  // Sync Remote Data to Local State
   useEffect(() => {
-    if (fabFloors.length > 0) {
-      setFloorData(prev => {
-        const next = { ...prev };
-        let changed = false;
-        fabFloors.forEach(f => {
-          if (!next[f]) {
-            next[f] = { fac: 0, cr: 0 };
-            changed = true;
+    if (!isHydrated && !loadingRemote && !loadingFloorRatios) {
+      if (remoteOccupancy) {
+        setFacCrRatio(remoteOccupancy.overallFacilityCleanroomRatio || 0.33);
+        setToolsCrRatio(remoteOccupancy.overallToolsCleanroomRatio || 0.9);
+      }
+      
+      const mapped: Record<string, { fac: number; cr: number }> = {};
+      // 1. Start with defaults for all floors
+      fabFloors.forEach(f => {
+        mapped[f] = { fac: 0, cr: 0 };
+      });
+      // 2. Overwrite with remote data if available
+      if (remoteFloorRatios && remoteFloorRatios.length > 0) {
+        remoteFloorRatios.forEach(r => {
+          if (mapped[r.floorIdentifier]) {
+            mapped[r.floorIdentifier] = {
+              fac: r.facilityOccupancyRatio || 0,
+              cr: r.cleanroomOccupancyRatio || 0
+            };
           }
         });
-        return changed ? next : prev;
-      });
+      }
+      setFloorData(mapped);
+      setIsHydrated(true);
     }
-  }, [fabFloors]);
+  }, [remoteOccupancy, remoteFloorRatios, loadingRemote, loadingFloorRatios, isHydrated, fabFloors]);
 
   const handleUpdate = (floor: string, type: 'fac' | 'cr', value: string) => {
     const num = parseFloat(value) || 0;
@@ -97,12 +87,10 @@ export function Step4Refinement() {
 
     if (plant?.id) {
       const plantId = plant.id;
-      const occupancyId = plantId;
-
-      // 1. Save main document
-      const occupancyRef = doc(db, 'fab_cleanroom_occupancy', occupancyId);
+      const occupancyRef = doc(db, 'fab_cleanroom_occupancy', plantId);
+      
       setDocumentNonBlocking(occupancyRef, {
-        id: occupancyId,
+        id: plantId,
         companyName: plant.company,
         plantName: plant.plantName,
         overallFacilityCleanroomRatio: facCrRatio,
@@ -110,12 +98,11 @@ export function Step4Refinement() {
         fabCleanroomFloorRatioIds: Object.keys(floorData),
       }, { merge: true });
 
-      // 2. Save floor ratios subcollection
       Object.entries(floorData).forEach(([floorId, ratios]) => {
-        const floorRef = doc(db, 'fab_cleanroom_occupancy', occupancyId, 'floor_ratios', floorId);
+        const floorRef = doc(db, 'fab_cleanroom_occupancy', plantId, 'floor_ratios', floorId);
         setDocumentNonBlocking(floorRef, {
           id: floorId,
-          fabCleanroomOccupancyId: occupancyId,
+          fabCleanroomOccupancyId: plantId,
           floorIdentifier: floorId,
           facilityOccupancyRatio: ratios.fac,
           cleanroomOccupancyRatio: ratios.cr,
@@ -128,7 +115,7 @@ export function Step4Refinement() {
     setStep(5);
   };
 
-  if (loadingRemote && !refinement) {
+  if (!isHydrated) {
     return (
       <div className="flex flex-col items-center justify-center py-20 space-y-4">
         <Loader2 className="w-12 h-12 text-accent animate-spin" />

@@ -15,10 +15,9 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 export function Step5Validation() {
   const { plant, refinement, finalRatios, setFinalRatios, setIsValidated, isValidated, setStep } = useAppStore();
   const [localRatios, setLocalRatios] = useState<Record<string, FinalRatio>>({});
+  const [isHydrated, setIsHydrated] = useState(!!finalRatios);
   const db = useFirestore();
 
-  // Firestore Sync: Fetch existing data if store is empty
-  const ratioId = plant?.id || 'none';
   const ratioRef = useMemoFirebase(() => {
     if (!plant?.id) return null;
     return doc(db, 'building_value_ratios', plant.id);
@@ -29,7 +28,7 @@ export function Step5Validation() {
     if (!plant?.id) return null;
     return collection(db, 'building_value_ratios', plant.id, 'floor_ratios');
   }, [db, plant?.id]);
-  const { data: remoteFloorRatios } = useCollection(floorRatiosRef);
+  const { data: remoteFloorRatios, isLoading: loadingFloorRatios } = useCollection(floorRatiosRef);
 
   const allFloors = useMemo(() => {
     const list: string[] = [];
@@ -41,21 +40,14 @@ export function Step5Validation() {
     return list;
   }, [plant]);
 
-  const fabFloors = useMemo(() => allFloors.filter(f => f.startsWith('FAB')), [allFloors]);
-
   const generateSuggestions = useCallback(() => {
-    if (!plant || !refinement) return;
+    if (!plant || !refinement) return {};
 
-    const fabL = Number(plant.fabLength);
-    const fabW = Number(plant.fabWidth);
-    const cupL = Number(plant.cupLength);
-    const cupW = Number(plant.cupWidth);
+    const fabFloorArea = Number(plant.fabLength) * Number(plant.fabWidth);
+    const cupFloorArea = Number(plant.cupLength) * Number(plant.cupWidth);
     const fabLevels = Number(plant.fabAl) + Number(plant.fabBl);
     const cupLevels = Number(plant.cupAl) + Number(plant.cupBl);
 
-    const fabFloorArea = fabL * fabW;
-    const cupFloorArea = cupL * cupW;
-    
     const totalFabArea = fabFloorArea * fabLevels;
     const totalCupArea = cupFloorArea * cupLevels;
     const siteTotalArea = totalFabArea + totalCupArea;
@@ -69,6 +61,7 @@ export function Step5Validation() {
     const totalSiteNonCrArea = totalFabNonCrArea + totalCupArea;
 
     const suggestions: Record<string, FinalRatio> = {};
+    const fabFloors = allFloors.filter(f => f.startsWith('FAB'));
 
     allFloors.forEach(f => {
       const isFab = f.startsWith('FAB');
@@ -78,65 +71,57 @@ export function Step5Validation() {
 
       let calcFac = 0;
       if (isFab) {
-        const facCrPart = totalFabCrArea > 0 
-          ? (Number(refinement.facCrRatio) * (floorArea * crWeight)) / totalFabCrArea 
-          : 0;
-        const facNonCrPart = totalSiteNonCrArea > 0 
-          ? ((1 - Number(refinement.facCrRatio)) * (floorArea * (1 - crWeight))) / totalSiteNonCrArea 
-          : 0;
+        const facCrPart = totalFabCrArea > 0 ? (Number(refinement.facCrRatio) * (floorArea * crWeight)) / totalFabCrArea : 0;
+        const facNonCrPart = totalSiteNonCrArea > 0 ? ((1 - Number(refinement.facCrRatio)) * (floorArea * (1 - crWeight))) / totalSiteNonCrArea : 0;
         calcFac = facCrPart + facNonCrPart;
       } else {
-        calcFac = totalSiteNonCrArea > 0 
-          ? ((1 - Number(refinement.facCrRatio)) * floorArea) / totalSiteNonCrArea 
-          : 0;
+        calcFac = totalSiteNonCrArea > 0 ? ((1 - Number(refinement.facCrRatio)) * floorArea) / totalSiteNonCrArea : 0;
       }
 
       let calcTool = 0;
       if (isFab) {
-        const toolCrPart = totalFabCrArea > 0 
-          ? (Number(refinement.toolsCrRatio) * (floorArea * crWeight)) / totalFabCrArea 
-          : 0;
-        const toolNonCrPart = totalFabNonCrArea > 0 
-          ? ((1 - Number(refinement.toolsCrRatio)) * (floorArea * (1 - crWeight))) / totalFabNonCrArea 
-          : 0;
+        const toolCrPart = totalFabCrArea > 0 ? (Number(refinement.toolsCrRatio) * (floorArea * crWeight)) / totalFabCrArea : 0;
+        const toolNonCrPart = totalFabNonCrArea > 0 ? ((1 - Number(refinement.toolsCrRatio)) * (floorArea * (1 - crWeight))) / totalFabNonCrArea : 0;
         calcTool = toolCrPart + toolNonCrPart;
-      } else {
-        calcTool = 0;
       }
 
-      const bldgRatio = siteTotalArea > 0 ? floorArea / siteTotalArea : 0;
-      const fixRatio = isFab && fabFloors.length > 0 ? 1.0 / fabFloors.length : 0;
-      const stockRatio = f === 'FAB-L10' ? 1.0 : 0.0;
-
-      suggestions[f] = { bldg: bldgRatio, fac: calcFac, tool: calcTool, fix: fixRatio, stock: stockRatio };
+      suggestions[f] = {
+        bldg: siteTotalArea > 0 ? floorArea / siteTotalArea : 0,
+        fac: calcFac,
+        tool: calcTool,
+        fix: isFab ? (1.0 / Math.max(1, fabFloors.length)) : 0,
+        stock: f === 'FAB-L10' ? 1.0 : 0.0
+      };
     });
 
-    setLocalRatios(suggestions);
-    setIsValidated(false);
-  }, [plant, refinement, allFloors, fabFloors.length, setIsValidated]);
+    return suggestions;
+  }, [plant, refinement, allFloors]);
 
   // Sync Remote Data to Local State
   useEffect(() => {
-    if (remoteFloorRatios && remoteFloorRatios.length > 0 && Object.keys(localRatios).length === 0) {
-      const mapped: Record<string, FinalRatio> = {};
-      remoteFloorRatios.forEach(r => {
-        mapped[r.floorIdentifier] = {
-          bldg: r.buildingRatio || 0,
-          fac: r.facilityRatio || 0,
-          tool: r.toolsRatio || 0,
-          fix: r.fixtureRatio || 0,
-          stock: r.stockRatio || 0
-        };
-      });
-      setLocalRatios(mapped);
-      if (remoteRatioData?.validationStatus === 'VALIDATED') {
-        setIsValidated(true);
-        setFinalRatios(mapped);
+    if (!isHydrated && !loadingRemote && !loadingFloorRatios) {
+      if (remoteFloorRatios && remoteFloorRatios.length > 0) {
+        const mapped: Record<string, FinalRatio> = {};
+        remoteFloorRatios.forEach(r => {
+          mapped[r.floorIdentifier] = {
+            bldg: r.buildingRatio || 0,
+            fac: r.facilityRatio || 0,
+            tool: r.toolsRatio || 0,
+            fix: r.fixtureRatio || 0,
+            stock: r.stockRatio || 0
+          };
+        });
+        setLocalRatios(mapped);
+        if (remoteRatioData?.validationStatus === 'VALIDATED') {
+          setIsValidated(true);
+          setFinalRatios(mapped);
+        }
+      } else {
+        setLocalRatios(generateSuggestions());
       }
-    } else if (!loadingRemote && Object.keys(localRatios).length === 0) {
-      generateSuggestions();
+      setIsHydrated(true);
     }
-  }, [remoteFloorRatios, remoteRatioData, loadingRemote, localRatios, generateSuggestions, setIsValidated, setFinalRatios]);
+  }, [remoteFloorRatios, remoteRatioData, loadingRemote, loadingFloorRatios, isHydrated, generateSuggestions, setFinalRatios, setIsValidated]);
 
   const handleUpdate = (floor: string, field: keyof FinalRatio, value: string) => {
     const num = parseFloat(value) || 0;
@@ -164,40 +149,36 @@ export function Step5Validation() {
                  Math.abs(sums.fix - 1) < 0.001 &&
                  sums.stock <= 1.0001;
     setIsValidated(isOk);
-    if (isOk) {
+    if (isOk && plant) {
       setFinalRatios(localRatios);
-      
-      if (plant?.id) {
-        const pId = plant.id;
-        const rRef = doc(db, 'building_value_ratios', pId);
-        setDocumentNonBlocking(rRef, {
-          id: pId,
+      const rRef = doc(db, 'building_value_ratios', plant.id);
+      setDocumentNonBlocking(rRef, {
+        id: plant.id,
+        companyName: plant.company,
+        plantName: plant.plantName,
+        validationStatus: 'VALIDATED',
+        buildingValueFloorRatioIds: Object.keys(localRatios),
+      }, { merge: true });
+
+      Object.entries(localRatios).forEach(([fId, rats]) => {
+        const fRef = doc(db, 'building_value_ratios', plant.id, 'floor_ratios', fId);
+        setDocumentNonBlocking(fRef, {
+          id: fId,
+          buildingValueRatioId: plant.id,
+          floorIdentifier: fId,
+          buildingRatio: rats.bldg,
+          facilityRatio: rats.fac,
+          toolsRatio: rats.tool,
+          fixtureRatio: rats.fix,
+          stockRatio: rats.stock,
           companyName: plant.company,
           plantName: plant.plantName,
-          validationStatus: 'VALIDATED',
-          buildingValueFloorRatioIds: Object.keys(localRatios),
         }, { merge: true });
-
-        Object.entries(localRatios).forEach(([fId, rats]) => {
-          const fRef = doc(db, 'building_value_ratios', pId, 'floor_ratios', fId);
-          setDocumentNonBlocking(fRef, {
-            id: fId,
-            buildingValueRatioId: pId,
-            floorIdentifier: fId,
-            buildingRatio: rats.bldg,
-            facilityRatio: rats.fac,
-            toolsRatio: rats.tool,
-            fixtureRatio: rats.fix,
-            stockRatio: rats.stock,
-            companyName: plant.company,
-            plantName: plant.plantName,
-          }, { merge: true });
-        });
-      }
+      });
     }
   };
 
-  if (loadingRemote && Object.keys(localRatios).length === 0) {
+  if (!isHydrated) {
     return (
       <div className="flex flex-col items-center justify-center py-20 space-y-4">
         <Loader2 className="w-12 h-12 text-accent animate-spin" />
@@ -217,7 +198,7 @@ export function Step5Validation() {
             </CardTitle>
             <CardDescription>Review suggested values or manually refine ratios. Stock sum must be &le; 1.0000; others must equal 1.0000.</CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={generateSuggestions} className="gap-2 font-bold text-xs">
+          <Button variant="outline" size="sm" onClick={() => setLocalRatios(generateSuggestions())} className="gap-2 font-bold text-xs">
             <RefreshCw className="w-3 h-3" /> Reset to Suggested
           </Button>
         </div>

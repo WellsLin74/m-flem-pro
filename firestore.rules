@@ -7,6 +7,7 @@ service cloud.firestore {
     }
     
     // Admin Check (Priority)
+    // Directly check email to avoid circular get() dependencies or latency
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "admin@marsh.com" ||
@@ -24,21 +25,10 @@ service cloud.firestore {
       return isSignedIn() && (isAdmin() || getCompany() == compName);
     }
 
-    // Helper for write operations (checks both request and resource)
-    function canWrite(compName) {
-      return hasAccess(compName);
-    }
-
-    // User Permissions
-    match /user_permissions/{userId} {
-      allow get: if isSignedIn();
-      allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
-    }
-
     // Plant Main Table (Consolidated)
     match /plants/{plantId} {
       allow read: if isSignedIn();
-      allow create, update: if canWrite(request.resource.data.companyName);
+      allow create, update: if hasAccess(request.resource.data.companyName);
       allow delete: if isAdmin() || (isSignedIn() && getCompany() == resource.data.companyName);
     }
 
@@ -49,7 +39,7 @@ service cloud.firestore {
       
       match /floor_ratios/{fid} {
         allow read: if isSignedIn();
-        allow write: if isAdmin() || isSignedIn();
+        allow write: if isAdmin() || hasAccess(request.resource.data.companyName);
       }
     }
 
@@ -60,15 +50,21 @@ service cloud.firestore {
       
       match /floor_ratios/{fid} {
         allow read: if isSignedIn();
-        allow write: if isAdmin() || isSignedIn();
+        allow write: if isAdmin() || hasAccess(request.resource.data.companyName);
       }
     }
 
     // Flood Loss Estimations (P6)
     match /flood_loss_estimations/{id} {
       allow read: if isSignedIn();
-      allow create: if canWrite(request.resource.data.companyName);
+      allow create: if hasAccess(request.resource.data.companyName);
       allow update, delete: if isAdmin() || (isSignedIn() && getCompany() == resource.data.companyName);
+    }
+
+    // User Permissions
+    match /user_permissions/{userId} {
+      allow get: if isSignedIn();
+      allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
     }
   }
 }
