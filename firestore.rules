@@ -1,38 +1,53 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Basic sign-in check
+    // 基本登入檢查
     function isSignedIn() {
       return request.auth != null;
     }
     
-    // Admin check: Priority on Email or explicit Role
+    // 管理員判斷：優先檢查 Email 或資料庫 Role
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "admin@marsh.com" ||
-        get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.role == 'ADMIN'
+        (exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.role == 'ADMIN')
       );
     }
 
-    // Access context: ADMIN can see everything, others only their company
+    // 角色檢查函數
+    function isEditor() {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.role == 'EDITOR';
+    }
+
+    function isReader() {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.role == 'READER';
+    }
+
+    // 公司存取權限：ADMIN 可看所有，其餘限所屬公司
     function hasAccess(compName) {
       return isSignedIn() && (
         isAdmin() || 
-        get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany == compName
-      );
-    }
-
-    // Modification context: ADMIN and EDITOR can modify company data
-    function canModify(compName) {
-      return isSignedIn() && (
-        isAdmin() || 
-        (get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.role == 'EDITOR' &&
+        (exists(/databases/$(database)/documents/user_permissions/$(request.auth.uid)) && 
          get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany == compName)
       );
     }
 
-    // Plants Registry
+    // 修改權限：ADMIN 與 EDITOR 具備修改權限
+    function canModify(compName) {
+      return isSignedIn() && (
+        isAdmin() || 
+        (isEditor() && get(/databases/$(database)/documents/user_permissions/$(request.auth.uid)).data.assignedCompany == compName)
+      );
+    }
+
+    // 工廠資料庫
     match /plants/{plantId} {
+      // 允許 list 以便前端進行公司過濾查詢
       allow list: if isSignedIn();
       allow get: if hasAccess(resource.data.companyName);
       allow create: if canModify(request.resource.data.companyName);
@@ -40,7 +55,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // P4: Spatial Distribution
+    // P4: 空間分佈 (潔淨室佔用率)
     match /fab_cleanroom_occupancy/{id} {
       allow list: if isSignedIn();
       allow get: if hasAccess(resource.data.companyName);
@@ -52,7 +67,7 @@ service cloud.firestore {
       }
     }
 
-    // P5: Asset Matrix
+    // P5: 資產價值矩陣
     match /building_value_ratios/{id} {
       allow list: if isSignedIn();
       allow get: if hasAccess(resource.data.companyName);
@@ -64,14 +79,14 @@ service cloud.firestore {
       }
     }
 
-    // P6: Estimations (READER can also simulate/save insights)
+    // P6: 淹水損失估算 (READER 也能新增/模擬)
     match /flood_loss_estimations/{id} {
       allow list: if isSignedIn();
       allow get: if hasAccess(resource.data.companyName);
-      allow write: if hasAccess(request.resource.data.companyName);
+      allow write: if hasAccess(request.resource.data.companyName || resource.data.companyName);
     }
 
-    // User Permissions
+    // 使用者權限設定
     match /user_permissions/{userId} {
       allow get: if isSignedIn();
       allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
