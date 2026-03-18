@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -17,7 +18,6 @@ export function Step2Config() {
   const { plant, setPlant, setStep, setRefinement, setFinalRatios, setIsValidated } = useAppStore();
   const db = useFirestore();
 
-  // 1. Fetch User Permission to get assigned company
   const userPermRef = useMemoFirebase(() => {
     if (!firebaseUser?.uid) return null;
     return doc(db, 'user_permissions', firebaseUser.uid);
@@ -26,10 +26,9 @@ export function Step2Config() {
 
   const assignedCompany = userPerm?.assignedCompany || '';
 
-  // 2. Fetch existing plants for this company
   const plantsQuery = useMemoFirebase(() => {
     if (!assignedCompany) return null;
-    return query(collection(db, 'building_info'), where('companyName', '==', assignedCompany));
+    return query(collection(db, 'plants'), where('companyName', '==', assignedCompany));
   }, [db, assignedCompany]);
   const { data: existingPlants, isLoading: loadingPlants } = useCollection(plantsQuery);
 
@@ -38,14 +37,10 @@ export function Step2Config() {
   const [newPlantName, setNewPlantName] = useState('');
   const [isNewPlant, setIsNewPlant] = useState(false);
 
-  // Sync component state when data arrives
   useEffect(() => {
-    if (assignedCompany) {
-      setCompanyName(assignedCompany);
-    }
+    if (assignedCompany) setCompanyName(assignedCompany);
   }, [assignedCompany]);
 
-  // Sync local state with global plant ID if already selected
   useEffect(() => {
     if (plant?.id && existingPlants) {
       const isExisting = existingPlants.some(p => p.id === plant.id);
@@ -60,27 +55,23 @@ export function Step2Config() {
     const finalPlantName = isNewPlant ? newPlantName : (existingPlants?.find(p => p.id === selectedPlantId)?.plantName || '');
     if (!finalPlantName || !companyName) return;
     
-    // Generate safe ID for Document Path (Strict key mapping: Company-Plant)
     const safeCompany = companyName.trim().replace(/[^a-zA-Z0-9]/g, '_');
     const safePlant = finalPlantName.trim().replace(/[^a-zA-Z0-9]/g, '_');
-    const buildingInfoId = isNewPlant 
-      ? `${safeCompany}-${safePlant}`
-      : selectedPlantId;
+    const plantId = isNewPlant ? `${safeCompany}-${safePlant}` : selectedPlantId;
 
-    if (!buildingInfoId) return;
+    if (!plantId) return;
 
-    // CRITICAL: If plant ID changes, clear downstream analysis state to prevent data cross-contamination
-    if (plant?.id !== buildingInfoId) {
+    // Reset downstream analysis ONLY if plant ID actually changes
+    if (plant?.id !== plantId) {
       setRefinement(null);
       setFinalRatios(null);
       setIsValidated(false);
     }
 
-    const existingData = existingPlants?.find(p => p.id === buildingInfoId);
+    const existingData = existingPlants?.find(p => p.id === plantId);
 
-    // Build plant data object with the ID as the primary key
     const plantData: any = {
-      id: buildingInfoId,
+      id: plantId,
       company: companyName,
       plantName: finalPlantName,
       lat: existingData?.latitude ?? 24.774,
@@ -101,13 +92,11 @@ export function Step2Config() {
       bi12m: existingData?.bi12mValue ?? 1000,
     };
 
-    // Update global store
     setPlant(plantData);
 
-    // Persist Identity to Firestore immediately to satisfy security rules
-    const buildingRef = doc(db, 'building_info', buildingInfoId);
-    setDocumentNonBlocking(buildingRef, {
-      id: buildingInfoId,
+    const plantRef = doc(db, 'plants', plantId);
+    setDocumentNonBlocking(plantRef, {
+      id: plantId,
       companyName,
       plantName: finalPlantName,
       latitude: plantData.lat,
@@ -116,6 +105,12 @@ export function Step2Config() {
       fabBelowLevel: plantData.fabBl,
       cupAboveLevel: plantData.cupAl,
       cupBelowLevel: plantData.cupBl,
+      buildingValue: plantData.pdBuilding,
+      facilityValue: plantData.pdFacility,
+      toolsValue: plantData.pdTools,
+      fixtureValue: plantData.pdFixture,
+      stockValue: plantData.pdStock,
+      bi12mValue: plantData.bi12m,
     }, { merge: true });
 
     setStep(3);
@@ -146,9 +141,6 @@ export function Step2Config() {
                 placeholder="Loading authorization..."
                 className="bg-muted/30 border-none font-bold text-primary cursor-not-allowed"
               />
-              <p className="text-[10px] text-muted-foreground italic">
-                Logged in as: {firebaseUser?.email}
-              </p>
             </div>
           </div>
 
@@ -181,16 +173,14 @@ export function Step2Config() {
                       <SelectItem key={p.id} value={p.id}>{p.plantName}</SelectItem>
                     ))}
                     <SelectItem value="NEW" className="text-accent font-bold">
-                      <div className="flex items-center gap-2">
-                        <PlusCircle className="w-4 h-4" /> Add New Plant...
-                      </div>
+                      <div className="flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Add New Plant...</div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {isNewPlant && (
-                <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                <div className="space-y-2 animate-in slide-in-from-top-2">
                   <Label htmlFor="new-plant" className="text-xs font-bold uppercase text-accent">New Plant Name</Label>
                   <Input 
                     id="new-plant" 

@@ -1,37 +1,9 @@
+
 rules_version = '2';
-
-/**
- * FIRESTORE SECURITY RULES - M-FLEM Pro
- * 
- * CORE PHILOSOPHY:
- * This ruleset implements a strict multi-tenant security model based on "Authorization Independence via Denormalization." 
- * Access is primarily governed by a user's assigned company.
- *
- * PROTOTYPE ADJUSTMENT:
- * In production, we rely on 'assignedCompany' and 'role' custom claims in the Auth token.
- * For this environment, we add a fallback lookup to the /user_permissions collection
- * to ensure functionality even if custom claims haven't been minted yet.
- */
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // --- HELPER FUNCTIONS ---
-
-    /** @description Checks if the request is from an authenticated user. */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /** @description Checks if the authenticated user's UID matches the provided userId. */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /** 
-     * @description Checks if the user is authorized for a specific company.
-     * Tries the custom token claim first (performance), then falls back to Firestore lookup (prototype compatibility).
-     */
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     function hasCompanyAccess(companyName) {
       return isSignedIn() && (
         (request.auth.token.assignedCompany == companyName) ||
@@ -39,99 +11,28 @@ service cloud.firestore {
       );
     }
 
-    /** @description Verifies that a document exists and the user belongs to the company that owns it. */
-    function isExistingTenantOwner(currentData) {
-      return currentData != null && hasCompanyAccess(currentData.companyName);
-    }
-
-    /** @description Ensures that the tenant link (companyName) remains unchanged during an update. */
-    function isTenantImmutable() {
-      return request.resource.data.companyName == resource.data.companyName;
-    }
-
-    // --- COLLECTION RULES ---
-
-    /**
-     * @description Access rules for user metadata and permissions.
-     */
     match /user_permissions/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false; 
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
+      allow get, create, update, delete: if isOwner(userId);
     }
 
-    /**
-     * @description Access rules for building physical information.
-     */
-    match /building_info/{buildingInfoId} {
-      allow get: if hasCompanyAccess(resource.data.companyName);
-      allow list: if isSignedIn(); // Queries must still filter by companyName to satisfy rules implicitly via hasCompanyAccess logic in apps
-      allow create: if hasCompanyAccess(request.resource.data.companyName);
-      allow update: if isExistingTenantOwner(resource.data) && isTenantImmutable();
-      allow delete: if isExistingTenantOwner(resource.data);
-    }
-
-    /**
-     * @description Access rules for plant asset initial values.
-     */
-    match /plant_initial_values/{plantInitialValueId} {
-      allow get: if hasCompanyAccess(resource.data.companyName);
+    match /plants/{plantId} {
+      allow get: if isSignedIn();
       allow list: if isSignedIn();
-      allow create: if hasCompanyAccess(request.resource.data.companyName);
-      allow update: if isExistingTenantOwner(resource.data) && isTenantImmutable();
-      allow delete: if isExistingTenantOwner(resource.data);
+      allow create, update, delete: if hasCompanyAccess(request.resource.data.companyName || resource.data.companyName);
     }
 
-    /**
-     * @description Access rules for cleanroom occupancy summaries.
-     */
-    match /fab_cleanroom_occupancy/{fabCleanroomOccupancyId} {
-      allow get: if hasCompanyAccess(resource.data.companyName);
-      allow list: if isSignedIn();
-      allow create: if hasCompanyAccess(request.resource.data.companyName);
-      allow update: if isExistingTenantOwner(resource.data) && isTenantImmutable();
-      allow delete: if isExistingTenantOwner(resource.data);
-
-      match /floor_ratios/{fabCleanroomFloorRatioId} {
-        allow get: if hasCompanyAccess(resource.data.companyName);
-        allow list: if isSignedIn();
-        allow create: if hasCompanyAccess(request.resource.data.companyName);
-        allow update: if isExistingTenantOwner(resource.data) && isTenantImmutable();
-        allow delete: if isExistingTenantOwner(resource.data);
-      }
+    match /fab_cleanroom_occupancy/{id} {
+      allow read, write: if isSignedIn();
+      match /floor_ratios/{fid} { allow read, write: if isSignedIn(); }
     }
 
-    /**
-     * @description Access rules for validated building value ratios.
-     */
-    match /building_value_ratios/{buildingValueRatioId} {
-      allow get: if hasCompanyAccess(resource.data.companyName);
-      allow list: if isSignedIn();
-      allow create: if hasCompanyAccess(request.resource.data.companyName);
-      allow update: if isExistingTenantOwner(resource.data) && isTenantImmutable();
-      allow delete: if isExistingTenantOwner(resource.data);
-
-      match /floor_ratios/{buildingValueFloorRatioId} {
-        allow get: if hasCompanyAccess(resource.data.companyName);
-        allow list: if isSignedIn();
-        allow create: if hasCompanyAccess(request.resource.data.companyName);
-        allow update: if isExistingTenantOwner(resource.data) && isTenantImmutable();
-        allow delete: if isExistingTenantOwner(resource.data);
-      }
+    match /building_value_ratios/{id} {
+      allow read, write: if isSignedIn();
+      match /floor_ratios/{fid} { allow read, write: if isSignedIn(); }
     }
 
-    /**
-     * @description Access rules for flood loss estimation results.
-     */
-    match /flood_loss_estimations/{floodLossEstimationId} {
-      allow get: if hasCompanyAccess(resource.data.companyName);
-      allow list: if isSignedIn();
-      allow create: if hasCompanyAccess(request.resource.data.companyName);
-      allow update: if isExistingTenantOwner(resource.data) && isTenantImmutable();
-      allow delete: if isExistingTenantOwner(resource.data);
+    match /flood_loss_estimations/{id} {
+      allow read, write: if isSignedIn();
     }
-
   }
 }

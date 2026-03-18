@@ -20,28 +20,22 @@ export function Wizard() {
       <div className="mb-10 space-y-4">
         <div className="flex justify-between items-end mb-2">
           <div className="space-y-1">
-            <h1 className="text-3xl font-headline font-black text-primary">
-              Step {step} of 6
-            </h1>
-            <p className="text-muted-foreground font-medium">
-              {getStepTitle(step)}
-            </p>
+            <h1 className="text-3xl font-headline font-black text-primary">Step {step} of 6</h1>
+            <p className="text-muted-foreground font-medium">{getStepTitle(step)}</p>
           </div>
-          <span className="text-sm font-bold text-primary tabular-nums">
-            {Math.round(progress)}% Complete
-          </span>
+          <span className="text-sm font-bold text-primary tabular-nums">{Math.round(progress)}% Complete</span>
         </div>
         <Progress value={progress} className="h-3 bg-white/50" />
       </div>
 
-      <div className="transition-all duration-300 ease-in-out">
+      <div className="transition-all duration-300">
         {step === 1 && <Step1Login />}
         {step === 2 && <Step2Config />}
-        {/* Force remount on plant ID change to prevent data cross-contamination */}
-        {step === 3 && <Step3Init key={plant?.id} />}
-        {step === 4 && <Step4Refinement key={plant?.id} />}
-        {step === 5 && <Step5Validation key={plant?.id} />}
-        {step === 6 && <Step6Estimation key={plant?.id} />}
+        {/* CRITICAL: Use plant.id as key to force complete re-mount when switching plants */}
+        {step === 3 && <Step3Init key={plant?.id || 'new'} />}
+        {step === 4 && <Step4Refinement key={plant?.id || 'new'} />}
+        {step === 5 && <Step5Validation key={plant?.id || 'new'} />}
+        {step === 6 && <Step6Estimation key={plant?.id || 'new'} />}
       </div>
     </div>
   );

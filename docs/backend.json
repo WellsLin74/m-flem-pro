@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserPermission": {
@@ -6,387 +7,44 @@
       "type": "object",
       "description": "Represents a user's permissions and assigned company within the M-FLEM Pro system.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the UserPermission entity."
-        },
-        "email": {
-          "type": "string",
-          "description": "User's email address.",
-          "format": "email"
-        },
-        "role": {
-          "type": "string",
-          "description": "System role assigned to the user.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "assignedCompany": {
-          "type": "string",
-          "description": "The name of the company the user is assigned to."
-        }
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string" },
+        "assignedCompany": { "type": "string" }
       },
-      "required": [
-        "id",
-        "email",
-        "role",
-        "assignedCompany"
-      ]
+      "required": ["id", "email", "role", "assignedCompany"]
     },
-    "BuildingInfo": {
+    "Plant": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "BuildingInfo",
+      "title": "Plant",
       "type": "object",
-      "description": "Stores core physical information and dimensions for a specific plant building.",
+      "description": "Consolidated entity for a plant's physical and financial baseline data.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the BuildingInfo entity."
-        },
-        "companyName": {
-          "type": "string",
-          "description": "The name of the company this building information belongs to. (Used as part of a composite key for a plant)."
-        },
-        "plantName": {
-          "type": "string",
-          "description": "The name of the plant this building information describes. (Used as part of a composite key for a plant)."
-        },
-        "latitude": {
-          "type": "number",
-          "description": "Geographic latitude of the plant location."
-        },
-        "longitude": {
-          "type": "number",
-          "description": "Geographic longitude of the plant location."
-        },
-        "fabAboveLevel": {
-          "type": "number",
-          "description": "Number of factory (FAB) floors above ground level."
-        },
-        "fabBelowLevel": {
-          "type": "number",
-          "description": "Number of factory (FAB) floors below ground level (basement levels)."
-        },
-        "cupAboveLevel": {
-          "type": "number",
-          "description": "Number of central utility plant (CUP) floors above ground level."
-        },
-        "cupBelowLevel": {
-          "type": "number",
-          "description": "Number of central utility plant (CUP) floors below ground level (basement levels)."
-        }
+        "id": { "type": "string" },
+        "companyName": { "type": "string" },
+        "plantName": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "fabAboveLevel": { "type": "number" },
+        "fabBelowLevel": { "type": "number" },
+        "cupAboveLevel": { "type": "number" },
+        "cupBelowLevel": { "type": "number" },
+        "fabLength": { "type": "number" },
+        "fabWidth": { "type": "number" },
+        "cupLength": { "type": "number" },
+        "cupWidth": { "type": "number" },
+        "buildingValue": { "type": "number" },
+        "facilityValue": { "type": "number" },
+        "toolsValue": { "type": "number" },
+        "fixtureValue": { "type": "number" },
+        "stockValue": { "type": "number" },
+        "bi12mValue": { "type": "number" }
       },
-      "required": [
-        "id",
-        "companyName",
-        "plantName",
-        "latitude",
-        "longitude",
-        "fabAboveLevel",
-        "fabBelowLevel",
-        "cupAboveLevel",
-        "cupBelowLevel"
-      ]
-    },
-    "PlantInitialValue": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "PlantInitialValue",
-      "type": "object",
-      "description": "Records the initial estimated asset values for different categories within a specific plant.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the PlantInitialValue entity."
-        },
-        "companyName": {
-          "type": "string",
-          "description": "The name of the company to which these initial values apply. (Used as part of a composite key for a plant)."
-        },
-        "plantName": {
-          "type": "string",
-          "description": "The name of the plant for which these initial values are recorded. (Used as part of a composite key for a plant)."
-        },
-        "buildingValue": {
-          "type": "number",
-          "description": "Initial estimated asset value (in USD millions) for the building structure."
-        },
-        "facilityValue": {
-          "type": "number",
-          "description": "Initial estimated asset value (in USD millions) for facilities."
-        },
-        "toolsValue": {
-          "type": "number",
-          "description": "Initial estimated asset value (in USD millions) for tools."
-        },
-        "fixtureValue": {
-          "type": "number",
-          "description": "Initial estimated asset value (in USD millions) for fixtures."
-        },
-        "stockValue": {
-          "type": "number",
-          "description": "Initial estimated asset value (in USD millions) for stock."
-        },
-        "bi12mValue": {
-          "type": "number",
-          "description": "Initial estimated asset value (in USD millions) for business interruption (12 months)."
-        }
-      },
-      "required": [
-        "id",
-        "companyName",
-        "plantName",
-        "buildingValue",
-        "facilityValue",
-        "toolsValue",
-        "fixtureValue",
-        "stockValue",
-        "bi12mValue"
-      ]
-    },
-    "FabCleanroomOccupancy": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FabCleanroomOccupancy",
-      "type": "object",
-      "description": "Captures overall and floor-specific cleanroom occupancy ratios for a plant's FAB area.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the FabCleanroomOccupancy entity."
-        },
-        "companyName": {
-          "type": "string",
-          "description": "The name of the company associated with this cleanroom occupancy data. (Used as part of a composite key for a plant)."
-        },
-        "plantName": {
-          "type": "string",
-          "description": "The name of the plant for which cleanroom occupancy data is recorded. (Used as part of a composite key for a plant)."
-        },
-        "overallFacilityCleanroomRatio": {
-          "type": "number",
-          "description": "The overall cleanroom ratio for facilities across the entire plant (0-1)."
-        },
-        "overallToolsCleanroomRatio": {
-          "type": "number",
-          "description": "The overall cleanroom ratio for tools across the entire plant (0-1)."
-        },
-        "fabCleanroomFloorRatioIds": {
-          "type": "array",
-          "description": "References to FabCleanroomFloorRatio entities, detailing occupancy ratios for individual floors. (Relationship: FabCleanroomOccupancy 1:N FabCleanroomFloorRatio)",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "required": [
-        "id",
-        "companyName",
-        "plantName",
-        "overallFacilityCleanroomRatio",
-        "overallToolsCleanroomRatio",
-        "fabCleanroomFloorRatioIds"
-      ]
-    },
-    "FabCleanroomFloorRatio": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FabCleanroomFloorRatio",
-      "type": "object",
-      "description": "Defines the facility and cleanroom occupancy ratios for a specific floor within a FAB area.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the FabCleanroomFloorRatio entity."
-        },
-        "fabCleanroomOccupancyId": {
-          "type": "string",
-          "description": "Reference to the parent FabCleanroomOccupancy entity. (Relationship: FabCleanroomOccupancy 1:N FabCleanroomFloorRatio)"
-        },
-        "floorIdentifier": {
-          "type": "string",
-          "description": "Unique identifier for the floor (e.g., \"L10\" for Level 10, \"BL20\" for Basement Level 2)."
-        },
-        "facilityOccupancyRatio": {
-          "type": "number",
-          "description": "The facility occupancy ratio for this specific floor (relative distribution)."
-        },
-        "cleanroomOccupancyRatio": {
-          "type": "number",
-          "description": "The cleanroom occupancy ratio for this specific floor (relative distribution)."
-        }
-      },
-      "required": [
-        "id",
-        "fabCleanroomOccupancyId",
-        "floorIdentifier",
-        "facilityOccupancyRatio",
-        "cleanroomOccupancyRatio"
-      ]
-    },
-    "BuildingValueRatio": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "BuildingValueRatio",
-      "type": "object",
-      "description": "Stores the validated asset value distribution ratios per floor for a plant building.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the BuildingValueRatio entity."
-        },
-        "companyName": {
-          "type": "string",
-          "description": "The name of the company to which these building value ratios apply. (Used as part of a composite key for a plant)."
-        },
-        "plantName": {
-          "type": "string",
-          "description": "The name of the plant for which building value ratios are defined. (Used as part of a composite key for a plant)."
-        },
-        "validationStatus": {
-          "type": "string",
-          "description": "The validation status of the asset value ratios (e.g., 'VALIDATED')."
-        },
-        "buildingValueFloorRatioIds": {
-          "type": "array",
-          "description": "References to BuildingValueFloorRatio entities, detailing asset distribution for individual floors. (Relationship: BuildingValueRatio 1:N BuildingValueFloorRatio)",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "required": [
-        "id",
-        "companyName",
-        "plantName",
-        "validationStatus",
-        "buildingValueFloorRatioIds"
-      ]
-    },
-    "BuildingValueFloorRatio": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "BuildingValueFloorRatio",
-      "type": "object",
-      "description": "Defines the asset value distribution ratios for a specific floor within a building.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the BuildingValueFloorRatio entity."
-        },
-        "buildingValueRatioId": {
-          "type": "string",
-          "description": "Reference to the parent BuildingValueRatio entity. (Relationship: BuildingValueRatio 1:N BuildingValueFloorRatio)"
-        },
-        "floorIdentifier": {
-          "type": "string",
-          "description": "Unique identifier for the floor (e.g., \"FAB L10\", \"CUP Total\")."
-        },
-        "buildingRatio": {
-          "type": "number",
-          "description": "The proportion of overall building value attributed to this floor (0-1)."
-        },
-        "facilityRatio": {
-          "type": "number",
-          "description": "The proportion of overall facility value attributed to this floor (0-1)."
-        },
-        "toolsRatio": {
-          "type": "number",
-          "description": "The proportion of overall tools value attributed to this floor (0-1)."
-        },
-        "fixtureRatio": {
-          "type": "number",
-          "description": "The proportion of overall fixture value attributed to this floor (0-1)."
-        }
-      },
-      "required": [
-        "id",
-        "buildingValueRatioId",
-        "floorIdentifier",
-        "buildingRatio",
-        "facilityRatio",
-        "toolsRatio",
-        "fixtureRatio"
-      ]
-    },
-    "FloodLossEstimation": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FloodLossEstimation",
-      "type": "object",
-      "description": "Records parameters and results of a flood loss estimation for a specific plant.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the FloodLossEstimation entity."
-        },
-        "companyName": {
-          "type": "string",
-          "description": "The name of the company for which this estimation was made. (Used as part of a composite key for a plant)."
-        },
-        "plantName": {
-          "type": "string",
-          "description": "The name of the plant for which this estimation was made. (Used as part of a composite key for a plant)."
-        },
-        "l10Height": {
-          "type": "number",
-          "description": "The L10 height (elevation reference point in meters) used for the estimation."
-        },
-        "floodHeightAgl": {
-          "type": "number",
-          "description": "The flood height above ground level (in meters) used for the estimation."
-        },
-        "buildingBasementLossRatio": {
-          "type": "number",
-          "description": "Suggested or adjusted loss ratio (%) for building assets in basement levels (0-100)."
-        },
-        "buildingL10LossRatio": {
-          "type": "number",
-          "description": "Suggested or adjusted loss ratio (%) for building assets at L10 level (0-100)."
-        },
-        "toolsBasementLossRatio": {
-          "type": "number",
-          "description": "Suggested or adjusted loss ratio (%) for tool assets in basement levels (0-100)."
-        },
-        "toolsL10LossRatio": {
-          "type": "number",
-          "description": "Suggested or adjusted loss ratio (%) for tool assets at L10 level (0-100)."
-        },
-        "ffsBasementLossRatio": {
-          "type": "number",
-          "description": "Suggested or adjusted loss ratio (%) for facility, fixture, and stock assets in basement levels (0-100)."
-        },
-        "ffsL10LossRatio": {
-          "type": "number",
-          "description": "Suggested or adjusted loss ratio (%) for facility, fixture, and stock assets at L10 level (0-100)."
-        },
-        "estimatedTotalLoss": {
-          "type": "number",
-          "description": "The calculated total flood loss estimate in USD millions."
-        },
-        "estimationTimestamp": {
-          "type": "string",
-          "description": "The date and time when this flood loss estimation was performed.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "companyName",
-        "plantName",
-        "l10Height",
-        "floodHeightAgl",
-        "buildingBasementLossRatio",
-        "buildingL10LossRatio",
-        "toolsBasementLossRatio",
-        "toolsL10LossRatio",
-        "ffsBasementLossRatio",
-        "ffsL10LossRatio",
-        "estimatedTotalLoss",
-        "estimationTimestamp"
-      ]
+      "required": ["id", "companyName", "plantName"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
@@ -394,133 +52,18 @@
         "path": "/user_permissions/{userId}",
         "definition": {
           "entityName": "UserPermission",
-          "schema": {
-            "$ref": "#/backend/entities/UserPermission"
-          },
-          "description": "Stores user permissions, role, and assigned company. `userId` corresponds to the authenticated user's Firebase UID. This serves as the source of truth for DBAC and is used to populate custom claims for `assignedCompany` and `role` to facilitate authorization independence in security rules."
+          "schema": { "$ref": "#/backend/entities/UserPermission" },
+          "description": "User profile and authorization."
         }
       },
       {
-        "path": "/building_info/{buildingInfoId}",
+        "path": "/plants/{plantId}",
         "definition": {
-          "entityName": "BuildingInfo",
-          "schema": {
-            "$ref": "#/backend/entities/BuildingInfo"
-          },
-          "description": "Stores core physical information and dimensions for a specific plant building. Includes denormalized `companyName` and `plantName` fields for tenant-based authorization and QAPs.",
-          "params": [
-            {
-              "name": "buildingInfoId",
-              "description": "Unique identifier for the BuildingInfo document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/plant_initial_values/{plantInitialValueId}",
-        "definition": {
-          "entityName": "PlantInitialValue",
-          "schema": {
-            "$ref": "#/backend/entities/PlantInitialValue"
-          },
-          "description": "Records the initial estimated asset values for different categories within a specific plant. Includes denormalized `companyName` and `plantName` fields for tenant-based authorization and QAPs.",
-          "params": [
-            {
-              "name": "plantInitialValueId",
-              "description": "Unique identifier for the PlantInitialValue document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/fab_cleanroom_occupancy/{fabCleanroomOccupancyId}",
-        "definition": {
-          "entityName": "FabCleanroomOccupancy",
-          "schema": {
-            "$ref": "#/backend/entities/FabCleanroomOccupancy"
-          },
-          "description": "Captures overall cleanroom occupancy ratios for a plant's FAB area. Includes denormalized `companyName` and `plantName` fields for tenant-based authorization and QAPs.",
-          "params": [
-            {
-              "name": "fabCleanroomOccupancyId",
-              "description": "Unique identifier for the FabCleanroomOccupancy document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/fab_cleanroom_occupancy/{fabCleanroomOccupancyId}/floor_ratios/{fabCleanroomFloorRatioId}",
-        "definition": {
-          "entityName": "FabCleanroomFloorRatio",
-          "schema": {
-            "$ref": "#/backend/entities/FabCleanroomFloorRatio"
-          },
-          "description": "Defines facility and cleanroom occupancy ratios for a specific floor within a FAB area. CRITICAL: For authorization independence, documents in this subcollection MUST include denormalized `companyName` and `plantName` fields, copied from the parent `FabCleanroomOccupancy` document.",
-          "params": [
-            {
-              "name": "fabCleanroomOccupancyId",
-              "description": "The unique identifier of the parent FabCleanroomOccupancy document."
-            },
-            {
-              "name": "fabCleanroomFloorRatioId",
-              "description": "Unique identifier for the FabCleanroomFloorRatio document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/building_value_ratios/{buildingValueRatioId}",
-        "definition": {
-          "entityName": "BuildingValueRatio",
-          "schema": {
-            "$ref": "#/backend/entities/BuildingValueRatio"
-          },
-          "description": "Stores the validated asset value distribution ratios per floor for a plant building. Includes denormalized `companyName` and `plantName` fields for tenant-based authorization and QAPs.",
-          "params": [
-            {
-              "name": "buildingValueRatioId",
-              "description": "Unique identifier for the BuildingValueRatio document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/building_value_ratios/{buildingValueRatioId}/floor_ratios/{buildingValueFloorRatioId}",
-        "definition": {
-          "entityName": "BuildingValueFloorRatio",
-          "schema": {
-            "$ref": "#/backend/entities/BuildingValueFloorRatio"
-          },
-          "description": "Defines the asset value distribution ratios for a specific floor within a building. CRITICAL: For authorization independence, documents in this subcollection MUST include denormalized `companyName` and `plantName` fields, copied from the parent `BuildingValueRatio` document.",
-          "params": [
-            {
-              "name": "buildingValueRatioId",
-              "description": "The unique identifier of the parent BuildingValueRatio document."
-            },
-            {
-              "name": "buildingValueFloorRatioId",
-              "description": "Unique identifier for the BuildingValueFloorRatio document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/flood_loss_estimations/{floodLossEstimationId}",
-        "definition": {
-          "entityName": "FloodLossEstimation",
-          "schema": {
-            "$ref": "#/backend/entities/FloodLossEstimation"
-          },
-          "description": "Records parameters and results of a flood loss estimation for a specific plant. Includes denormalized `companyName` and `plantName` fields for tenant-based authorization and QAPs.",
-          "params": [
-            {
-              "name": "floodLossEstimationId",
-              "description": "Unique identifier for the FloodLossEstimation document."
-            }
-          ]
+          "entityName": "Plant",
+          "schema": { "$ref": "#/backend/entities/Plant" },
+          "description": "Consolidated physical and financial data for a plant."
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to be highly secure, scalable, and debuggable, strictly adhering to the core design principles. The primary strategy for authorization is **Authorization Independence via Denormalization** for multi-tenancy and nested data access.\n\nAll top-level collections representing core plant data (`/building_info`, `/plant_initial_values`, `/fab_cleanroom_occupancy`, `/building_value_ratios`, `/flood_loss_estimations`) explicitly contain `companyName` and `plantName` fields. This denormalization is critical for two reasons:\n1.  **Authorization Independence:** It eliminates the need for `get()` calls in security rules to ascertain the owning company of a plant. Rules can directly check `request.auth.token.assignedCompany == resource.data.companyName`, ensuring atomic operations and simplifying rule logic.\n2.  **QAPs (Queries as Authorization Policies):** This structure naturally supports secure `list` operations. Client applications can query a collection with a `where('companyName', '==', userAssignedCompany)` clause, and security rules can efficiently validate that the requested `companyName` matches the authenticated user's assigned company from their custom token, thereby preventing data leakage.\n\nFor nested entities (`FabCleanroomFloorRatio`, `BuildingValueFloorRatio`), which are stored as subcollections (`/fab_cleanroom_occupancy/{fabCleanroomOccupancyId}/floor_ratios` and `/building_value_ratios/{buildingValueRatioId}/floor_ratios` respectively), `companyName` and `plantName` are **denormalized and copied** from their parent documents into each subcollection document. This is crucial for maintaining Authorization Independence for subcollection items, allowing their security rules to operate without requiring `get()` calls to their parent documents.\n\n**Structural Segregation** is maintained by ensuring each collection has a homogeneous security posture. For example, all documents in `/building_info` are accessible by users assigned to the `companyName` specified within the document, according to their role. User-specific permissions are managed in a dedicated `/user_permissions` collection, which serves as the source of truth for DBAC (Database-Backed Access Control). It is assumed that a custom Firebase Authentication token, containing `assignedCompany` and `role` as custom claims (populated from `user_permissions`), is minted upon user login to enable efficient and independent rule evaluations without frequent `get()` calls to the `user_permissions` collection within every rule evaluation.\n\nPath-based ownership is utilized for `user_permissions` where the `userId` directly corresponds to `request.auth.uid`. For company-owned data, while not strictly path-based ownership in the sense of `/companies/{companyId}/data`, the `companyName` field acts as the primary access control mechanism, effectively creating a multi-tenant separation validated by security rules.\n\nThis design prioritizes clarity, debuggability, and performance by front-loading authorization context into the documents themselves, thus avoiding complex and costly `get()` operations in Firestore Security Rules and enabling robust QAPs."
+    ]
   }
 }
