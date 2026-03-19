@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ShieldCheck, UserPlus, Clock, CheckCircle, UserCheck, AlertCircle, Loader2, KeyRound } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -31,27 +31,6 @@ export function Step1Login() {
 
   const isSuperAdmin = firebaseUser?.email === 'admin@marsh.com';
   const isApproved = isSuperAdmin || dbUser?.isApproved === true;
-
-  // 自動修復機制：若使用者已登入但資料庫權限文件遺失，自動補建，確保 ADMIN 能在後台看到
-  useEffect(() => {
-    const syncUserProfile = async () => {
-      if (firebaseUser && !isUserLoading && !dbUser && !isSuperAdmin) {
-        try {
-          const userPermRef = doc(db, 'user_permissions', firebaseUser.uid);
-          await setDoc(userPermRef, {
-            id: firebaseUser.uid,
-            email: firebaseUser.email,
-            role: 'READER',
-            assignedCompany: 'Pending Initialization',
-            isApproved: false
-          }, { merge: true });
-        } catch (e) {
-          console.error("Auto-sync failed:", e);
-        }
-      }
-    };
-    syncUserProfile();
-  }, [firebaseUser, dbUser, isUserLoading, isSuperAdmin, db]);
 
   // 跳轉邏輯
   useEffect(() => {
@@ -78,7 +57,12 @@ export function Step1Login() {
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, password);
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials or unauthorized terminal access." });
+      // 使用者要求：提醒帳號未申請
+      toast({ 
+        variant: "destructive", 
+        title: "Access Denied", 
+        description: "Invalid credentials or this account has not been applied for. Please check your email or use the Register Analyst portal." 
+      });
     } finally {
       setLoading(false);
     }
@@ -140,7 +124,7 @@ export function Step1Login() {
         toast({ 
           variant: "destructive", 
           title: "Registration Error", 
-          description: e.message || "Failed to establish new analyst profile." 
+          description: "Failed to establish new analyst profile. Please verify your connection." 
         });
       }
     } finally {
@@ -159,23 +143,39 @@ export function Step1Login() {
     );
   }
 
+  // 處理已登入但未核准的狀態
   if (firebaseUser && !isApproved) {
+    // 判定是否已申請 (dbUser 是否存在)
+    const hasApplied = !!dbUser;
+    
     return (
       <div className="max-w-md mx-auto space-y-6 animate-in fade-in zoom-in-95 duration-500">
         <Card className="border-none shadow-2xl bg-white/80 backdrop-blur-sm overflow-hidden text-center py-10">
           <div className="h-2 bg-accent w-full absolute top-0" />
           <div className="mx-auto bg-amber-100 p-4 rounded-full w-fit mb-6">
-            <Clock className="w-12 h-12 text-amber-600 animate-pulse" />
+            {hasApplied ? (
+              <Clock className="w-12 h-12 text-amber-600 animate-pulse" />
+            ) : (
+              <AlertCircle className="w-12 h-12 text-destructive animate-bounce" />
+            )}
           </div>
-          <CardTitle className="text-2xl font-black text-primary px-6 tracking-tight">Access Pending Approval</CardTitle>
+          <CardTitle className="text-2xl font-black text-primary px-6 tracking-tight">
+            {hasApplied ? 'Access Pending Approval' : 'Account Not Applied'}
+          </CardTitle>
           <CardDescription className="px-10 mt-4 font-medium text-muted-foreground">
-            Your identity <span className="text-primary font-bold">{firebaseUser.email}</span> is awaiting verification by the System Administrator.
+            {hasApplied ? (
+              <>Your identity <span className="text-primary font-bold">{firebaseUser.email}</span> is awaiting verification by the System Administrator.</>
+            ) : (
+              <>The account <span className="text-destructive font-bold">{firebaseUser.email}</span> exists in the terminal but has no application record. Please return to the portal and register.</>
+            )}
           </CardDescription>
           <div className="p-8">
-            <Alert className="bg-primary/5 border-primary/10 text-primary">
+            <Alert className={`${hasApplied ? 'bg-primary/5 border-primary/10 text-primary' : 'bg-destructive/5 border-destructive/10 text-destructive'}`}>
               <ShieldCheck className="w-5 h-5" />
               <AlertDescription className="text-xs font-bold uppercase tracking-wider ml-2 text-left">
-                Industrial protocols require manual authentication for all new analyst profiles.
+                {hasApplied 
+                  ? 'Industrial protocols require manual authentication for all new analyst profiles.'
+                  : 'No analyst application was detected for this identity in the registry.'}
               </AlertDescription>
             </Alert>
           </div>
