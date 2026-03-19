@@ -57,11 +57,11 @@ export function Step1Login() {
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, password);
     } catch (e: any) {
-      // Corrected logic: Alert user that account might not have been applied for
+      // Explicitly mention "not applied" in the login error toast
       toast({ 
         variant: "destructive", 
         title: "Access Denied", 
-        description: "Invalid credentials or this account has not been applied for. Please check your email or use the Register Analyst portal." 
+        description: "Invalid credentials or this account has not been applied for. Please register first." 
       });
     } finally {
       setLoading(false);
@@ -150,22 +150,22 @@ export function Step1Login() {
     return (
       <div className="max-w-md mx-auto space-y-6 animate-in fade-in zoom-in-95 duration-500">
         <Card className="border-none shadow-2xl bg-white/80 backdrop-blur-sm overflow-hidden text-center py-10">
-          <div className="h-2 bg-accent w-full absolute top-0" />
-          <div className="mx-auto bg-amber-100 p-4 rounded-full w-fit mb-6">
+          <div className={`h-2 w-full absolute top-0 ${hasApplied ? 'bg-amber-500' : 'bg-destructive'}`} />
+          <div className={`mx-auto p-4 rounded-full w-fit mb-6 ${hasApplied ? 'bg-amber-100' : 'bg-destructive/10'}`}>
             {hasApplied ? (
               <Clock className="w-12 h-12 text-amber-600 animate-pulse" />
             ) : (
               <AlertCircle className="w-12 h-12 text-destructive animate-bounce" />
             )}
           </div>
-          <CardTitle className="text-2xl font-black text-primary px-6 tracking-tight">
+          <CardTitle className={`text-2xl font-black px-6 tracking-tight ${hasApplied ? 'text-primary' : 'text-destructive'}`}>
             {hasApplied ? 'Access Pending Approval' : 'Account Not Applied'}
           </CardTitle>
           <CardDescription className="px-10 mt-4 font-medium text-muted-foreground">
             {hasApplied ? (
               <>Your identity <span className="text-primary font-bold">{firebaseUser.email}</span> is awaiting verification by the System Administrator.</>
             ) : (
-              <>The account <span className="text-destructive font-bold">{firebaseUser.email}</span> exists in the terminal but has no application record. Please return to the portal and register.</>
+              <>The identity <span className="text-destructive font-bold">{firebaseUser.email}</span> is authenticated but has no system application record. Please register to gain terminal access.</>
             )}
           </CardDescription>
           <div className="p-8">
@@ -174,13 +174,20 @@ export function Step1Login() {
               <AlertDescription className="text-xs font-bold uppercase tracking-wider ml-2 text-left">
                 {hasApplied 
                   ? 'Industrial protocols require manual authentication for all new analyst profiles.'
-                  : 'No analyst application was detected for this identity in the registry.'}
+                  : 'No analyst application was detected for this identity in the Registry.'}
               </AlertDescription>
             </Alert>
           </div>
-          <Button variant="outline" onClick={() => auth.signOut()} className="mt-4 font-bold border-primary text-primary hover:bg-primary/5">
-            Switch Account / Sign Out
-          </Button>
+          <div className="flex flex-col gap-3 px-10">
+            {!hasApplied && (
+              <Button onClick={() => setMode('add')} className="bg-destructive hover:bg-destructive/90 text-white font-black py-6 rounded-xl">
+                Register This Account Now
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => auth.signOut()} className="font-bold border-primary text-primary hover:bg-primary/5">
+              Switch Account / Sign Out
+            </Button>
+          </div>
         </Card>
       </div>
     );
