@@ -28,7 +28,7 @@ export function Step1Login() {
   const db = useFirestore();
   const { toast } = useToast();
 
-  // 超級管理員判定：Email 優先
+  // 超級管理員判定
   const isSuperAdmin = firebaseUser?.email === 'admin@marsh.com';
   const isApproved = isSuperAdmin || dbUser?.isApproved === true;
 
@@ -92,7 +92,7 @@ export function Step1Login() {
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const userId = userCredential.user.uid;
       
-      // 重要：同步寫入權限文件，確保管理員能立即看到申請
+      // 同步寫入權限文件
       const userPermRef = doc(db, 'user_permissions', userId);
       await setDoc(userPermRef, {
         id: userId,
@@ -103,22 +103,28 @@ export function Step1Login() {
       });
 
       toast({ 
-        title: "Request Transmitted", 
+        title: "Transmission Complete", 
         description: finalApproved ? "System Master Authorized." : "Access requested. Awaiting ADMIN verification." 
       });
       
-      // 註冊成功後，狀態會由 FirebaseProvider 偵測並更新 UI
     } catch (e: any) {
-      console.error('Registration error:', e);
       let errorMsg = "Transmission Failed. Please check your network.";
+      
       if (e.code === 'auth/email-already-in-use') {
-        errorMsg = "This email is already registered in the system.";
+        errorMsg = "This email is already registered. Please try to log in instead.";
       } else if (e.code === 'auth/invalid-email') {
         errorMsg = "Invalid email format detected.";
       } else if (e.code === 'auth/weak-password') {
         errorMsg = "Security key is too weak (min 6 characters).";
       }
-      toast({ variant: "destructive", title: "Registration Blocked", description: errorMsg });
+
+      toast({ 
+        variant: "destructive", 
+        title: "Registration Error", 
+        description: errorMsg 
+      });
+      
+      console.error('Registration error detail:', e.code, e.message);
     } finally {
       setLoading(false);
     }
