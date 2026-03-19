@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldCheck, UserPlus, Clock, CheckCircle, UserCheck, AlertCircle, Loader2, KeyRound } from 'lucide-react';
+import { ShieldCheck, UserPlus, Clock, AlertCircle, Loader2, KeyRound } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -32,7 +31,7 @@ export function Step1Login() {
   const isSuperAdmin = firebaseUser?.email === 'admin@marsh.com';
   const isApproved = isSuperAdmin || dbUser?.isApproved === true;
 
-  // 跳轉邏輯
+  // Jump to P2 if user is logged in and approved
   useEffect(() => {
     if (firebaseUser && !isUserLoading) {
       if (isApproved) {
@@ -57,7 +56,7 @@ export function Step1Login() {
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, password);
     } catch (e: any) {
-      // 使用者要求：提醒帳號未申請
+      // Corrected logic: Alert user that account might not have been applied for
       toast({ 
         variant: "destructive", 
         title: "Access Denied", 
@@ -93,11 +92,11 @@ export function Step1Login() {
         finalApproved = true;
       }
 
-      // 建立 Auth 帳號
+      // Create Auth account
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const userId = userCredential.user.uid;
       
-      // 同步寫入權限文件，確保管理員能立即看到申請
+      // Mandatory: Write permission document synchronously to ensure ADMIN sees the application
       const userPermRef = doc(db, 'user_permissions', userId);
       await setDoc(userPermRef, {
         id: userId,
@@ -143,9 +142,8 @@ export function Step1Login() {
     );
   }
 
-  // 處理已登入但未核准的狀態
+  // Handle users who are logged in but NOT approved or NOT applied
   if (firebaseUser && !isApproved) {
-    // 判定是否已申請 (dbUser 是否存在)
     const hasApplied = !!dbUser;
     
     return (
