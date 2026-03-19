@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ShieldCheck, UserPlus, Clock, CheckCircle, UserCheck, AlertCircle, Loader2, KeyRound } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -31,32 +32,35 @@ export function Step1Login() {
   const isSuperAdmin = firebaseUser?.email === 'admin@marsh.com';
   const isApproved = isSuperAdmin || dbUser?.isApproved === true;
 
-  // 核心修復：確保登入使用者一定有權限文件
+  // 自動修復機制：若 Auth 已存在但 Firestore 權限文件遺失，則自動補建
   useEffect(() => {
     const syncUserProfile = async () => {
       if (firebaseUser && !isUserLoading && !dbUser && !isSuperAdmin) {
-        // 使用者存在於 Auth 但 Firestore 沒資料 (可能是註冊時中斷)
-        // 自動建立一個待核准的 READER 文件，讓管理員能看見
-        const userPermRef = doc(db, 'user_permissions', firebaseUser.uid);
-        await setDoc(userPermRef, {
-          id: firebaseUser.uid,
-          email: firebaseUser.email,
-          role: 'READER',
-          assignedCompany: 'Pending Initialization',
-          isApproved: false
-        }, { merge: true });
+        try {
+          const userPermRef = doc(db, 'user_permissions', firebaseUser.uid);
+          await setDoc(userPermRef, {
+            id: firebaseUser.uid,
+            email: firebaseUser.email,
+            role: 'READER',
+            assignedCompany: 'Pending Initialization',
+            isApproved: false
+          }, { merge: true });
+        } catch (e) {
+          console.error("Auto-sync failed:", e);
+        }
       }
     };
     syncUserProfile();
   }, [firebaseUser, dbUser, isUserLoading, isSuperAdmin, db]);
 
+  // 跳轉邏輯
   useEffect(() => {
     if (firebaseUser && !isUserLoading) {
       if (isApproved) {
         setUser({
           email: firebaseUser.email || 'Authorized User',
-          role: dbUser?.role || (isSuperAdmin ? 'ADMIN' : 'READER'),
-          assignedCompany: dbUser?.assignedCompany || (isSuperAdmin ? 'Marsh' : 'Guest'),
+          role: isSuperAdmin ? 'ADMIN' : (dbUser?.role || 'READER'),
+          assignedCompany: isSuperAdmin ? 'Marsh' : (dbUser?.assignedCompany || 'Guest'),
           isApproved: true
         });
         setStep(2);
@@ -125,19 +129,20 @@ export function Step1Login() {
       });
       
     } catch (e: any) {
-      let errorTitle = "Registration Error";
-      let errorMsg = "Transmission Failed. Please check your network.";
-      
       if (e.code === 'auth/email-already-in-use') {
-        errorTitle = "Account Conflict";
-        errorMsg = "This email is already registered. Please enter through the secure login portal.";
-      } else if (e.code === 'auth/invalid-email') {
-        errorMsg = "Invalid email format detected.";
-      } else if (e.code === 'auth/weak-password') {
-        errorMsg = "Security key is too weak (min 6 characters).";
+        toast({ 
+          variant: "destructive", 
+          title: "Account Conflict", 
+          description: "This analyst email is already registered. Please use the login portal." 
+        });
+        setMode('login');
+      } else {
+        toast({ 
+          variant: "destructive", 
+          title: "Registration Error", 
+          description: e.message || "Failed to establish new analyst profile." 
+        });
       }
-
-      toast({ variant: "destructive", title: errorTitle, description: errorMsg });
     } finally {
       setLoading(false);
     }

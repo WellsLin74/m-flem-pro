@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -53,27 +54,6 @@ export function Step2Config() {
   const [isNewPlant, setIsNewPlant] = useState(false);
   const [isJumping, setIsJumping] = useState(false);
 
-  const validationRef = useMemoFirebase(() => {
-    if (!selectedPlantId) return null;
-    return doc(db, 'building_value_ratios', selectedPlantId);
-  }, [db, selectedPlantId]);
-  const { data: validationData } = useDoc(validationRef);
-
-  const isFastTrackAvailable = validationData?.validationStatus === 'VALIDATED';
-
-  const availableCompanies = useMemo(() => {
-    if (!allAvailablePlants) return [];
-    if (!isAdmin) return [assignedCompany].filter(Boolean);
-    const companies = Array.from(new Set(allAvailablePlants.map(p => p.companyName?.trim())));
-    return companies.sort();
-  }, [allAvailablePlants, isAdmin, assignedCompany]);
-
-  const filteredPlants = useMemo(() => {
-    if (!allAvailablePlants) return [];
-    if (!companyName) return [];
-    return allAvailablePlants.filter(p => p.companyName?.trim() === companyName.trim());
-  }, [allAvailablePlants, companyName]);
-
   useEffect(() => {
     if (assignedCompany && !companyName) setCompanyName(assignedCompany);
   }, [assignedCompany, companyName]);
@@ -101,30 +81,6 @@ export function Step2Config() {
     toast({ title: "Profile Revoked", description: `Account ${email} removed from system.` });
   };
 
-  const mapPlantData = (selectedPlantData: any) => {
-    return {
-      id: selectedPlantData.id,
-      company: selectedPlantData.companyName,
-      plantName: selectedPlantData.plantName,
-      lat: selectedPlantData.latitude ?? 24.774,
-      lon: selectedPlantData.longitude ?? 121.013,
-      fabAl: selectedPlantData.fabAboveLevel ?? 4,
-      fabBl: selectedPlantData.fabBelowLevel ?? 2,
-      cupAl: selectedPlantData.cupAboveLevel ?? 2,
-      cupBl: selectedPlantData.cupBelowLevel ?? 1,
-      fabLength: selectedPlantData.fabLength ?? 200,
-      fabWidth: selectedPlantData.fabWidth ?? 150,
-      cupLength: selectedPlantData.cupLength ?? 100,
-      cupWidth: selectedPlantData.cupWidth ?? 80,
-      pdBuilding: selectedPlantData.buildingValue ?? 500,
-      pdFacility: selectedPlantData.facilityValue ?? 200,
-      pdTools: selectedPlantData.toolsValue ?? 1500,
-      pdFixture: selectedPlantData.fixtureValue ?? 50,
-      pdStock: selectedPlantData.stockValue ?? 300,
-      bi12m: selectedPlantData.bi12mValue ?? 1000,
-    };
-  };
-
   const handleNext = () => {
     const selectedPlantData = allAvailablePlants?.find(p => p.id === selectedPlantId);
     const finalPlantName = (isNewPlant ? newPlantName : (selectedPlantData?.plantName || '')).trim();
@@ -135,11 +91,7 @@ export function Step2Config() {
       return;
     }
     
-    const safeCompany = finalCompanyName.replace(/\s+/g, '_');
-    const safePlant = finalPlantName.replace(/\s+/g, '_');
-    const plantId = isNewPlant ? `${safeCompany}-${safePlant}` : selectedPlantId;
-
-    if (!plantId) return;
+    const plantId = isNewPlant ? `${finalCompanyName.replace(/\s+/g, '_')}-${finalPlantName.replace(/\s+/g, '_')}` : selectedPlantId;
 
     if (plant?.id !== plantId) {
       setRefinement(null);
@@ -147,91 +99,44 @@ export function Step2Config() {
       setIsValidated(false);
     }
 
-    const plantData = mapPlantData(selectedPlantData || { id: plantId, companyName: finalCompanyName, plantName: finalPlantName });
-    setPlant(plantData);
-
-    if (dbUser?.role !== 'READER' && isNewPlant) {
-      const plantRef = doc(db, 'plants', plantId);
-      setDocumentNonBlocking(plantRef, {
-        id: plantId,
-        companyName: finalCompanyName,
-        plantName: finalPlantName,
-        latitude: plantData.lat,
-        longitude: plantData.lon,
-        fabAboveLevel: plantData.fabAl,
-        fabBelowLevel: plantData.fabBl,
-        cupAboveLevel: plantData.cupAl,
-        cupBelowLevel: plantData.cupBl,
-        fabLength: plantData.fabLength,
-        fabWidth: plantData.fabWidth,
-        cupLength: plantData.cupLength,
-        cupWidth: plantData.cupWidth,
-        buildingValue: plantData.pdBuilding,
-        facilityValue: plantData.pdFacility,
-        toolsValue: plantData.pdTools,
-        fixtureValue: plantData.pdFixture,
-        stockValue: plantData.stockValue,
-        bi12mValue: plantData.bi12m,
-      }, { merge: true });
-    }
+    setPlant({
+      id: plantId,
+      company: finalCompanyName,
+      plantName: finalPlantName,
+      lat: selectedPlantData?.latitude ?? 24.774,
+      lon: selectedPlantData?.longitude ?? 121.013,
+      fabAl: selectedPlantData?.fabAboveLevel ?? 4,
+      fabBl: selectedPlantData?.fabBelowLevel ?? 2,
+      cupAl: selectedPlantData?.cupAboveLevel ?? 2,
+      cupBl: selectedPlantData?.cupBelowLevel ?? 1,
+      fabLength: selectedPlantData?.fabLength ?? 200,
+      fabWidth: selectedPlantData?.fabWidth ?? 150,
+      cupLength: selectedPlantData?.cupLength ?? 100,
+      cupWidth: selectedPlantData?.cupWidth ?? 80,
+      pdBuilding: selectedPlantData?.buildingValue ?? 500,
+      pdFacility: selectedPlantData?.facilityValue ?? 200,
+      pdTools: selectedPlantData?.toolsValue ?? 1500,
+      pdFixture: selectedPlantData?.fixtureValue ?? 50,
+      pdStock: selectedPlantData?.stockValue ?? 300,
+      bi12m: selectedPlantData?.bi12mValue ?? 1000,
+    });
 
     setStep(3);
   };
 
-  const handleJumpToP6 = async () => {
-    if (!selectedPlantId) return;
-    setIsJumping(true);
+  const availableCompanies = useMemo(() => {
+    if (!allAvailablePlants) return [];
+    if (!isAdmin) return [assignedCompany].filter(Boolean);
+    const companies = Array.from(new Set(allAvailablePlants.map(p => p.companyName?.trim())));
+    if (assignedCompany && !companies.includes(assignedCompany)) companies.push(assignedCompany);
+    return companies.sort();
+  }, [allAvailablePlants, isAdmin, assignedCompany]);
 
-    try {
-      const selectedPlantData = allAvailablePlants?.find(p => p.id === selectedPlantId);
-      if (!selectedPlantData) throw new Error("Plant data not found");
-      const plantData = mapPlantData(selectedPlantData);
-
-      const occDoc = await getDoc(doc(db, 'fab_cleanroom_occupancy', selectedPlantId));
-      const floorRatiosSnapshot = await getDocs(collection(db, 'fab_cleanroom_occupancy', selectedPlantId, 'floor_ratios'));
-      
-      const mappedFloorData: Record<string, { fac: number; cr: number }> = {};
-      floorRatiosSnapshot.forEach(d => {
-        const data = d.data();
-        mappedFloorData[data.floorIdentifier] = {
-          fac: data.facilityOccupancyRatio,
-          cr: data.cleanroomOccupancyRatio
-        };
-      });
-
-      const refinementData = {
-        facCrRatio: occDoc.data()?.overallFacilityCleanroomRatio || 0.33,
-        toolsCrRatio: occDoc.data()?.overallToolsCleanroomRatio || 0.9,
-        floorData: mappedFloorData
-      };
-
-      const p5FloorRatiosSnapshot = await getDocs(collection(db, 'building_value_ratios', selectedPlantId, 'floor_ratios'));
-      const finalRatios: Record<string, any> = {};
-      p5FloorRatiosSnapshot.forEach(d => {
-        const data = d.data();
-        finalRatios[data.floorIdentifier] = {
-          bldg: data.buildingRatio,
-          fac: data.facilityRatio,
-          tool: data.toolsRatio,
-          fix: data.fixtureRatio,
-          stock: data.stockRatio
-        };
-      });
-
-      setPlant(plantData);
-      setRefinement(refinementData);
-      setFinalRatios(finalRatios);
-      setIsValidated(true);
-      setStep(6);
-    } catch (err) {
-      console.error("Jump failed:", err);
-      toast({ variant: "destructive", title: "Jump Sequence Failed", description: "Could not synchronize all remote parameters." });
-    } finally {
-      setIsJumping(false);
-    }
-  };
-
-  const activePlantName = isNewPlant ? newPlantName : (allAvailablePlants?.find(p => p.id === selectedPlantId)?.plantName || '');
+  const filteredPlants = useMemo(() => {
+    if (!allAvailablePlants) return [];
+    if (!companyName) return [];
+    return allAvailablePlants.filter(p => p.companyName?.trim() === companyName.trim());
+  }, [allAvailablePlants, companyName]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
@@ -250,9 +155,6 @@ export function Step2Config() {
               </CardTitle>
               <CardDescription className="text-emerald-700/70 font-medium">Authorize new analysts for industrial terminal access.</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => window.location.reload()} className="text-emerald-600 hover:bg-emerald-100">
-              <RefreshCw className={`w-4 h-4 ${loadingAllUsers ? 'animate-spin' : ''}`} />
-            </Button>
           </CardHeader>
           <CardContent className="space-y-3 px-6 pb-6">
             {loadingAllUsers ? (
@@ -260,22 +162,17 @@ export function Step2Config() {
                 <Loader2 className="w-4 h-4 animate-spin" /> Scanning Registry...
               </div>
             ) : pendingUsers.length === 0 ? (
-              <div className="text-emerald-600 font-bold py-4 italic opacity-60">No pending access requests at this time.</div>
+              <div className="text-emerald-600 font-bold py-4 italic opacity-60">No pending access requests.</div>
             ) : (
               pendingUsers.map(u => (
-                <div key={u.id} className="flex items-center justify-between p-4 bg-white border border-emerald-100 rounded-xl shadow-sm hover:shadow-md transition-all group">
-                  <div className="flex items-center gap-4">
-                    <div className="bg-emerald-100 p-2 rounded-full group-hover:scale-110 transition-transform">
-                      <Clock className="w-4 h-4 text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-emerald-900">{u.email}</p>
-                      <p className="text-[9px] uppercase font-black text-emerald-600 tracking-[0.2em]">{u.role} | {u.assignedCompany}</p>
-                    </div>
+                <div key={u.id} className="flex items-center justify-between p-4 bg-white border border-emerald-100 rounded-xl shadow-sm hover:shadow-md transition-all">
+                  <div>
+                    <p className="font-bold text-emerald-900">{u.email}</p>
+                    <p className="text-[9px] uppercase font-black text-emerald-600 tracking-[0.2em]">{u.role} | {u.assignedCompany}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button onClick={() => handleApprove(u.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black gap-2 rounded-lg h-9 text-xs">
-                      <CheckCircle className="w-4 h-4" /> Approve
+                    <Button onClick={() => handleApprove(u.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black h-9 text-xs">
+                      Approve
                     </Button>
                     <Button variant="ghost" onClick={() => handleDeleteUser(u.id, u.email)} className="text-destructive hover:bg-destructive/10 h-9 px-3">
                       <Trash2 className="w-4 h-4" />
@@ -292,11 +189,9 @@ export function Step2Config() {
         <div className="h-2 bg-accent w-full" />
         <CardHeader>
           <CardTitle className="font-headline font-black text-2xl text-primary flex items-center gap-3">
-            Organizational Identity {isAdmin && <Shield className="w-5 h-5 text-accent animate-pulse" />}
+            Organizational Identity {isAdmin && <Shield className="w-5 h-5 text-accent" />}
           </CardTitle>
-          <CardDescription className="font-medium">
-            {isAdmin ? 'Administrative scope management and site selection.' : 'Select the authorized scope for this assessment.'}
-          </CardDescription>
+          <CardDescription className="font-medium">Select the authorized scope for this assessment.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8 pb-10" suppressHydrationWarning>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -306,7 +201,7 @@ export function Step2Config() {
                 <h3 className="font-headline font-bold uppercase tracking-widest text-sm">Authorized Entity</h3>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="company" className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Selected Company</Label>
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Selected Company</Label>
                 <Select 
                   disabled={isUserLoading || !isAdmin}
                   value={companyName}
@@ -346,18 +241,14 @@ export function Step2Config() {
                     }}
                   >
                     <SelectTrigger className="bg-muted/50 border-none font-bold text-primary h-12" suppressHydrationWarning>
-                      <SelectValue placeholder={loadingPlants ? "Scanning..." : (filteredPlants.length > 0 ? "Choose existing plant" : "No plants found")} />
+                      <SelectValue placeholder={loadingPlants ? "Scanning..." : "Choose Site"} />
                     </SelectTrigger>
                     <SelectContent>
                       {filteredPlants.map((p) => (
-                        <SelectItem key={p.id} value={p.id} className="font-bold">
-                          {p.plantName}
-                        </SelectItem>
+                        <SelectItem key={p.id} value={p.id} className="font-bold">{p.plantName}</SelectItem>
                       ))}
                       {dbUser?.role !== 'READER' && (
-                        <SelectItem value="NEW" className="text-accent font-black border-t mt-2">
-                          <div className="flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Add New Site...</div>
-                        </SelectItem>
+                        <SelectItem value="NEW" className="text-accent font-black border-t mt-2">Add New Site...</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
@@ -365,9 +256,8 @@ export function Step2Config() {
 
                 {isNewPlant && (
                   <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-                    <Label htmlFor="new-plant" className="text-[10px] font-black uppercase text-accent tracking-widest">New Site Name</Label>
+                    <Label className="text-[10px] font-black uppercase text-accent tracking-widest">New Site Name</Label>
                     <Input 
-                      id="new-plant" 
                       value={newPlantName}
                       onChange={(e) => setNewPlantName(e.target.value)}
                       placeholder="e.g. Fab-14P1"
@@ -380,42 +270,33 @@ export function Step2Config() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-between pt-6 gap-4 border-t-2 border-primary/5">
-            <Button variant="ghost" onClick={() => setStep(1)} className="font-black text-muted-foreground gap-2 hover:bg-primary/5 uppercase text-xs tracking-widest">
+          <div className="flex justify-between pt-6 border-t-2 border-primary/5">
+            <Button variant="ghost" onClick={() => setStep(1)} className="font-black text-muted-foreground gap-2 hover:bg-primary/5 uppercase text-xs">
               <ArrowLeft className="w-4 h-4" /> Reset Identity
             </Button>
-            
-            <div className="flex flex-col sm:flex-row gap-4">
-              {isFastTrackAvailable && !isNewPlant && (
-                <Button 
-                  onClick={handleJumpToP6}
-                  disabled={isJumping}
-                  className="bg-accent hover:bg-accent/90 text-primary font-black px-8 py-6 text-lg gap-2 shadow-xl shadow-accent/20 border-2 border-primary/10 animate-pulse hover:animate-none group"
-                >
-                  {isJumping ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 fill-current group-hover:scale-125 transition-transform" />}
-                  Fast Track to P6
-                </Button>
-              )}
-              
-              <Button 
-                onClick={handleNext} 
-                disabled={!activePlantName || !companyName || isUserLoading || isJumping}
-                className="bg-primary hover:bg-primary/90 text-white font-black px-12 py-6 text-lg gap-3 shadow-xl shadow-primary/20"
-              >
-                {loadingPlants ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Next: Initialization'} <ChevronRight className="w-6 h-6" />
-              </Button>
-            </div>
+            <Button 
+              onClick={handleNext} 
+              disabled={!(isNewPlant ? newPlantName : selectedPlantId) || !companyName || isUserLoading}
+              className="bg-primary hover:bg-primary/90 text-white font-black px-12 py-6 text-lg gap-3"
+            >
+              {loadingPlants ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Next: Initialization'} <ChevronRight className="w-6 h-6" />
+            </Button>
           </div>
         </CardContent>
       </Card>
 
       {isAdmin && (
         <Card className="border-none shadow-xl bg-white/50 backdrop-blur-sm overflow-hidden">
-          <CardHeader className="pb-4">
-            <CardTitle className="font-headline font-black text-xl text-primary flex items-center gap-3">
-              <Users className="w-6 h-6 text-accent" /> Global User Directory
-            </CardTitle>
-            <CardDescription className="font-medium">Audit and manage all registered analyst profiles.</CardDescription>
+          <CardHeader className="pb-4 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="font-headline font-black text-xl text-primary flex items-center gap-3">
+                <Users className="w-6 h-6 text-accent" /> Global User Directory
+              </CardTitle>
+              <CardDescription className="font-medium">Audit and manage all registered analyst profiles.</CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => window.location.reload()} className="text-primary hover:bg-primary/5">
+              <RefreshCw className={`w-4 h-4 ${loadingAllUsers ? 'animate-spin' : ''}`} />
+            </Button>
           </CardHeader>
           <CardContent className="px-6 pb-6">
             <div className="rounded-2xl border-2 bg-white overflow-hidden shadow-lg">
@@ -423,21 +304,21 @@ export function Step2Config() {
                 {loadingAllUsers ? (
                   <div className="p-10 flex flex-col items-center justify-center space-y-4">
                     <Loader2 className="w-10 h-10 text-accent animate-spin" />
-                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.3em] animate-pulse">Syncing User Registry...</p>
+                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Syncing Registry...</p>
                   </div>
                 ) : !allUsers || allUsers.length === 0 ? (
-                  <div className="p-10 text-center text-muted-foreground font-black uppercase tracking-widest italic opacity-40">No analytical profiles registered.</div>
+                  <div className="p-10 text-center text-muted-foreground font-black uppercase tracking-widest italic opacity-40">No profiles found.</div>
                 ) : (
                   allUsers.map(u => (
                     <div key={u.id} className="flex items-center justify-between p-4 hover:bg-primary/[0.02] transition-colors group">
                       <div className="flex items-center gap-5">
-                        <div className={`p-3 rounded-xl transition-all group-hover:rotate-12 ${u.isApproved ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                        <div className={`p-3 rounded-xl ${u.isApproved ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
                           {u.role === 'ADMIN' ? <Shield className="w-5 h-5" /> : <Users className="w-5 h-5" />}
                         </div>
                         <div>
                           <div className="flex items-center gap-3 mb-1">
                             <p className="font-black text-primary text-lg tracking-tight">{u.email}</p>
-                            <Badge variant={u.isApproved ? "default" : "secondary"} className="text-[9px] h-4 uppercase font-black px-2 tracking-widest bg-emerald-500 hover:bg-emerald-600">
+                            <Badge variant={u.isApproved ? "default" : "secondary"} className="text-[9px] h-4 uppercase font-black px-2 tracking-widest">
                               {u.isApproved ? 'Authorized' : 'Pending'}
                             </Badge>
                           </div>
@@ -449,10 +330,10 @@ export function Step2Config() {
                           variant="ghost" 
                           size="sm" 
                           onClick={() => handleDeleteUser(u.id, u.email)}
-                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 font-black gap-2 h-10 px-4 rounded-lg"
+                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 font-black h-10 px-4 rounded-lg"
                         >
                           <Trash2 className="w-4 h-4" />
-                          <span className="hidden sm:inline text-xs">Revoke Profile</span>
+                          <span className="hidden sm:inline text-xs ml-2">Revoke Profile</span>
                         </Button>
                       )}
                     </div>

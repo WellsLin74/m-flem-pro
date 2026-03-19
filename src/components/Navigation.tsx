@@ -14,23 +14,24 @@ export function Navigation() {
   const auth = useAuth();
 
   // Sync Firebase Auth and Firestore data with local store
-  // We use dbUser directly from the provider to avoid redundant/unauthenticated Firestore reads
   useEffect(() => {
-    if (firebaseUser && dbUser) {
+    if (firebaseUser) {
+      // 超級管理員特權判定
+      const isSuperAdmin = firebaseUser.email === 'admin@marsh.com';
+      
       setUser({
-        email: firebaseUser.email || dbUser.email || 'Authorized User',
-        role: dbUser.role || 'READER',
-        assignedCompany: dbUser.assignedCompany || 'Unauthorized Org',
-        isApproved: dbUser.isApproved
+        email: firebaseUser.email || dbUser?.email || 'Authorized User',
+        role: isSuperAdmin ? 'ADMIN' : (dbUser?.role || 'READER'),
+        assignedCompany: isSuperAdmin ? 'Marsh' : (dbUser?.assignedCompany || 'Unauthorized Org'),
+        isApproved: isSuperAdmin || dbUser?.isApproved === true
       });
-    } else if (!firebaseUser) {
+    } else {
       setUser(null);
     }
   }, [firebaseUser, dbUser, setUser]);
 
   const handleLogout = () => {
     signOut(auth);
-    // 重點：登出時必須徹底清除本地 Store 狀態，防止重新登入後發生 Hydration 衝突
     setUser(null);
     setPlant(null);
     setRefinement(null);
@@ -38,11 +39,11 @@ export function Navigation() {
     setIsValidated(false);
     setStep(1);
     
-    // 強制重整頁面以清除所有 React Context 殘留
-    window.location.reload();
+    // 清除狀態並重整
+    window.location.href = '/';
   };
 
-  const displayUser = firebaseUser && dbUser;
+  const displayUser = !!firebaseUser;
 
   return (
     <nav className="bg-primary text-primary-foreground shadow-lg px-6 py-4 flex justify-between items-center sticky top-0 z-50">
@@ -59,10 +60,10 @@ export function Navigation() {
       {displayUser && (
         <div className="flex items-center gap-6">
           <div className="hidden md:flex flex-col items-end border-r border-primary-foreground/20 pr-6">
-            <span className="text-sm font-semibold">{firebaseUser.email}</span>
+            <span className="text-sm font-semibold">{firebaseUser?.email}</span>
             <div className="flex gap-2 text-[10px] uppercase font-bold tracking-wider text-accent">
               <Shield className="w-2.5 h-2.5" />
-              <span>{dbUser.role}</span>
+              <span>{firebaseUser?.email === 'admin@marsh.com' ? 'ADMIN' : (dbUser?.role || 'READER')}</span>
             </div>
           </div>
           <Button 
