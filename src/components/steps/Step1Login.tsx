@@ -28,9 +28,27 @@ export function Step1Login() {
   const db = useFirestore();
   const { toast } = useToast();
 
-  // 超級管理員判定
   const isSuperAdmin = firebaseUser?.email === 'admin@marsh.com';
   const isApproved = isSuperAdmin || dbUser?.isApproved === true;
+
+  // 核心修復：確保登入使用者一定有權限文件
+  useEffect(() => {
+    const syncUserProfile = async () => {
+      if (firebaseUser && !isUserLoading && !dbUser && !isSuperAdmin) {
+        // 使用者存在於 Auth 但 Firestore 沒資料 (可能是註冊時中斷)
+        // 自動建立一個待核准的 READER 文件，讓管理員能看見
+        const userPermRef = doc(db, 'user_permissions', firebaseUser.uid);
+        await setDoc(userPermRef, {
+          id: firebaseUser.uid,
+          email: firebaseUser.email,
+          role: 'READER',
+          assignedCompany: 'Pending Initialization',
+          isApproved: false
+        }, { merge: true });
+      }
+    };
+    syncUserProfile();
+  }, [firebaseUser, dbUser, isUserLoading, isSuperAdmin, db]);
 
   useEffect(() => {
     if (firebaseUser && !isUserLoading) {
@@ -56,7 +74,7 @@ export function Step1Login() {
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, password);
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials or system interruption." });
+      toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials or unauthorized terminal access." });
     } finally {
       setLoading(false);
     }
@@ -87,7 +105,7 @@ export function Step1Login() {
         finalApproved = true;
       }
 
-      // 建立帳號
+      // 建立 Auth 帳號
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const userId = userCredential.user.uid;
       
@@ -119,11 +137,7 @@ export function Step1Login() {
         errorMsg = "Security key is too weak (min 6 characters).";
       }
 
-      toast({ 
-        variant: "destructive", 
-        title: errorTitle, 
-        description: errorMsg 
-      });
+      toast({ variant: "destructive", title: errorTitle, description: errorMsg });
     } finally {
       setLoading(false);
     }
@@ -140,7 +154,6 @@ export function Step1Login() {
     );
   }
 
-  // 登入中但尚未被核准
   if (firebaseUser && !isApproved) {
     return (
       <div className="max-w-md mx-auto space-y-6 animate-in fade-in zoom-in-95 duration-500">
@@ -162,7 +175,7 @@ export function Step1Login() {
             </Alert>
           </div>
           <Button variant="outline" onClick={() => auth.signOut()} className="mt-4 font-bold border-primary text-primary hover:bg-primary/5">
-            Switch Account
+            Switch Account / Sign Out
           </Button>
         </Card>
       </div>

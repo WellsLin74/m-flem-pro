@@ -20,14 +20,12 @@ export function Step2Config() {
   const db = useFirestore();
   const { toast } = useToast();
 
-  // 強化 ADMIN 判定邏輯：Email 優先
   const isAdmin = useMemo(() => {
     return firebaseUser?.email === 'admin@marsh.com' || dbUser?.role === 'ADMIN';
   }, [firebaseUser?.email, dbUser?.role]);
 
   const assignedCompany = dbUser?.assignedCompany?.trim() || '';
 
-  // 管理員專屬：系統所有使用者查詢
   const allUsersQuery = useMemoFirebase(() => {
     if (!isAdmin || isUserLoading) return null;
     return collection(db, 'user_permissions');
@@ -40,7 +38,6 @@ export function Step2Config() {
     return allUsers.filter(u => u.isApproved === false);
   }, [allUsers]);
 
-  // 工廠查詢邏輯
   const plantsQuery = useMemoFirebase(() => {
     if (!firebaseUser || isUserLoading) return null;
     if (isAdmin) return collection(db, 'plants');
@@ -56,7 +53,6 @@ export function Step2Config() {
   const [isNewPlant, setIsNewPlant] = useState(false);
   const [isJumping, setIsJumping] = useState(false);
 
-  // 快速跳轉狀態檢查
   const validationRef = useMemoFirebase(() => {
     if (!selectedPlantId) return null;
     return doc(db, 'building_value_ratios', selectedPlantId);
@@ -174,7 +170,7 @@ export function Step2Config() {
         facilityValue: plantData.pdFacility,
         toolsValue: plantData.pdTools,
         fixtureValue: plantData.pdFixture,
-        stockValue: plantData.pdStock,
+        stockValue: plantData.stockValue,
         bi12mValue: plantData.bi12m,
       }, { merge: true });
     }
@@ -239,7 +235,6 @@ export function Step2Config() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
-      {/* 管理員審核面板 */}
       {isAdmin && (pendingUsers.length > 0 || loadingAllUsers) && (
         <Card className="border-none shadow-xl bg-emerald-50/50 backdrop-blur-sm overflow-hidden animate-in slide-in-from-top-4 duration-500">
           <div className="h-1.5 bg-emerald-500 w-full" />
@@ -293,7 +288,6 @@ export function Step2Config() {
         </Card>
       )}
 
-      {/* 主配置卡片 */}
       <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden" suppressHydrationWarning>
         <div className="h-2 bg-accent w-full" />
         <CardHeader>
@@ -415,7 +409,6 @@ export function Step2Config() {
         </CardContent>
       </Card>
 
-      {/* 系統使用者名錄 */}
       {isAdmin && (
         <Card className="border-none shadow-xl bg-white/50 backdrop-blur-sm overflow-hidden">
           <CardHeader className="pb-4">
