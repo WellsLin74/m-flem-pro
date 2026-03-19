@@ -56,7 +56,6 @@ export function Step1Login() {
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, password);
     } catch (e: any) {
-      console.error('Login error:', e);
       toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials or system interruption." });
     } finally {
       setLoading(false);
@@ -108,10 +107,12 @@ export function Step1Login() {
       });
       
     } catch (e: any) {
+      let errorTitle = "Registration Error";
       let errorMsg = "Transmission Failed. Please check your network.";
       
       if (e.code === 'auth/email-already-in-use') {
-        errorMsg = "This email is already registered. Please try to log in instead.";
+        errorTitle = "Account Conflict";
+        errorMsg = "This email is already registered. Please enter through the secure login portal.";
       } else if (e.code === 'auth/invalid-email') {
         errorMsg = "Invalid email format detected.";
       } else if (e.code === 'auth/weak-password') {
@@ -120,11 +121,9 @@ export function Step1Login() {
 
       toast({ 
         variant: "destructive", 
-        title: "Registration Error", 
+        title: errorTitle, 
         description: errorMsg 
       });
-      
-      console.error('Registration error detail:', e.code, e.message);
     } finally {
       setLoading(false);
     }
