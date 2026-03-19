@@ -57,11 +57,10 @@ export function Step1Login() {
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, password);
     } catch (e: any) {
-      // Explicitly mention "not applied" in the login error toast
       toast({ 
         variant: "destructive", 
         title: "Access Denied", 
-        description: "Invalid credentials or this account has not been applied for. Please register first." 
+        description: "該帳號尚未申請或密碼錯誤。請先完成註冊申請。" 
       });
     } finally {
       setLoading(false);
@@ -93,11 +92,9 @@ export function Step1Login() {
         finalApproved = true;
       }
 
-      // Create Auth account
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const userId = userCredential.user.uid;
       
-      // Mandatory: Write permission document synchronously to ensure ADMIN sees the application
       const userPermRef = doc(db, 'user_permissions', userId);
       await setDoc(userPermRef, {
         id: userId,
@@ -117,14 +114,14 @@ export function Step1Login() {
         toast({ 
           variant: "destructive", 
           title: "Account Conflict", 
-          description: "This analyst email is already registered. Please use the login portal." 
+          description: "此帳號已在系統中註冊。請直接使用登入介面。" 
         });
         setMode('login');
       } else {
         toast({ 
           variant: "destructive", 
           title: "Registration Error", 
-          description: "Failed to establish new analyst profile. Please verify your connection." 
+          description: "註冊失敗。請檢查格式或網路連線。" 
         });
       }
     } finally {
@@ -143,13 +140,12 @@ export function Step1Login() {
     );
   }
 
-  // Handle users who are logged in but NOT approved or NOT applied
   if (firebaseUser && !isApproved) {
     const hasApplied = !!dbUser;
     
     return (
       <div className="max-w-md mx-auto space-y-6 animate-in fade-in zoom-in-95 duration-500">
-        <Card className="border-none shadow-2xl bg-white/80 backdrop-blur-sm overflow-hidden text-center py-10">
+        <Card className="border-none shadow-2xl bg-white/80 backdrop-blur-sm overflow-hidden text-center py-10 relative">
           <div className={`h-2 w-full absolute top-0 ${hasApplied ? 'bg-amber-500' : 'bg-destructive'}`} />
           <div className={`mx-auto p-4 rounded-full w-fit mb-6 ${hasApplied ? 'bg-amber-100' : 'bg-destructive/10'}`}>
             {hasApplied ? (
@@ -159,13 +155,13 @@ export function Step1Login() {
             )}
           </div>
           <CardTitle className={`text-2xl font-black px-6 tracking-tight ${hasApplied ? 'text-primary' : 'text-destructive'}`}>
-            {hasApplied ? 'Access Pending Approval' : 'Account Not Applied'}
+            {hasApplied ? 'Access Pending Approval' : '該帳號未申請'}
           </CardTitle>
           <CardDescription className="px-10 mt-4 font-medium text-muted-foreground">
             {hasApplied ? (
-              <>Your identity <span className="text-primary font-bold">{firebaseUser.email}</span> is awaiting verification by the System Administrator.</>
+              <>您的身分 <span className="text-primary font-bold">{firebaseUser.email}</span> 正在等待管理員核准。</>
             ) : (
-              <>The identity <span className="text-destructive font-bold">{firebaseUser.email}</span> is authenticated but has no system application record. Please register to gain terminal access.</>
+              <>身分 <span className="text-destructive font-bold">{firebaseUser.email}</span> 已驗證，但尚未提交系統使用申請。</>
             )}
           </CardDescription>
           <div className="p-8">
@@ -173,19 +169,19 @@ export function Step1Login() {
               <ShieldCheck className="w-5 h-5" />
               <AlertDescription className="text-xs font-bold uppercase tracking-wider ml-2 text-left">
                 {hasApplied 
-                  ? 'Industrial protocols require manual authentication for all new analyst profiles.'
-                  : 'No analyst application was detected for this identity in the Registry.'}
+                  ? '工業安全協議要求所有新分析師需經人工審核。'
+                  : '此帳號尚未存在於核可名單中。'}
               </AlertDescription>
             </Alert>
           </div>
           <div className="flex flex-col gap-3 px-10">
             {!hasApplied && (
               <Button onClick={() => setMode('add')} className="bg-destructive hover:bg-destructive/90 text-white font-black py-6 rounded-xl">
-                Register This Account Now
+                立即進行帳號申請
               </Button>
             )}
             <Button variant="outline" onClick={() => auth.signOut()} className="font-bold border-primary text-primary hover:bg-primary/5">
-              Switch Account / Sign Out
+              切換帳號 / 登出
             </Button>
           </div>
         </Card>
@@ -206,14 +202,14 @@ export function Step1Login() {
           </CardTitle>
           <CardDescription className="font-medium">
             {mode === 'login' 
-              ? 'Authorized personnel only. Use security key to enter.' 
-              : 'New profiles require manual ADMIN authorization.'}
+              ? '授權人員請輸入安全密鑰。' 
+              : '新帳號需經由 ADMIN 進行人工授權。'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pb-10">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Analyst Email</Label>
+              <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">分析師 Email</Label>
               <Input 
                 type="email" 
                 value={email} 
@@ -224,7 +220,7 @@ export function Step1Login() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Security Key</Label>
+              <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">安全密鑰 (Password)</Label>
               <Input 
                 type="password" 
                 value={password} 
@@ -237,7 +233,7 @@ export function Step1Login() {
             {mode === 'add' && (
               <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                 <div className="space-y-2">
-                  <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Assigned Role</Label>
+                  <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">指派角色</Label>
                   <Select value={role} onValueChange={(val: UserRole) => setRole(val)} disabled={loading}>
                     <SelectTrigger className="bg-muted/50 border-none font-bold"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -247,7 +243,7 @@ export function Step1Login() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Organization Name</Label>
+                  <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">所屬機構名稱</Label>
                   <Input 
                     value={company} 
                     onChange={(e) => setCompany(e.target.value)} 
@@ -264,7 +260,7 @@ export function Step1Login() {
             disabled={loading} 
             className="w-full bg-primary hover:bg-primary/90 py-6 font-black text-lg shadow-xl shadow-primary/20 transition-all active:scale-95"
           >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'login' ? 'Enter System' : 'Request Access')}
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'login' ? '進入系統' : '提交申請')}
           </Button>
           <button 
             type="button" 
@@ -272,7 +268,7 @@ export function Step1Login() {
             className="w-full text-center text-xs font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest disabled:opacity-50" 
             onClick={() => setMode(mode === 'login' ? 'add' : 'login')}
           >
-            {mode === 'login' ? 'New Analyst? Request Profile' : 'Back to Secure Login'}
+            {mode === 'login' ? '新分析師？點此提交註冊申請' : '返回登入介面'}
           </button>
         </CardContent>
       </Card>
