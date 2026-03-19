@@ -27,6 +27,7 @@ export function Step2Config() {
 
   const assignedCompany = dbUser?.assignedCompany?.trim() || '';
 
+  // 全域使用者查詢，僅限 ADMIN
   const allUsersQuery = useMemoFirebase(() => {
     if (!isAdmin || isUserLoading) return null;
     return collection(db, 'user_permissions');
@@ -52,7 +53,6 @@ export function Step2Config() {
   const [selectedPlantId, setSelectedPlantId] = useState<string>('');
   const [newPlantName, setNewPlantName] = useState('');
   const [isNewPlant, setIsNewPlant] = useState(false);
-  const [isJumping, setIsJumping] = useState(false);
 
   useEffect(() => {
     if (assignedCompany && !companyName) setCompanyName(assignedCompany);

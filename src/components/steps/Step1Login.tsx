@@ -32,7 +32,7 @@ export function Step1Login() {
   const isSuperAdmin = firebaseUser?.email === 'admin@marsh.com';
   const isApproved = isSuperAdmin || dbUser?.isApproved === true;
 
-  // 自動修復機制：若 Auth 已存在但 Firestore 權限文件遺失，則自動補建
+  // 自動修復機制：若使用者已登入但資料庫權限文件遺失，自動補建，確保 ADMIN 能在後台看到
   useEffect(() => {
     const syncUserProfile = async () => {
       if (firebaseUser && !isUserLoading && !dbUser && !isSuperAdmin) {
@@ -113,7 +113,7 @@ export function Step1Login() {
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const userId = userCredential.user.uid;
       
-      // 同步寫入權限文件
+      // 同步寫入權限文件，確保管理員能立即看到申請
       const userPermRef = doc(db, 'user_permissions', userId);
       await setDoc(userPermRef, {
         id: userId,
