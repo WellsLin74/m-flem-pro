@@ -24,6 +24,7 @@ export function Step1Login() {
   const [role, setRole] = useState<UserRole>('READER');
   const [company, setCompany] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loginError, setLoginError] = useState(false);
 
   const auth = useAuth();
   const db = useFirestore();
@@ -50,6 +51,7 @@ export function Step1Login() {
   const handleLogin = async () => {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !password) {
+      setLoginError(true);
       toast({ variant: "destructive", title: "Missing Information", description: "Please enter both email and security key." });
       return;
     }
@@ -57,10 +59,11 @@ export function Step1Login() {
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, password);
     } catch (e: any) {
+      setLoginError(true);
       toast({ 
         variant: "destructive", 
         title: "Access Denied", 
-        description: "該帳號尚未申請或密碼錯誤。請先完成註冊申請。" 
+        description: "Account not registered or invalid password. Please complete the registration first." 
       });
     } finally {
       setLoading(false);
@@ -114,14 +117,14 @@ export function Step1Login() {
         toast({ 
           variant: "destructive", 
           title: "Account Conflict", 
-          description: "此帳號已在系統中註冊。請直接使用登入介面。" 
+          description: "This account is already registered. Please use the login interface." 
         });
         setMode('login');
       } else {
         toast({ 
           variant: "destructive", 
           title: "Registration Error", 
-          description: "註冊失敗。請檢查格式或網路連線。" 
+          description: "Registration failed. Please check your input or network connection." 
         });
       }
     } finally {
@@ -155,13 +158,13 @@ export function Step1Login() {
             )}
           </div>
           <CardTitle className={`text-2xl font-black px-6 tracking-tight ${hasApplied ? 'text-primary' : 'text-destructive'}`}>
-            {hasApplied ? 'Access Pending Approval' : '該帳號未申請'}
+            {hasApplied ? 'Access Pending Approval' : 'Unregistered Account'}
           </CardTitle>
           <CardDescription className="px-10 mt-4 font-medium text-muted-foreground">
             {hasApplied ? (
-              <>您的身分 <span className="text-primary font-bold">{firebaseUser.email}</span> 正在等待管理員核准。</>
+              <>Your identity <span className="text-primary font-bold">{firebaseUser.email}</span> is awaiting administrator approval.</>
             ) : (
-              <>身分 <span className="text-destructive font-bold">{firebaseUser.email}</span> 已驗證，但尚未提交系統使用申請。</>
+              <>Identity <span className="text-destructive font-bold">{firebaseUser.email}</span> verified, but no system access request found.</>
             )}
           </CardDescription>
           <div className="p-8">
@@ -169,19 +172,19 @@ export function Step1Login() {
               <ShieldCheck className="w-5 h-5" />
               <AlertDescription className="text-xs font-bold uppercase tracking-wider ml-2 text-left">
                 {hasApplied 
-                  ? '工業安全協議要求所有新分析師需經人工審核。'
-                  : '此帳號尚未存在於核可名單中。'}
+                  ? 'Industrial security protocols require manual approval for all new analysts.'
+                  : 'This account is not yet on the approved list.'}
               </AlertDescription>
             </Alert>
           </div>
           <div className="flex flex-col gap-3 px-10">
             {!hasApplied && (
               <Button onClick={() => setMode('add')} className="bg-destructive hover:bg-destructive/90 text-white font-black py-6 rounded-xl">
-                立即進行帳號申請
+                Apply for Account Access
               </Button>
             )}
             <Button variant="outline" onClick={() => auth.signOut()} className="font-bold border-primary text-primary hover:bg-primary/5">
-              切換帳號 / 登出
+              Switch Account / Logout
             </Button>
           </div>
         </Card>
@@ -190,7 +193,25 @@ export function Step1Login() {
   }
 
   return (
-    <div className="max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
+      {loginError && (
+        <div className="fixed top-0 left-0 w-full h-full z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white p-8 rounded-[2rem] shadow-2xl max-w-xs w-full mx-4 text-center space-y-6 animate-in zoom-in-95 duration-300 relative border-2 border-destructive/10">
+            <div className="mx-auto bg-destructive/10 p-4 rounded-full w-fit">
+              <AlertCircle className="w-12 h-12 text-destructive" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-headline font-black text-3xl text-primary tracking-tight">Login Failed</h3>
+              <p className="font-bold text-muted-foreground text-sm tracking-widest pt-1">Invalid account or password</p>
+            </div>
+            <div className="pt-2">
+              <Button onClick={() => setLoginError(false)} className="w-full py-7 font-black text-xl bg-destructive hover:bg-destructive/90 rounded-2xl shadow-xl shadow-destructive/20 transition-all active:scale-95 text-white">
+                OK
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <Card className="border-none shadow-2xl bg-white/80 backdrop-blur-sm overflow-hidden">
         <div className="h-2 bg-accent w-full" />
         <CardHeader className="text-center pt-8">
@@ -202,14 +223,14 @@ export function Step1Login() {
           </CardTitle>
           <CardDescription className="font-medium">
             {mode === 'login' 
-              ? '授權人員請輸入安全密鑰。' 
-              : '新帳號需經由 ADMIN 進行人工授權。'}
+              ? 'Authorized personnel, please enter security key.' 
+              : 'New accounts require manual authorization by an ADMIN.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pb-10">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">分析師 Email</Label>
+              <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">ANALYST EMAIL</Label>
               <Input 
                 type="email" 
                 value={email} 
@@ -220,7 +241,7 @@ export function Step1Login() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">安全密鑰 (Password)</Label>
+              <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">SECURITY KEY (PASSWORD)</Label>
               <Input 
                 type="password" 
                 value={password} 
@@ -233,7 +254,7 @@ export function Step1Login() {
             {mode === 'add' && (
               <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                 <div className="space-y-2">
-                  <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">指派角色</Label>
+                  <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">ASSIGN ROLE</Label>
                   <Select value={role} onValueChange={(val: UserRole) => setRole(val)} disabled={loading}>
                     <SelectTrigger className="bg-muted/50 border-none font-bold"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -243,7 +264,7 @@ export function Step1Login() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">所屬機構名稱</Label>
+                  <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">ORGANIZATION NAME</Label>
                   <Input 
                     value={company} 
                     onChange={(e) => setCompany(e.target.value)} 
@@ -260,7 +281,7 @@ export function Step1Login() {
             disabled={loading} 
             className="w-full bg-primary hover:bg-primary/90 py-6 font-black text-lg shadow-xl shadow-primary/20 transition-all active:scale-95"
           >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'login' ? '進入系統' : '提交申請')}
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'login' ? 'ENTER SYSTEM' : 'SUBMIT APPLICATION')}
           </Button>
           <button 
             type="button" 
@@ -268,7 +289,7 @@ export function Step1Login() {
             className="w-full text-center text-xs font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest disabled:opacity-50" 
             onClick={() => setMode(mode === 'login' ? 'add' : 'login')}
           >
-            {mode === 'login' ? '新分析師？點此提交註冊申請' : '返回登入介面'}
+            {mode === 'login' ? 'New Analyst? Click here to register' : 'Return to Login'}
           </button>
         </CardContent>
       </Card>

@@ -275,15 +275,15 @@ export function Step4Refinement() {
           </div>
         </div>
 
-        <div className="flex justify-between pt-6 border-t">
-          <Button variant="ghost" onClick={() => setStep(3)} className="font-bold text-muted-foreground gap-2">
+        <div className="flex flex-col-reverse sm:flex-row justify-between gap-4 pt-6 border-t">
+          <Button variant="ghost" onClick={() => setStep(3)} className="w-full sm:w-auto font-bold text-muted-foreground gap-2">
             <ArrowLeft className="w-4 h-4" /> Physical Data
           </Button>
           <Button 
             onClick={handleNext}
-            className="bg-primary hover:bg-primary/90 text-white font-black px-12 py-6 text-lg gap-2 shadow-xl shadow-primary/20 transition-all active:scale-95"
+            className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white font-black h-auto whitespace-normal py-4 sm:px-12 sm:py-6 text-sm sm:text-lg gap-2 shadow-xl shadow-primary/20 transition-all active:scale-95"
           >
-            {isReader ? 'Next: Validation' : 'Audit & Confirm Spatial Matrix'} <ChevronRight className="w-5 h-5" />
+            {isReader ? 'Next: Validation' : 'Audit & Confirm Spatial Matrix'} <ChevronRight className="w-5 h-5 flex-shrink-0" />
           </Button>
         </div>
       </CardContent>

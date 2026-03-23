@@ -81,6 +81,72 @@ export function Step2Config() {
     toast({ title: "Profile Revoked", description: `Account ${email} removed from system.` });
   };
 
+  const ratioDocRef = useMemoFirebase(() => {
+    if (!selectedPlantId || isNewPlant || !firebaseUser) return null;
+    return doc(db, 'building_value_ratios', selectedPlantId);
+  }, [db, selectedPlantId, isNewPlant, firebaseUser]);
+  const { data: ratioStatus, isLoading: loadingRatioStatus } = useDoc(ratioDocRef);
+  const isPlantCompleted = ratioStatus?.validationStatus === 'VALIDATED';
+
+  const handleFastJumpToP6 = async () => {
+    if (!isPlantCompleted) return;
+    const selectedPlantData = allAvailablePlants?.find(p => p.id === selectedPlantId);
+    if (!selectedPlantData) return;
+
+    const plantObj = {
+      id: selectedPlantId,
+      company: selectedPlantData.companyName,
+      plantName: selectedPlantData.plantName,
+      lat: selectedPlantData.latitude ?? 24.774,
+      lon: selectedPlantData.longitude ?? 121.013,
+      fabAl: selectedPlantData.fabAboveLevel ?? 4,
+      fabBl: selectedPlantData.fabBelowLevel ?? 2,
+      cupAl: selectedPlantData.cupAboveLevel ?? 2,
+      cupBl: selectedPlantData.cupBelowLevel ?? 1,
+      fabLength: selectedPlantData.fabLength ?? 200,
+      fabWidth: selectedPlantData.fabWidth ?? 150,
+      cupLength: selectedPlantData.cupLength ?? 100,
+      cupWidth: selectedPlantData.cupWidth ?? 80,
+      pdBuilding: selectedPlantData.buildingValue ?? 500,
+      pdFacility: selectedPlantData.facilityValue ?? 200,
+      pdTools: selectedPlantData.toolsValue ?? 1500,
+      pdFixture: selectedPlantData.fixtureValue ?? 50,
+      pdStock: selectedPlantData.stockValue ?? 300,
+      bi12m: selectedPlantData.bi12mValue ?? 1000,
+    };
+    
+    try {
+      const colRef = collection(db, 'building_value_ratios', selectedPlantId, 'floor_ratios');
+      const floorRatiosSnapshot = await getDocs(colRef);
+      const remoteFloorRatios = floorRatiosSnapshot.docs.map(d => d.data());
+
+      const allFloors: string[] = [];
+      for (let i = plantObj.fabBl; i >= 1; i--) allFloors.push(`FAB-BL${i}0`);
+      for (let j = 1; j <= plantObj.fabAl; j++) allFloors.push(`FAB-L${j}0`);
+      for (let i = plantObj.cupBl; i >= 1; i--) allFloors.push(`CUP-BL${i}0`);
+      for (let j = 1; j <= plantObj.cupAl; j++) allFloors.push(`CUP-L${j}0`);
+
+      const mapped: Record<string, any> = {};
+      allFloors.forEach(f => {
+        const remoteData = remoteFloorRatios.find(r => r.floorIdentifier === f);
+        mapped[f] = {
+          bldg: remoteData?.buildingRatio ?? 0,
+          fac: remoteData?.facilityRatio ?? 0,
+          tool: remoteData?.toolsRatio ?? 0,
+          fix: remoteData?.fixtureRatio ?? 0,
+          stock: remoteData?.stockRatio ?? 0,
+        };
+      });
+
+      setPlant(plantObj);
+      setFinalRatios(mapped);
+      setIsValidated(true);
+      setStep(6);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Data Sync Failed", description: "Failed to download fast pass data." });
+    }
+  };
+
   const handleNext = () => {
     const selectedPlantData = allAvailablePlants?.find(p => p.id === selectedPlantId);
     const finalPlantName = (isNewPlant ? newPlantName : (selectedPlantData?.plantName || '')).trim();
@@ -270,17 +336,29 @@ export function Step2Config() {
             </div>
           </div>
 
-          <div className="flex justify-between pt-6 border-t-2 border-primary/5">
-            <Button variant="ghost" onClick={() => setStep(1)} className="font-black text-muted-foreground gap-2 hover:bg-primary/5 uppercase text-xs">
+          <div className="flex flex-col sm:flex-row justify-between gap-4 pt-6 border-t-2 border-primary/5">
+            <Button variant="ghost" onClick={() => setStep(1)} className="w-full sm:w-auto font-black text-muted-foreground gap-2 hover:bg-primary/5 uppercase text-xs order-last sm:order-first">
               <ArrowLeft className="w-4 h-4" /> Reset Identity
             </Button>
-            <Button 
-              onClick={handleNext} 
-              disabled={!(isNewPlant ? newPlantName : selectedPlantId) || !companyName || isUserLoading}
-              className="bg-primary hover:bg-primary/90 text-white font-black px-12 py-6 text-lg gap-3"
-            >
-              {loadingPlants ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Next: Initialization'} <ChevronRight className="w-6 h-6" />
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+              {isPlantCompleted && (
+                <Button 
+                  onClick={handleFastJumpToP6} 
+                  disabled={loadingPlants || isUserLoading || loadingRatioStatus}
+                  variant="outline"
+                  className="w-full sm:w-auto border-2 border-amber-500 text-amber-600 font-black px-6 py-6 text-sm gap-2 hover:bg-amber-50 transition-colors"
+                >
+                  <Zap className="w-4 h-4" /> Fast Pass to P6
+                </Button>
+              )}
+              <Button 
+                onClick={handleNext} 
+                disabled={!(isNewPlant ? newPlantName : selectedPlantId) || !companyName || isUserLoading}
+                className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white font-black px-12 py-6 text-lg gap-3"
+              >
+                {loadingPlants ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Next: Initialization'} <ChevronRight className="w-6 h-6" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

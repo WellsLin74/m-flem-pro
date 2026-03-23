@@ -1,0 +1,7 @@
+{
+  "apphosting": {
+    "backendId": "m-flem-pro",
+    "rootDir": ".",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  }
+}

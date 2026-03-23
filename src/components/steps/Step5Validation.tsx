@@ -317,20 +317,20 @@ export function Step5Validation() {
           </div>
         </div>
 
-        <div className="flex justify-between items-center pt-8 border-t">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pt-8 border-t">
           <Button 
             variant="ghost" 
             onClick={() => setStep(4)} 
-            className="font-bold text-muted-foreground gap-2 hover:bg-primary/5 transition-all"
+            className="w-full sm:w-auto font-bold text-muted-foreground gap-2 hover:bg-primary/5 transition-all order-last sm:order-first"
           >
             <ArrowLeft className="w-5 h-5" /> Spatial Refinement
           </Button>
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
             {!isReader && (
               <Button 
                 variant="outline"
                 onClick={validate}
-                className="border-2 border-primary text-primary font-black hover:bg-primary hover:text-white px-8 h-12 rounded-xl transition-all active:scale-95"
+                className="w-full sm:w-auto border-2 border-primary text-primary font-black hover:bg-primary hover:text-white px-8 h-12 rounded-xl transition-all active:scale-95"
               >
                 Run Audit & Lock
               </Button>
@@ -338,9 +338,9 @@ export function Step5Validation() {
             <Button 
               disabled={!isValidated && !isReader}
               onClick={() => setStep(6)}
-              className="bg-primary hover:bg-primary/90 text-white font-black px-12 h-12 rounded-xl gap-2 shadow-xl shadow-primary/20 transition-all hover:translate-x-1 disabled:opacity-40"
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white font-black px-12 h-12 rounded-xl gap-2 shadow-xl shadow-primary/20 transition-all sm:hover:translate-x-1 disabled:opacity-40"
             >
-              Risk Analysis <ChevronRight className="w-5 h-5" />
+              Risk Analysis <ChevronRight className="w-5 h-5 flex-shrink-0" />
             </Button>
           </div>
         </div>

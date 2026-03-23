@@ -1,0 +1,25 @@
+{
+  "status": "success",
+  "result": [
+    {
+      "name": "projects/studio-6149430667-dcafe/locations/us-central1/backends/studio",
+      "createTime": "2026-03-18T05:27:35.174357609Z",
+      "updateTime": "2026-03-18T07:36:14.726189Z",
+      "uri": "studio--studio-6149430667-dcafe.us-central1.hosted.app",
+      "managedResources": [
+        {
+          "runService": {
+            "service": "projects/492472687669/locations/us-central1/services/studio"
+          }
+        }
+      ],
+      "displayName": "Studio",
+      "uid": "d0f5b754-b89a-4371-9d66-645718bf3876",
+      "etag": "PxkZ2NNwhiLFcXj6N9ATWSKfQlsllwl3bXB16t4zqHE",
+      "reconciling": false,
+      "servingLocality": "GLOBAL_ACCESS",
+      "serviceAccount": "firebase-app-hosting-compute@studio-6149430667-dcafe.iam.gserviceaccount.com",
+      "appId": "1:492472687669:web:984946a276a2441ba5257c"
+    }
+  ]
+}
