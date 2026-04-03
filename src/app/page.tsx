@@ -1,11 +1,20 @@
 'use client';
 
+import { Navigation } from '@/components/Navigation';
+import { Wizard } from '@/components/Wizard';
+
 export default function Home() {
   return (
-    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f0f0' }}>
-      <h1 style={{ fontFamily: 'sans-serif', fontWeight: '900', fontSize: '3rem', color: '#333' }}>
-        BUILD SYSTEM ISOLATION TEST: ACTIVE
-      </h1>
+    <div className="min-h-screen flex flex-col">
+      <Navigation />
+      <main className="flex-1">
+        <Wizard />
+      </main>
+      <footer className="py-6 border-t bg-white/50 text-center">
+        <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+          © 2026 Marsh Flood Loss Estimation Model
+        </p>
+      </footer>
     </div>
   );
 }
