@@ -34,7 +34,8 @@ const nextConfig = {
   serverExternalPackages: ['genkit', '@genkit-ai/vertexai'],
   experimental: {
     webpackMemoryOptimizations: true,
-    webpackBuildWorker: true,
+    webpackBuildWorker: false,
+    parallelServerCompiles: false,
   },
 };
 
