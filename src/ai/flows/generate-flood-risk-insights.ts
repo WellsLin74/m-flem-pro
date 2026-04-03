@@ -4,8 +4,6 @@
  * 
  * - generateFloodRiskInsights - A function that provides narrative insights and detailed explanations
  *   for calculated flood loss estimations and suggested ratios.
- * - GenerateFloodRiskInsightsInput - The input type for the generateFloodRiskInsights function.
- * - GenerateFloodRiskInsightsOutput - The return type for the generateFloodRiskInsights function.
  */
 
 import {ai} from '@/ai/genkit';
@@ -31,36 +29,33 @@ const GenerateFloodRiskInsightsInputSchema = z.object({
   ffsL10LossRatio: z.number().min(0).max(1).describe('Loss ratio for facility, fixture, and stock assets at L10 height (0-1).'),
   totalLossEstimateM: z.number().describe('Total estimated flood loss in million NTD.'),
 });
-export type GenerateFloodRiskInsightsInput = z.infer<typeof GenerateFloodRiskInsightsInputSchema>;
 
 const GenerateFloodRiskInsightsOutputSchema = z.object({
   insights: z.string().describe('Narrative insights and detailed explanations of flood risk and loss estimation.')
 });
+
+export type GenerateFloodRiskInsightsInput = z.infer<typeof GenerateFloodRiskInsightsInputSchema>;
 export type GenerateFloodRiskInsightsOutput = z.infer<typeof GenerateFloodRiskInsightsOutputSchema>;
 
-/**
- * Public wrapper for the flood risk insights flow.
- */
-export async function generateFloodRiskInsights(
-  input: GenerateFloodRiskInsightsInput
-): Promise<string> {
-  const result = await generateFloodRiskInsightsFlow(input);
-  return result.insights;
-}
+// Lazy registration variables
+let _prompt: any = null;
+let _flow: any = null;
 
-const prompt = ai.definePrompt({
-  name: 'floodRiskInsightsPrompt',
-  input: {schema: GenerateFloodRiskInsightsInputSchema},
-  output: {schema: GenerateFloodRiskInsightsOutputSchema},
-  config: {
-    safetySettings: [
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-    ],
-  },
-  prompt: `You are an expert risk analyst specializing in industrial flood damage assessment.
+function getPrompt() {
+  if (!_prompt) {
+    _prompt = ai.definePrompt({
+      name: 'floodRiskInsightsPrompt',
+      input: {schema: GenerateFloodRiskInsightsInputSchema},
+      output: {schema: GenerateFloodRiskInsightsOutputSchema},
+      config: {
+        safetySettings: [
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        ],
+      },
+      prompt: `You are an expert risk analyst specializing in industrial flood damage assessment.
 Your task is to provide comprehensive narrative insights and detailed explanations for flood loss estimations.
 
 Analyze the following data for the plant located at {{companyName}} - {{plantName}}:
@@ -95,24 +90,44 @@ Based on this information, provide a detailed analysis covering:
 4.  **Implications and Recommendations (General):** Suggest general strategies for mitigation or further investigation based on the analysis. Keep recommendations high-level and focused on risk management.
 
 Ensure your explanation is clear, concise, and uses professional language suitable for a plant manager.`,
-});
-
-const generateFloodRiskInsightsFlow = ai.defineFlow(
-  {
-    name: 'generateFloodRiskInsightsFlow',
-    inputSchema: GenerateFloodRiskInsightsInputSchema,
-    outputSchema: GenerateFloodRiskInsightsOutputSchema,
-  },
-  async (input) => {
-    try {
-      const {output} = await prompt(input);
-      if (!output || !output.insights) {
-        return { insights: "AI Simulation Error: The model could not generate a narrative at this time." };
-      }
-      return output;
-    } catch (error) {
-      console.error('Flow execution failed:', error);
-      return { insights: "System Alert: The AI insights engine encountered a runtime exception." };
-    }
+    });
   }
-);
+  return _prompt;
+}
+
+function getFlow() {
+  if (!_flow) {
+    _flow = ai.defineFlow(
+      {
+        name: 'generateFloodRiskInsightsFlow',
+        inputSchema: GenerateFloodRiskInsightsInputSchema,
+        outputSchema: GenerateFloodRiskInsightsOutputSchema,
+      },
+      async (input) => {
+        try {
+          const prompt = getPrompt();
+          const {output} = await prompt(input);
+          if (!output || !output.insights) {
+            return { insights: "AI Simulation Error: The model could not generate a narrative at this time." };
+          }
+          return output;
+        } catch (error) {
+          console.error('Flow execution failed:', error);
+          return { insights: "System Alert: The AI insights engine encountered a runtime exception." };
+        }
+      }
+    );
+  }
+  return _flow;
+}
+
+/**
+ * Public wrapper for the flood risk insights flow.
+ */
+export async function generateFloodRiskInsights(
+  input: GenerateFloodRiskInsightsInput
+): Promise<string> {
+  const flow = getFlow();
+  const result = await flow(input);
+  return result.insights;
+}

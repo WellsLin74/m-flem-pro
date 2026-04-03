@@ -185,7 +185,7 @@ export function Step4Refinement() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-4 p-6 rounded-2xl bg-primary/5 border border-primary/10 h-fit">
             <h3 className="font-headline font-bold text-sm text-primary uppercase tracking-widest flex items-center gap-2">
-              <Percent className="w-4 h-4" /> Ratio Constraints
+              Ratio Constraints
             </h3>
             <p className="text-[10px] font-bold text-muted-foreground leading-relaxed uppercase">
               Each row in the FAB Matrix must sum to exactly 1.0. This ensures 100% of the floor space is accounted for.
@@ -225,8 +225,8 @@ export function Step4Refinement() {
                 <TableHeader className="bg-muted/90 sticky top-0 z-10 shadow-sm border-b-2">
                   <TableRow>
                     <TableHead className="text-[10px] font-black uppercase text-primary px-6">Floor Identifier</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-primary text-right px-4">Facility % (0-1)</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-primary text-right px-4">Cleanroom % (0-1)</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-primary text-right px-4">Facility RATIO (0-1)</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-primary text-right px-4">Cleanroom RATIO (0-1)</TableHead>
                     <TableHead className="text-[10px] font-black uppercase text-primary text-right px-4">Row Sum</TableHead>
                   </TableRow>
                 </TableHeader>

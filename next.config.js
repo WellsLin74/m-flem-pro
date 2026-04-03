@@ -1,6 +1,5 @@
-import type {NextConfig} from 'next';
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,
@@ -8,6 +7,7 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  swcMinify: true, // Recommended for memory efficiency and performance
   images: {
     remotePatterns: [
       {
@@ -30,6 +30,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  output: 'standalone',
+  serverExternalPackages: ['genkit', '@genkit-ai/vertexai'],
 };
 
-export default nextConfig;
+module.exports = nextConfig;

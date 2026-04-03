@@ -2,6 +2,16 @@
   "apphosting": {
     "backendId": "m-flem-pro",
     "rootDir": ".",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "tsconfig.tsbuildinfo",
+      "*.log",
+      "*.txt",
+      ".agents",
+      "docs",
+      "studio.json"
+    ]
   }
 }

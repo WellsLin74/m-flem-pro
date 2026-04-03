@@ -133,7 +133,7 @@ export function Step5Validation() {
 
   const handleUpdate = (floor: string, field: keyof FinalRatio, value: string) => {
     if (isReader) return;
-    const num = parseFloat(value) || 0;
+    const num = (parseFloat(value) || 0) / 100;
     setLocalRatios(prev => ({
       ...prev,
       [floor]: { ...prev[floor], [field]: num }
@@ -230,7 +230,7 @@ export function Step5Validation() {
               <div className="ml-2">
                 <AlertTitle className="font-black text-sm uppercase">Audit Required</AlertTitle>
                 <AlertDescription className="text-xs font-bold opacity-90">
-                  Asset columns must sum to exactly 1.0000. Current matrix is out of balance.
+                  Asset columns must sum to exactly 100. Current matrix is out of balance.
                 </AlertDescription>
               </div>
             </Alert>
@@ -282,7 +282,7 @@ export function Step5Validation() {
                       <TableCell key={field} className="py-1 px-2 border-r">
                         <Input 
                           type="number" step="0.0001"
-                          value={localRatios[floor]?.[field as keyof FinalRatio] ?? 0}
+                          value={Number(((localRatios[floor]?.[field as keyof FinalRatio] ?? 0) * 100).toFixed(4))}
                           onChange={(e) => handleUpdate(floor, field as keyof FinalRatio, e.target.value)}
                           disabled={isReader || ((field === 'tool' || field === 'fix') && floor.startsWith('CUP'))}
                           className="h-8 border-none bg-transparent font-mono text-xs text-right font-black focus-visible:bg-white focus-visible:ring-1"
@@ -297,19 +297,19 @@ export function Step5Validation() {
                 <TableRow className="hover:bg-primary">
                   <TableCell className="text-[11px] uppercase tracking-widest border-r py-4 px-6">Cumulative Totals</TableCell>
                   <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.bldg - 1) < 0.001 ? 'text-accent' : 'text-red-400 underline'}`}>
-                    {sums.bldg.toFixed(4)}
+                    {(sums.bldg * 100).toFixed(4)}
                   </TableCell>
                   <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.fac - 1) < 0.001 ? 'text-accent' : 'text-red-400 underline'}`}>
-                    {sums.fac.toFixed(4)}
+                    {(sums.fac * 100).toFixed(4)}
                   </TableCell>
                   <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.tool - 1) < 0.001 ? 'text-accent' : 'text-red-400 underline'}`}>
-                    {sums.tool.toFixed(4)}
+                    {(sums.tool * 100).toFixed(4)}
                   </TableCell>
                   <TableCell className={`text-right font-mono text-xs px-4 border-r ${Math.abs(sums.fix - 1) < 0.001 ? 'text-accent' : 'text-red-400 underline'}`}>
-                    {sums.fix.toFixed(4)}
+                    {(sums.fix * 100).toFixed(4)}
                   </TableCell>
                   <TableCell className={`text-right font-mono text-xs px-4 ${sums.stock <= 1.0001 ? 'text-accent' : 'text-red-400 underline'}`}>
-                    {sums.stock.toFixed(4)}
+                    {(sums.stock * 100).toFixed(4)}
                   </TableCell>
                 </TableRow>
               </TableFooter>

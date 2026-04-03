@@ -348,7 +348,7 @@ export function Step2Config() {
                   variant="outline"
                   className="w-full sm:w-auto border-2 border-amber-500 text-amber-600 font-black px-6 py-6 text-sm gap-2 hover:bg-amber-50 transition-colors"
                 >
-                  <Zap className="w-4 h-4" /> Fast Pass to P6
+                  <Zap className="w-4 h-4" /> Fast Pass to STEP6
                 </Button>
               )}
               <Button 
