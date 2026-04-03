@@ -32,6 +32,10 @@ const nextConfig = {
   },
   output: 'standalone',
   serverExternalPackages: ['genkit', '@genkit-ai/vertexai'],
+  experimental: {
+    webpackMemoryOptimizations: true,
+    webpackBuildWorker: true,
+  },
 };
 
 module.exports = nextConfig;
