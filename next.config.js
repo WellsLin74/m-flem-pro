@@ -31,11 +31,10 @@ const nextConfig = {
     ],
   },
   output: 'standalone',
+  productionBrowserSourceMaps: false,
   serverExternalPackages: [],
   experimental: {
     webpackMemoryOptimizations: true,
-    webpackBuildWorker: false,
-    parallelServerCompiles: false,
   },
 };
 
