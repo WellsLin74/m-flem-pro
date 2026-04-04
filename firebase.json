@@ -1,17 +1,30 @@
 {
-  "apphosting": {
-    "backendId": "m-flem-pro",
-    "rootDir": ".",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**",
-      "tsconfig.tsbuildinfo",
-      "*.log",
-      "*.txt",
-      ".agents",
-      "docs",
-      "studio.json"
-    ]
-  }
+  "apphosting": [
+    {
+      "backendId": "m-flem-pro",
+      "rootDir": ".",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**",
+        "tsconfig.tsbuildinfo",
+        "*.log",
+        "*.txt",
+        ".agents",
+        "docs",
+        "studio.json"
+      ]
+    },
+    {
+      "backendId": "m-flem-pro",
+      "rootDir": "/",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "functions"
+      ]
+    }
+  ]
 }
