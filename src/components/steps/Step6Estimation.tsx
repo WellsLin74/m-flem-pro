@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { EstimationInputs } from './estimation/EstimationInputs';
 import { AnalysisTable } from './estimation/AnalysisTable';
 import { ImpactSummary } from './estimation/ImpactSummary';
+import { downloadExcelReport } from '@/lib/export-utils';
 
 export function Step6Estimation() {
   const { plant, finalRatios, refinement, setStep } = useAppStore();
@@ -130,14 +131,27 @@ export function Step6Estimation() {
   };
 
   const handleDownloadExcel = async () => {
-    if (!plant || !finalRatios || !refinement) return;
-    const XLSX = await import('xlsx');
-    const wsData: any[][] = [[`M-FLEM Pro Integrated Report - ${plant.company} ${plant.plantName}`], []];
-    wsData.push(['--- Organization & Plant Configuration ---'], ['Company', plant.company], ['Site', plant.plantName], [`${plant.lat}, ${plant.lon}`], []);
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "M-FLEM Report");
-    XLSX.writeFile(wb, `MFLE_REPORT_${plant.company.replace(/\s+/g, '_')}.xlsx`);
+    if (!plant || !finalRatios || !refinement) {
+      toast({ 
+        variant: "destructive", 
+        title: "Missing Data", 
+        description: "Export is unavailable because some step data is missing." 
+      });
+      return;
+    }
+    
+    await downloadExcelReport({
+      plant,
+      finalRatios,
+      refinement,
+      fabL10Height,
+      cupL10Height,
+      floodHeight,
+      fabLoss,
+      cupLoss,
+      totalLoss,
+      assetDistribution
+    });
   };
 
   const formatNum = (val: number) => val.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
