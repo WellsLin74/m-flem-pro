@@ -35,6 +35,9 @@ const nextConfig = {
   serverExternalPackages: [],
   experimental: {
     webpackMemoryOptimizations: true,
+    webpackBuildWorker: false,
+    parallelServerCompiles: false,
+    optimizePackageImports: ['lucide-react', 'recharts', 'date-fns', 'xlsx', 'zod'],
   },
 };
 
