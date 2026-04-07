@@ -61,4 +61,29 @@
   body {
     @apply bg-background text-foreground font-body;
   }
+
+  /* Splash Screen Animations */
+  @keyframes splash-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 0 rgba(77, 124, 255, 0)); }
+    50% { opacity: 0.85; transform: scale(0.98); filter: drop-shadow(0 0 25px rgba(77, 124, 255, 0.4)); }
+  }
+
+  @keyframes splash-logo-in {
+    0% { opacity: 0; transform: translateY(20px) scale(0.9); filter: blur(10px); }
+    100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+
+  @keyframes splash-text-reveal {
+    0% { opacity: 0; letter-spacing: 0.5em; filter: blur(5px); }
+    100% { opacity: 1; letter-spacing: 0.3em; filter: blur(0); }
+  }
+
+  .animate-splash-logo {
+    animation: splash-logo-in 1s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+               splash-pulse 3s ease-in-out infinite 1s;
+  }
+
+  .animate-splash-text {
+    animation: splash-text-reveal 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards 0.3s;
+  }
 }

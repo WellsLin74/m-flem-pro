@@ -88,7 +88,7 @@ export function Step2Config() {
   const { data: ratioStatus, isLoading: loadingRatioStatus } = useDoc(ratioDocRef);
   const isPlantCompleted = ratioStatus?.validationStatus === 'VALIDATED';
 
-  const handleFastJumpToP6 = async () => {
+  const handleFastJumpToSTEP6 = async () => {
     if (!isPlantCompleted) return;
     const selectedPlantData = allAvailablePlants?.find(p => p.id === selectedPlantId);
     if (!selectedPlantData) return;
@@ -343,7 +343,7 @@ export function Step2Config() {
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
               {isPlantCompleted && (
                 <Button 
-                  onClick={handleFastJumpToP6} 
+                  onClick={handleFastJumpToSTEP6} 
                   disabled={loadingPlants || isUserLoading || loadingRatioStatus}
                   variant="outline"
                   className="w-full sm:w-auto border-2 border-amber-500 text-amber-600 font-black px-6 py-6 text-sm gap-2 hover:bg-amber-50 transition-colors"

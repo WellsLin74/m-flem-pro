@@ -14,7 +14,8 @@ export async function downloadExcelReport({
   fabLoss,
   cupLoss,
   totalLoss,
-  assetDistribution
+  assetDistribution,
+  ratios
 }: any) {
   if (!plant || !finalRatios) return;
 
@@ -57,13 +58,13 @@ export async function downloadExcelReport({
   // 4. Step 5: Financial Asset Distribution Matrix
   wsData.push(['--- Financial Asset Distribution Matrix (Step 5) ---']);
   wsData.push(['Floor Identifier', 'Building Ratio', 'Facility Ratio', 'Tools Ratio', 'Fixture Ratio', 'Stock Ratio']);
-  Object.entries(finalRatios).forEach(([floor, ratios]: [string, any]) => {
-    wsData.push([floor, ratios.bldg, ratios.fac, ratios.tool, ratios.fix, ratios.stock]);
+  Object.entries(finalRatios).forEach(([floor, rats]: [string, any]) => {
+    wsData.push([floor, rats.bldg, rats.fac, rats.tool, rats.fix, rats.stock]);
   });
   wsData.push([]);
 
   // 5. Step 6: Risk Estimation Profile
-  wsData.push(['--- Risk Estimation Profile (Step 6 Overview) ---']);
+  wsData.push(['--- Risk Estimation Profile (STEP6 Overview) ---']);
   wsData.push(['Metric', 'Value']);
   wsData.push(['FAB L10 Height (m)', fabL10Height]);
   wsData.push(['CUP L10 Height (m)', cupL10Height]);
@@ -79,8 +80,8 @@ export async function downloadExcelReport({
     wsData.push(['Level', 'Metric', 'Building', 'Tools', 'Facility', 'Fixture', 'Stock']);
     
     const fabLevels = [
-      { name: 'Basement', dist: assetDistribution.fabBs },
-      { name: 'L10 Level', dist: assetDistribution.fabL10Floor }
+      { name: 'Basement', dist: assetDistribution.fabBs, suffix: 'Bs' },
+      { name: 'L10 Level', dist: assetDistribution.fabL10Floor, suffix: 'L10' }
     ];
     
     fabLevels.forEach(level => {
@@ -92,8 +93,40 @@ export async function downloadExcelReport({
           if (metric === 'VALUE') {
             row.push(Number(baseVal.toFixed(2)));
           } else {
-            // Note: In a real app we'd need the exact ratios used in Step 6, but we can reconstruct or pass them
-            row.push('Refer to Summary'); 
+            // Mapping to ratios key, e.g., fabBldgBs
+            const ratioKeyPrefix = 'fab';
+            const ratioKeyMid = key.charAt(0).toUpperCase() + key.slice(1);
+            const ratioKey = `${ratioKeyPrefix}${ratioKeyMid}${level.suffix}`;
+            const lossRatio = ratios?.[ratioKey] ?? 0;
+            const lossVal = baseVal * (lossRatio / 100);
+            row.push(Number(lossVal.toFixed(2)));
+          }
+        });
+        wsData.push(row);
+      });
+    });
+    wsData.push([]);
+
+    wsData.push(['--- CUP Building Loss Analysis Detail ---']);
+    wsData.push(['Level', 'Metric', 'Building', 'Facility']);
+    const cupLevels = [
+      { name: 'Basement', dist: assetDistribution.cupBs, suffix: 'Bs' },
+      { name: 'L10 Level', dist: assetDistribution.cupL10Floor, suffix: 'L10' }
+    ];
+    cupLevels.forEach(level => {
+      ['VALUE', 'LOSS'].forEach(metric => {
+        const row: (string | number)[] = [level.name, metric];
+        ['bldg', 'fac'].forEach(key => {
+          const baseVal = (key === 'bldg' ? plant.pdBuilding : plant.pdFacility) * (level.dist as any)[`${key}Ratio`];
+          if (metric === 'VALUE') {
+            row.push(Number(baseVal.toFixed(2)));
+          } else {
+            const ratioKeyPrefix = 'cup';
+            const ratioKeyMid = key.charAt(0).toUpperCase() + key.slice(1);
+            const ratioKey = `${ratioKeyPrefix}${ratioKeyMid}${level.suffix}`;
+            const lossRatio = ratios?.[ratioKey] ?? 0;
+            const lossVal = baseVal * (lossRatio / 100);
+            row.push(Number(lossVal.toFixed(2)));
           }
         });
         wsData.push(row);

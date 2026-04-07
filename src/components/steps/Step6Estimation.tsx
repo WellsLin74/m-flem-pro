@@ -150,7 +150,8 @@ export function Step6Estimation() {
       fabLoss,
       cupLoss,
       totalLoss,
-      assetDistribution
+      assetDistribution,
+      ratios
     });
   };
 
