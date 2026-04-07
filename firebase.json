@@ -14,17 +14,6 @@
         "docs",
         "studio.json"
       ]
-    },
-    {
-      "backendId": "m-flem-pro",
-      "rootDir": "/",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "functions"
-      ]
     }
   ]
 }

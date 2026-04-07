@@ -7,17 +7,19 @@ runConfig:
   maxInstances: 1
 
 # Environment variables and secrets.
-# env:
-  # Configure environment variables.
-  # See https://firebase.google.com/docs/app-hosting/configure#user-defined-environment
-  # - variable: MESSAGE
-  #   value: Hello world!
-  #   availability:
-  #     - BUILD
-  #     - RUNTIME
-
-  # Grant access to secrets in Cloud Secret Manager.
-  # You can create secrets with the CLI command `firebase apphosting:secrets:set <secretName>`.
-  # See https://firebase.google.com/docs/app-hosting/configure#secret-parameters
-  # - variable: MY_SECRET
-  #   secret: mySecretRef
+env:
+  - variable: NEXT_SKIP_TYPESCRIPT_CHECK
+    value: "1"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_SKIP_ESLINT
+    value: "1"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_TELEMETRY_DISABLED
+    value: "1"
+    availability:
+      - BUILD
+      - RUNTIME
