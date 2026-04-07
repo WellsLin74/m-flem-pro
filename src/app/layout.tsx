@@ -3,8 +3,6 @@ import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Toaster } from '@/components/ui/toaster';
 
-export const dynamic = 'force-dynamic';
-
 export const metadata: Metadata = {
   title: 'M-FLEM Pro | Advanced Flood Loss Estimation',
   description: 'Enterprise industrial flood risk and financial impact modeling system.',

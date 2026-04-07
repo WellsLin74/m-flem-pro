@@ -7,7 +7,6 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  swcMinify: false, // Disabled to reduce peak memory during build
   images: {
     remotePatterns: [
       {
@@ -33,9 +32,6 @@ const nextConfig = {
   output: 'standalone',
   productionBrowserSourceMaps: false,
   serverExternalPackages: [],
-  experimental: {
-    cpus: 1,
-  },
 };
 
 module.exports = nextConfig;
