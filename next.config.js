@@ -7,7 +7,7 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  swcMinify: true, // Recommended for memory efficiency and performance
+  swcMinify: false, // Disabled to reduce peak memory during build
   images: {
     remotePatterns: [
       {
@@ -38,7 +38,7 @@ const nextConfig = {
     webpackBuildWorker: true,
     parallelServerCompiles: false,
     cpus: 1,
-    optimizePackageImports: ['lucide-react', 'recharts', 'date-fns', 'xlsx', 'zod'],
+    optimizePackageImports: ['lucide-react', 'date-fns', 'xlsx', 'zod'],
   },
 };
 
