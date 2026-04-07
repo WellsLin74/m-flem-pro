@@ -38,7 +38,6 @@ const nextConfig = {
     webpackBuildWorker: false,
     parallelServerCompiles: false,
     cpus: 1,
-    optimizePackageImports: ['lucide-react', 'date-fns', 'xlsx', 'zod'],
   },
 };
 
