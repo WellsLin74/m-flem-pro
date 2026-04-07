@@ -34,9 +34,6 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   serverExternalPackages: [],
   experimental: {
-    webpackMemoryOptimizations: true,
-    webpackBuildWorker: false,
-    parallelServerCompiles: false,
     cpus: 1,
   },
 };
