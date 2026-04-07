@@ -23,3 +23,7 @@ env:
     availability:
       - BUILD
       - RUNTIME
+  - variable: NODE_OPTIONS
+    value: "--max-old-space-size=1536"
+    availability:
+      - BUILD
