@@ -30,13 +30,14 @@ const nextConfig = {
       },
     ],
   },
-  output: 'standalone',
+  // output: 'standalone',
   productionBrowserSourceMaps: false,
   serverExternalPackages: [],
   experimental: {
     webpackMemoryOptimizations: true,
-    webpackBuildWorker: false,
+    webpackBuildWorker: true,
     parallelServerCompiles: false,
+    cpus: 1,
     optimizePackageImports: ['lucide-react', 'recharts', 'date-fns', 'xlsx', 'zod'],
   },
 };
