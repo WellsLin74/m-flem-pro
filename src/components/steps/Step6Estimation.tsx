@@ -5,12 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { TrendingDown, Waves, ArrowLeft, Building2, Factory, Image as ImageIcon, ShieldAlert, FileSpreadsheet } from 'lucide-react';
+import TrendingDown from 'lucide-react/dist/esm/icons/trending-down';
+import Waves from 'lucide-react/dist/esm/icons/waves';
+import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
+import Building2 from 'lucide-react/dist/esm/icons/building-2';
+import Factory from 'lucide-react/dist/esm/icons/factory';
+import ImageIcon from 'lucide-react/dist/esm/icons/image';
+import ShieldAlert from 'lucide-react/dist/esm/icons/shield-alert';
+import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { toJpeg } from 'html-to-image';
-import * as XLSX from 'xlsx';
 import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -139,6 +144,7 @@ export function Step6Estimation() {
   const handleDownloadJpg = async () => {
     if (reportRef.current === null) return;
     try {
+      const { toJpeg } = await import('html-to-image');
       const dataUrl = await toJpeg(reportRef.current, { 
         quality: 0.95, 
         backgroundColor: '#f8fafc',
@@ -155,7 +161,7 @@ export function Step6Estimation() {
     }
   };
 
-  const handleDownloadExcel = () => {
+  const handleDownloadExcel = async () => {
     if (!plant || !finalRatios) return;
     
     if (!refinement) {
@@ -166,7 +172,8 @@ export function Step6Estimation() {
       });
       return;
     }
-    
+
+    const XLSX = await import('xlsx');
     const wsData: any[][] = [];
     wsData.push([`M-FLEM Pro Integrated Report - ${plant.company} ${plant.plantName}`]);
     wsData.push([]);

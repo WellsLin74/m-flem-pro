@@ -30,7 +30,7 @@ const nextConfig = {
       },
     ],
   },
-  // output: 'standalone',
+  output: 'standalone',
   productionBrowserSourceMaps: false,
   serverExternalPackages: [],
   experimental: {

@@ -3,7 +3,9 @@
 
 import { useAppStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
-import { LogOut, User as UserIcon, Shield } from 'lucide-react';
+import LogOut from 'lucide-react/dist/esm/icons/log-out';
+import UserIcon from 'lucide-react/dist/esm/icons/user';
+import Shield from 'lucide-react/dist/esm/icons/shield';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useEffect } from 'react';
