@@ -24,8 +24,8 @@ export function Step6Estimation() {
   const { plant, finalRatios, refinement, setStep } = useAppStore();
   const db = useFirestore();
   const { toast } = useToast();
-  const [fabL10Height, setFabL10Height] = useState(0);
-  const [cupL10Height, setCupL10Height] = useState(0);
+  const fabL10Height = plant?.fabL10Height || 0;
+  const cupL10Height = plant?.cupL10Height || 0;
   const [floodHeight, setFloodHeight] = useState(0);
   const reportRef = useRef<HTMLDivElement>(null);
   
@@ -185,9 +185,10 @@ export function Step6Estimation() {
           </CardHeader>
           <CardContent className="space-y-10">
             <EstimationInputs 
-              fabL10Height={fabL10Height} setFabL10Height={setFabL10Height}
-              cupL10Height={cupL10Height} setCupL10Height={setCupL10Height}
-              floodHeight={floodHeight} setFloodHeight={setFloodHeight}
+              fabL10Height={fabL10Height}
+              cupL10Height={cupL10Height}
+              floodHeight={floodHeight}
+              setFloodHeight={setFloodHeight}
               onCalculate={calculate}
             />
 

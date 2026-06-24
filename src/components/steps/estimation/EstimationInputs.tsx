@@ -6,9 +6,7 @@ import { Button } from '@/components/ui/button';
 
 interface EstimationInputsProps {
   fabL10Height: number;
-  setFabL10Height: (val: number) => void;
   cupL10Height: number;
-  setCupL10Height: (val: number) => void;
   floodHeight: number;
   setFloodHeight: (val: number) => void;
   onCalculate: () => void;
@@ -16,32 +14,20 @@ interface EstimationInputsProps {
 
 export function EstimationInputs({
   fabL10Height,
-  setFabL10Height,
   cupL10Height,
-  setCupL10Height,
   floodHeight,
   setFloodHeight,
   onCalculate
 }: EstimationInputsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-8 rounded-3xl bg-primary/5 border border-primary/10 shadow-inner">
-      <div className="space-y-3 text-center">
-        <Label className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">FAB L10 Height (m)</Label>
-        <Input 
-          type="number" step="0.1" 
-          value={fabL10Height || ''} 
-          onChange={(e) => setFabL10Height(parseFloat(e.target.value) || 0)}
-          className="bg-white border-2 border-primary/10 font-mono text-xl font-black text-center h-14 rounded-xl"
-        />
+      <div className="flex flex-col items-center justify-center p-4 bg-white/60 rounded-2xl border border-primary/5 shadow-sm text-center space-y-2">
+        <Label className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">FAB L10 Height Benchmark</Label>
+        <span className="font-mono text-2xl font-black text-primary">{fabL10Height} m</span>
       </div>
-      <div className="space-y-3 text-center">
-        <Label className="text-[10px] font-black text-primary-foreground bg-primary px-2 py-0.5 rounded uppercase tracking-[0.2em]">CUP L10 Height (m)</Label>
-        <Input 
-          type="number" step="0.1" 
-          value={cupL10Height || ''} 
-          onChange={(e) => setCupL10Height(parseFloat(e.target.value) || 0)}
-          className="bg-white border-2 border-primary/20 font-mono text-xl font-black text-center h-14 rounded-xl"
-        />
+      <div className="flex flex-col items-center justify-center p-4 bg-white/60 rounded-2xl border border-primary/5 shadow-sm text-center space-y-2">
+        <Label className="text-[10px] font-black text-primary-foreground bg-primary px-2 py-0.5 rounded uppercase tracking-[0.2em] w-fit">CUP L10 Height Benchmark</Label>
+        <span className="font-mono text-2xl font-black text-primary">{cupL10Height} m</span>
       </div>
       <div className="space-y-3 text-center">
         <Label className="text-[10px] font-black text-accent uppercase tracking-[0.2em]">Flood Height AGL (m)</Label>

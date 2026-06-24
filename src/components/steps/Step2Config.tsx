@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Factory, ChevronRight, ArrowLeft, PlusCircle, Shield, Loader2, Zap, UserCheck, CheckCircle, Clock, Trash2, Users, RefreshCw } from 'lucide-react';
+import { Building2, Factory, ChevronRight, ArrowLeft, PlusCircle, Shield, Loader2, Zap, UserCheck, CheckCircle, Clock, Trash2, Users, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -53,6 +53,8 @@ export function Step2Config() {
   const [selectedPlantId, setSelectedPlantId] = useState<string>('');
   const [newPlantName, setNewPlantName] = useState('');
   const [isNewPlant, setIsNewPlant] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [fastPassLoading, setFastPassLoading] = useState(false);
 
   useEffect(() => {
     if (assignedCompany && !companyName) setCompanyName(assignedCompany);
@@ -93,6 +95,7 @@ export function Step2Config() {
     const selectedPlantData = allAvailablePlants?.find(p => p.id === selectedPlantId);
     if (!selectedPlantData) return;
 
+    setFastPassLoading(true);
     const plantObj = {
       id: selectedPlantId,
       company: selectedPlantData.companyName,
@@ -113,6 +116,8 @@ export function Step2Config() {
       pdFixture: selectedPlantData.fixtureValue ?? 50,
       pdStock: selectedPlantData.stockValue ?? 300,
       bi12m: selectedPlantData.bi12mValue ?? 1000,
+      fabL10Height: selectedPlantData.fabL10Height ?? 0,
+      cupL10Height: selectedPlantData.cupL10Height ?? 0,
     };
     
     try {
@@ -144,6 +149,8 @@ export function Step2Config() {
       setStep(6);
     } catch (e) {
       toast({ variant: "destructive", title: "Data Sync Failed", description: "Failed to download fast pass data." });
+    } finally {
+      setFastPassLoading(false);
     }
   };
 
@@ -185,6 +192,8 @@ export function Step2Config() {
       pdFixture: selectedPlantData?.fixtureValue ?? 50,
       pdStock: selectedPlantData?.stockValue ?? 300,
       bi12m: selectedPlantData?.bi12mValue ?? 1000,
+      fabL10Height: selectedPlantData?.fabL10Height ?? 0,
+      cupL10Height: selectedPlantData?.cupL10Height ?? 0,
     });
 
     setStep(3);
@@ -198,6 +207,12 @@ export function Step2Config() {
     return companies.sort();
   }, [allAvailablePlants, isAdmin, assignedCompany]);
 
+  useEffect(() => {
+    if (availableCompanies.length === 1 && !companyName) {
+      setCompanyName(availableCompanies[0]);
+    }
+  }, [availableCompanies, companyName]);
+
   const filteredPlants = useMemo(() => {
     if (!allAvailablePlants) return [];
     if (!companyName) return [];
@@ -206,48 +221,119 @@ export function Step2Config() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
-      {isAdmin && (pendingUsers.length > 0 || loadingAllUsers) && (
-        <Card className="border-none shadow-xl bg-emerald-50/50 backdrop-blur-sm overflow-hidden animate-in slide-in-from-top-4 duration-500">
-          <div className="h-1.5 bg-emerald-500 w-full" />
-          <CardHeader className="pb-4 flex flex-row items-center justify-between">
+      {isAdmin && (
+        <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden transition-all duration-300">
+          <div className="h-1.5 bg-accent w-full" />
+          <button 
+            type="button" 
+            onClick={() => setShowAdminPanel(!showAdminPanel)} 
+            className="w-full px-6 py-5 flex items-center justify-between text-left focus:outline-none hover:bg-white/5 transition-colors"
+          >
             <div>
-              <CardTitle className="font-headline font-black text-xl text-emerald-800 flex items-center gap-3">
-                <UserCheck className="w-6 h-6" /> User Approval Center
-                {!loadingAllUsers && (
-                  <span className="bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse font-black uppercase tracking-widest">
-                    {pendingUsers.length} Pending
-                  </span>
+              <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5 text-accent animate-pulse" />
+                <h3 className="font-headline font-black text-lg tracking-tight">ADMIN Control Panel</h3>
+                {pendingUsers.length > 0 && (
+                  <Badge className="bg-emerald-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest animate-pulse">
+                    {pendingUsers.length} Pending Approval
+                  </Badge>
                 )}
-              </CardTitle>
-              <CardDescription className="text-emerald-700/70 font-medium">Authorize new analysts for industrial terminal access.</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3 px-6 pb-6">
-            {loadingAllUsers ? (
-              <div className="flex items-center gap-2 text-emerald-600 font-bold py-4">
-                <Loader2 className="w-4 h-4 animate-spin" /> Scanning Registry...
               </div>
-            ) : pendingUsers.length === 0 ? (
-              <div className="text-emerald-600 font-bold py-4 italic opacity-60">No pending access requests.</div>
-            ) : (
-              pendingUsers.map(u => (
-                <div key={u.id} className="flex items-center justify-between p-4 bg-white border border-emerald-100 rounded-xl shadow-sm hover:shadow-md transition-all">
-                  <div>
-                    <p className="font-bold text-emerald-900">{u.email}</p>
-                    <p className="text-[9px] uppercase font-black text-emerald-600 tracking-[0.2em]">{u.role} | {u.assignedCompany}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={() => handleApprove(u.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black h-9 text-xs">
-                      Approve
-                    </Button>
-                    <Button variant="ghost" onClick={() => handleDeleteUser(u.id, u.email)} className="text-destructive hover:bg-destructive/10 h-9 px-3">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+              <p className="text-xs text-white/60 mt-1 font-medium">Verify pending user applications and audit global user permissions.</p>
+            </div>
+            {showAdminPanel ? <ChevronUp className="w-5 h-5 text-accent" /> : <ChevronDown className="w-5 h-5 text-accent" />}
+          </button>
+          
+          {showAdminPanel && (
+            <CardContent className="space-y-8 bg-slate-950/40 p-6 border-t border-white/5 animate-in slide-in-from-top-4 duration-300">
+              {/* User Approval section */}
+              <div className="space-y-4">
+                <h4 className="font-headline font-bold text-sm text-accent uppercase tracking-widest flex items-center gap-2">
+                  <UserCheck className="w-4 h-4" /> Pending Approvals
+                </h4>
+                <div className="space-y-3">
+                  {loadingAllUsers ? (
+                    <div className="flex items-center gap-2 text-white/60 font-bold py-4">
+                      <Loader2 className="w-4 h-4 animate-spin text-accent" /> Scanning Registry...
+                    </div>
+                  ) : pendingUsers.length === 0 ? (
+                    <div className="text-white/40 font-bold py-4 italic text-sm">No pending access requests.</div>
+                  ) : (
+                    pendingUsers.map(u => (
+                      <div key={u.id} className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl shadow-sm hover:bg-white/10 transition-all">
+                        <div>
+                          <p className="font-bold text-white">{u.email}</p>
+                          <p className="text-[9px] uppercase font-black text-accent tracking-[0.2em]">{u.role} | {u.assignedCompany}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button onClick={() => handleApprove(u.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black h-9 text-xs">
+                            Approve
+                          </Button>
+                          <Button variant="ghost" onClick={() => handleDeleteUser(u.id, u.email)} className="text-destructive hover:bg-destructive/10 h-9 px-3">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* User Directory section */}
+              <div className="space-y-4 border-t border-white/5 pt-6">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-headline font-bold text-sm text-accent uppercase tracking-widest flex items-center gap-2">
+                    <Users className="w-4 h-4" /> User Directory
+                  </h4>
+                  <Button variant="ghost" size="sm" onClick={() => window.location.reload()} className="text-white/60 hover:text-white hover:bg-white/5 h-8">
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingAllUsers ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-900/50 overflow-hidden shadow-lg max-h-[300px] overflow-y-auto custom-scrollbar">
+                  <div className="grid grid-cols-1 divide-y divide-white/5">
+                    {loadingAllUsers ? (
+                      <div className="p-10 flex flex-col items-center justify-center space-y-4">
+                        <Loader2 className="w-10 h-10 text-accent animate-spin" />
+                        <p className="text-[10px] font-black uppercase text-white/60 tracking-widest">Syncing Registry...</p>
+                      </div>
+                    ) : !allUsers || allUsers.length === 0 ? (
+                      <div className="p-10 text-center text-white/40 font-black uppercase tracking-widest italic opacity-40">No profiles found.</div>
+                    ) : (
+                      allUsers.map(u => (
+                        <div key={u.id} className="flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors group">
+                          <div className="flex items-center gap-5">
+                            <div className={`p-3 rounded-xl ${u.isApproved ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                              {u.role === 'ADMIN' ? <Shield className="w-5 h-5" /> : <Users className="w-5 h-5" />}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-3 mb-1">
+                                <p className="font-black text-white text-lg tracking-tight">{u.email}</p>
+                                <Badge variant={u.isApproved ? "default" : "secondary"} className="text-[9px] h-4 uppercase font-black px-2 tracking-widest bg-white/10 text-white border-none">
+                                  {u.isApproved ? 'Authorized' : 'Pending'}
+                                </Badge>
+                              </div>
+                              <p className="text-[10px] uppercase font-black text-white/60 tracking-[0.2em]">{u.role} | {u.assignedCompany}</p>
+                            </div>
+                          </div>
+                          {u.email !== 'admin@marsh.com' && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleDeleteUser(u.id, u.email)}
+                              className="text-white/60 hover:text-destructive hover:bg-destructive/10 font-black h-10 px-4 rounded-lg"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span className="hidden sm:inline text-xs ml-2">Revoke Profile</span>
+                            </Button>
+                          )}
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
-              ))
-            )}
-          </CardContent>
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
 
@@ -344,11 +430,11 @@ export function Step2Config() {
               {isPlantCompleted && (
                 <Button 
                   onClick={handleFastJumpToSTEP6} 
-                  disabled={loadingPlants || isUserLoading || loadingRatioStatus}
+                  disabled={loadingPlants || isUserLoading || loadingRatioStatus || fastPassLoading}
                   variant="outline"
                   className="w-full sm:w-auto border-2 border-amber-500 text-amber-600 font-black px-6 py-6 text-sm gap-2 hover:bg-amber-50 transition-colors"
                 >
-                  <Zap className="w-4 h-4" /> Fast Pass to STEP6
+                  {fastPassLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Fast Pass to STEP6
                 </Button>
               )}
               <Button 
@@ -362,66 +448,6 @@ export function Step2Config() {
           </div>
         </CardContent>
       </Card>
-
-      {isAdmin && (
-        <Card className="border-none shadow-xl bg-white/50 backdrop-blur-sm overflow-hidden">
-          <CardHeader className="pb-4 flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="font-headline font-black text-xl text-primary flex items-center gap-3">
-                <Users className="w-6 h-6 text-accent" /> Global User Directory
-              </CardTitle>
-              <CardDescription className="font-medium">Audit and manage all registered analyst profiles.</CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => window.location.reload()} className="text-primary hover:bg-primary/5">
-              <RefreshCw className={`w-4 h-4 ${loadingAllUsers ? 'animate-spin' : ''}`} />
-            </Button>
-          </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <div className="rounded-2xl border-2 bg-white overflow-hidden shadow-lg">
-              <div className="grid grid-cols-1 divide-y-2 divide-primary/5">
-                {loadingAllUsers ? (
-                  <div className="p-10 flex flex-col items-center justify-center space-y-4">
-                    <Loader2 className="w-10 h-10 text-accent animate-spin" />
-                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Syncing Registry...</p>
-                  </div>
-                ) : !allUsers || allUsers.length === 0 ? (
-                  <div className="p-10 text-center text-muted-foreground font-black uppercase tracking-widest italic opacity-40">No profiles found.</div>
-                ) : (
-                  allUsers.map(u => (
-                    <div key={u.id} className="flex items-center justify-between p-4 hover:bg-primary/[0.02] transition-colors group">
-                      <div className="flex items-center gap-5">
-                        <div className={`p-3 rounded-xl ${u.isApproved ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
-                          {u.role === 'ADMIN' ? <Shield className="w-5 h-5" /> : <Users className="w-5 h-5" />}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-3 mb-1">
-                            <p className="font-black text-primary text-lg tracking-tight">{u.email}</p>
-                            <Badge variant={u.isApproved ? "default" : "secondary"} className="text-[9px] h-4 uppercase font-black px-2 tracking-widest">
-                              {u.isApproved ? 'Authorized' : 'Pending'}
-                            </Badge>
-                          </div>
-                          <p className="text-[10px] uppercase font-black text-muted-foreground tracking-[0.2em]">{u.role} | {u.assignedCompany}</p>
-                        </div>
-                      </div>
-                      {u.email !== 'admin@marsh.com' && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleDeleteUser(u.id, u.email)}
-                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 font-black h-10 px-4 rounded-lg"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span className="hidden sm:inline text-xs ml-2">Revoke Profile</span>
-                        </Button>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

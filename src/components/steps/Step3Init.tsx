@@ -80,6 +80,8 @@ export function Step3Init() {
       pdFixture: Number(data.pdFixture) || 0,
       pdStock: Number(data.pdStock) || 0,
       bi12m: Number(data.bi12m) || 0,
+      fabL10Height: Number(data.fabL10Height) || 0,
+      cupL10Height: Number(data.cupL10Height) || 0,
     };
 
     setPlant(numericData);
@@ -105,6 +107,8 @@ export function Step3Init() {
       fixtureValue: numericData.pdFixture,
       stockValue: numericData.pdStock,
       bi12mValue: numericData.bi12m,
+      fabL10Height: numericData.fabL10Height,
+      cupL10Height: numericData.cupL10Height,
     }, { merge: true });
 
     setStep(4);
@@ -191,6 +195,10 @@ export function Step3Init() {
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Basements</Label>
                   <Input type="number" {...register('fabBl')} disabled={isReader} className="bg-white border-none font-mono font-bold" />
                 </div>
+                <div className="space-y-2 col-span-2">
+                  <Label className="text-[10px] font-bold uppercase text-accent font-black tracking-wider">FAB L10 Height Benchmark (m)</Label>
+                  <Input type="number" step="0.1" {...register('fabL10Height')} disabled={isReader} className="bg-white border-accent/20 border-2 font-mono font-black" />
+                </div>
               </div>
               <div className="pt-2 border-t border-primary/10 space-y-1">
                 <div className="flex justify-between text-[10px] font-bold uppercase text-primary/60">
@@ -225,6 +233,10 @@ export function Step3Init() {
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Basements</Label>
                   <Input type="number" {...register('cupBl')} disabled={isReader} className="bg-white border-none font-mono font-bold" />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label className="text-[10px] font-bold uppercase text-primary-foreground bg-primary px-1.5 py-0.5 rounded font-black tracking-wider">CUP L10 Height Benchmark (m)</Label>
+                  <Input type="number" step="0.1" {...register('cupL10Height')} disabled={isReader} className="bg-white border-primary/20 border-2 font-mono font-black" />
                 </div>
               </div>
               <div className="pt-2 border-t border-primary/10 space-y-1">

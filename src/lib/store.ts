@@ -30,6 +30,8 @@ export interface PlantData {
   pdFixture: number;
   pdStock: number;
   bi12m: number;
+  fabL10Height: number;
+  cupL10Height: number;
 }
 
 export interface RefinementData {

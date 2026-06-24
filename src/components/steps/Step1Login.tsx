@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldCheck, UserPlus, Clock, AlertCircle, Loader2, KeyRound } from 'lucide-react';
+import { ShieldCheck, UserPlus, Clock, AlertCircle, Loader2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -25,6 +25,7 @@ export function Step1Login() {
   const [company, setCompany] = useState('');
   const [loading, setLoading] = useState(false);
   const [loginError, setLoginError] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const auth = useAuth();
   const db = useFirestore();
@@ -242,14 +243,24 @@ export function Step1Login() {
             </div>
             <div className="space-y-2">
               <Label className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground">SECURITY KEY (PASSWORD)</Label>
-              <Input 
-                type="password" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                placeholder="••••••••"
-                className="bg-muted/50 border-none font-mono tracking-widest focus-visible:ring-accent" 
-                disabled={loading}
-              />
+              <div className="relative">
+                <Input 
+                  type={showPassword ? "text" : "password"} 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  placeholder="••••••••"
+                  className="bg-muted/50 border-none font-mono tracking-widest focus-visible:ring-accent pr-10" 
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors focus:outline-none"
+                  disabled={loading}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             {mode === 'add' && (
               <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">

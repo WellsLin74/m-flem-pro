@@ -149,6 +149,48 @@ export function Step5Validation() {
     setIsValidated(false);
   };
 
+  const normalizeColumn = (field: keyof FinalRatio) => {
+    if (isReader) return;
+    const currentSum = Object.values(localRatios).reduce((sum, r) => sum + (r[field] || 0), 0);
+    
+    if (currentSum === 0) {
+      const eligibleFloors = allFloors.filter(f => !((field === 'tool' || field === 'fix') && f.startsWith('CUP')));
+      const count = eligibleFloors.length;
+      if (count === 0) return;
+      const share = 1 / count;
+      setLocalRatios(prev => {
+        const updated = { ...prev };
+        allFloors.forEach(f => {
+          const isCup = f.startsWith('CUP');
+          const isToolOrFix = field === 'tool' || field === 'fix';
+          const isRestricted = isToolOrFix && isCup;
+          updated[f] = { 
+            ...updated[f], 
+            [field]: isRestricted ? 0 : share 
+          };
+        });
+        return updated;
+      });
+    } else {
+      setLocalRatios(prev => {
+        const updated = { ...prev };
+        allFloors.forEach(f => {
+          const isCup = f.startsWith('CUP');
+          const isToolOrFix = field === 'tool' || field === 'fix';
+          const isRestricted = isToolOrFix && isCup;
+          
+          if (isRestricted) {
+            updated[f] = { ...updated[f], [field]: 0 };
+          } else {
+            updated[f] = { ...updated[f], [field]: (prev[f]?.[field] || 0) / currentSum };
+          }
+        });
+        return updated;
+      });
+    }
+    setIsValidated(false);
+  };
+
   const sums = useMemo(() => {
     return Object.values(localRatios).reduce((acc, r) => ({
       bldg: acc.bldg + (r.bldg || 0),
@@ -275,6 +317,23 @@ export function Step5Validation() {
                   <TableHead className="text-[11px] font-black uppercase text-right text-primary px-4">Tools %</TableHead>
                   <TableHead className="text-[11px] font-black uppercase text-right text-primary px-4">Fixture %</TableHead>
                   <TableHead className="text-[11px] font-black uppercase text-right text-primary px-4">Stock %</TableHead>
+                </TableRow>
+                <TableRow className="bg-muted/10">
+                  <TableHead className="py-2 px-6 text-[9px] font-black uppercase text-muted-foreground border-r bg-muted/20">Auto-Balance</TableHead>
+                  {['bldg', 'fac', 'tool', 'fix', 'stock'].map(field => (
+                    <TableHead key={field} className="py-2 px-2 text-right border-r">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => normalizeColumn(field as keyof FinalRatio)}
+                        disabled={isReader}
+                        className="h-6 text-[9px] font-black uppercase tracking-wider text-accent border border-accent/20 hover:bg-accent/10 px-2 py-0.5 rounded-md transition-all active:scale-95"
+                      >
+                        ⚖️ Balance
+                      </Button>
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>

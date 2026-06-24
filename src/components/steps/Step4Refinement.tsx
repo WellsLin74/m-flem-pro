@@ -31,6 +31,7 @@ export function Step4Refinement() {
   const [floorData, setFloorData] = useState<Record<string, { fac: number; cr: number }>>({});
   const [isHydrated, setIsHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoBalance, setAutoBalance] = useState(true);
 
   const occupancyRef = useMemoFirebase(() => {
     if (!plant?.id) return null;
@@ -81,9 +82,16 @@ export function Step4Refinement() {
     if (num < 0) num = 0;
     if (num > 1) num = 1;
     
+    const siblingType = type === 'fac' ? 'cr' : 'fac';
+    const siblingVal = autoBalance ? Number((1 - num).toFixed(4)) : (floorData[floor]?.[siblingType] ?? 0.5);
+
     setFloorData(prev => ({
       ...prev,
-      [floor]: { ...prev[floor], [type]: num }
+      [floor]: { 
+        ...prev[floor], 
+        [type]: num,
+        [siblingType]: siblingVal
+      }
     }));
     setError(null);
   };
@@ -219,6 +227,19 @@ export function Step4Refinement() {
                   className="bg-white border-none font-mono font-bold"
                   suppressHydrationWarning
                 />
+              </div>
+              <div className="flex items-center space-x-2 pt-4 border-t border-primary/10">
+                <input 
+                  type="checkbox" 
+                  id="autoBalance"
+                  checked={autoBalance}
+                  onChange={(e) => setAutoBalance(e.target.checked)}
+                  disabled={isReader}
+                  className="h-4 w-4 rounded border-primary/20 text-accent focus:ring-accent accent-accent cursor-pointer"
+                />
+                <Label htmlFor="autoBalance" className="text-xs font-black text-primary cursor-pointer select-none">
+                  AUTO-BALANCE (CR = 1 - FAC)
+                </Label>
               </div>
             </div>
           </div>
