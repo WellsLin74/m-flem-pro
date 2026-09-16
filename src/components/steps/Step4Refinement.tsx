@@ -45,6 +45,8 @@ export function Step4Refinement() {
   }, [db, plant?.id]);
   const { data: remoteFloorRatios, isLoading: loadingFloorRatios } = useCollection(floorRatiosRef);
 
+  const isBasementFloor = (floor: string) => floor.includes('BL');
+
   const fabFloors = useMemo(() => {
     const list: string[] = [];
     if (!plant) return list;
@@ -64,9 +66,10 @@ export function Step4Refinement() {
 
       fabFloors.forEach(f => {
         const remoteData = remoteFloorRatios?.find(r => r.floorIdentifier === f);
+        const isBasement = isBasementFloor(f);
         mappedFloors[f] = {
-          fac: remoteData?.facilityOccupancyRatio ?? 0.5,
-          cr: remoteData?.cleanroomOccupancyRatio ?? 0.5
+          fac: remoteData?.facilityOccupancyRatio ?? (isBasement ? 1.0 : 0.5),
+          cr: remoteData?.cleanroomOccupancyRatio ?? (isBasement ? 0.0 : 0.5)
         };
       });
 
@@ -82,8 +85,11 @@ export function Step4Refinement() {
     if (num < 0) num = 0;
     if (num > 1) num = 1;
     
+    const isBasement = isBasementFloor(floor);
     const siblingType = type === 'fac' ? 'cr' : 'fac';
-    const siblingVal = autoBalance ? Number((1 - num).toFixed(4)) : (floorData[floor]?.[siblingType] ?? 0.5);
+    const siblingVal = (autoBalance && !isBasement) 
+      ? Number((1 - num).toFixed(4)) 
+      : (floorData[floor]?.[siblingType] ?? (isBasement ? (siblingType === 'fac' ? 1.0 : 0.0) : 0.5));
 
     setFloorData(prev => ({
       ...prev,
@@ -98,6 +104,7 @@ export function Step4Refinement() {
 
   const validateMatrix = () => {
     for (const floor of fabFloors) {
+      if (isBasementFloor(floor)) continue;
       const data = floorData[floor];
       const sum = (data?.fac || 0) + (data?.cr || 0);
       if (Math.abs(sum - 1) > 0.0001) {
@@ -203,7 +210,7 @@ export function Step4Refinement() {
               Ratio Constraints
             </h3>
             <p className="text-[10px] font-bold text-muted-foreground leading-relaxed uppercase">
-              Each row in the FAB Matrix must sum to exactly 1.0. This ensures 100% of the floor space is accounted for.
+              Each above-ground row in the FAB Matrix must sum to exactly 1.0. Basement floors (BL10, BL20...) are exempt.
             </p>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
@@ -238,7 +245,7 @@ export function Step4Refinement() {
                   className="h-4 w-4 rounded border-primary/20 text-accent focus:ring-accent accent-accent cursor-pointer"
                 />
                 <Label htmlFor="autoBalance" className="text-xs font-black text-primary cursor-pointer select-none">
-                  AUTO-BALANCE (CR = 1 - FAC)
+                  AUTO-BALANCE (CR = 1 - FAC, ABOVE GROUND)
                 </Label>
               </div>
             </div>
@@ -260,12 +267,13 @@ export function Step4Refinement() {
                 </TableHeader>
                 <TableBody>
                   {fabFloors.map(floor => {
+                    const isBasement = isBasementFloor(floor);
                     const rowSum = (floorData[floor]?.fac ?? 0) + (floorData[floor]?.cr ?? 0);
-                    const isInvalid = Math.abs(rowSum - 1) > 0.0001;
+                    const isInvalid = !isBasement && Math.abs(rowSum - 1) > 0.0001;
                     return (
                       <TableRow key={floor} className={`hover:bg-accent/5 transition-colors ${isInvalid ? 'bg-destructive/5' : ''}`}>
                         <TableCell className="py-3 px-6">
-                          <Badge variant={floor.includes('BL') ? 'secondary' : 'default'} className="rounded-md font-mono text-[10px] font-black">
+                          <Badge variant={isBasement ? 'secondary' : 'default'} className="rounded-md font-mono text-[10px] font-black">
                             {floor}
                           </Badge>
                         </TableCell>
@@ -291,8 +299,11 @@ export function Step4Refinement() {
                             suppressHydrationWarning
                           />
                         </TableCell>
-                        <TableCell className={`py-2 px-4 text-right font-mono text-xs font-black ${isInvalid ? 'text-destructive' : 'text-emerald-600'}`}>
+                        <TableCell className={`py-2 px-4 text-right font-mono text-xs font-black ${
+                          isBasement ? 'text-muted-foreground' : isInvalid ? 'text-destructive' : 'text-emerald-600'
+                        }`}>
                           {rowSum.toFixed(4)}
+                          {isBasement && <span className="text-[10px] ml-1 font-bold text-muted-foreground/70">(Basement)</span>}
                         </TableCell>
                       </TableRow>
                     );

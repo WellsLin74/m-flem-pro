@@ -1,6 +1,6 @@
 {
   "name": "m-flem-pro",
-  "version": "0.1.0",
+  "version": "11.1.0",
   "private": true,
   "engines": {
     "node": "20.x"

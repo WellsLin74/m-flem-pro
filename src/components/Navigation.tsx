@@ -54,7 +54,7 @@ export function Navigation() {
           <span className="text-2xl font-black tracking-tighter text-accent italic">M-FLEM</span>
         </div>
         <div className="hidden sm:block">
-          <p className="font-headline font-bold text-lg leading-none">Pro v10.7</p>
+          <p className="font-headline font-bold text-lg leading-none">Pro v11.1</p>
           <p className="text-[10px] text-primary-foreground/60 uppercase tracking-widest mt-1">Industrial Intelligence</p>
         </div>
       </div>

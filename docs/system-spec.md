@@ -1,4 +1,4 @@
-# M-FLEM Pro (Marsh Flood Loss Estimation Model) 系統規格書 v11.0
+# M-FLEM Pro (Marsh Flood Loss Estimation Model) 系統規格書 v11.1
 
 ## 1. 系統概述 (System Overview)
 M-FLEM Pro 是一套針對半導體與高科技工廠設計的專業級工業水災損失評估建模系統。系統透過垂直空間（樓層）的資產價值分佈建模，協助風險工程師在不同淹水情境下精確預估財務影響。
@@ -42,7 +42,7 @@ M-FLEM Pro 是一套針對半導體與高科技工廠設計的專業級工業水
 
 ### Step 4: 空間價值分佈 (Spatial Refinement)
 - 設定 `Cleanroom (無塵室)` 在不同樓層的佔比（CR%）。
-- **驗證規則**：每一樓層的 `Facility %` + `Cleanroom %` 之和必須精確等於 1.0 (100%)。
+- **驗證規則**：每一地上樓層的 `Facility %` + `Cleanroom %` 之和必須精確等於 1.0 (100%)；地下層 (Basement，如 BL10, BL20...) 則不受此限。
 
 ### Step 5: 資產分配矩陣驗證 (Matrix Validation)
 - **自動化分配 (Audit Mode)**：根據 P4 的 CR% 分佈，自動計算每一層的 Facility 和 Tools 目標分配率。
@@ -68,5 +68,5 @@ M-FLEM Pro 是一套針對半導體與高科技工廠設計的專業級工業水
 - `user_permissions`: 使用者角色與所屬公司映射。
 
 ---
-*文件更新日期：2026-04-07*
-*版本：v11.0 Professional Edition*
+*文件更新日期：2026-09-16*
+*版本：v11.1 Professional Edition*
