@@ -9,6 +9,7 @@ import Building2 from 'lucide-react/dist/esm/icons/building-2';
 import Factory from 'lucide-react/dist/esm/icons/factory';
 import ImageIcon from 'lucide-react/dist/esm/icons/image';
 import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet';
+import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -27,6 +28,7 @@ export function Step6Estimation() {
   const fabL10Height = plant?.fabL10Height || 0;
   const cupL10Height = plant?.cupL10Height || 0;
   const [floodHeight, setFloodHeight] = useState(0);
+  const [isExportingJpg, setIsExportingJpg] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
   
   const [ratios, setRatios] = useState<Record<string, number>>({
@@ -120,14 +122,59 @@ export function Step6Estimation() {
   };
 
   const handleDownloadJpg = async () => {
-    if (reportRef.current === null) return;
+    const node = reportRef.current;
+    if (!node) return;
+    setIsExportingJpg(true);
     try {
       const { toJpeg } = await import('html-to-image');
-      const dataUrl = await toJpeg(reportRef.current, { quality: 0.95, backgroundColor: '#f8fafc', fontEmbedCSS: '' });
+      
+      const rect = node.getBoundingClientRect();
+      const scrollHeight = node.scrollHeight;
+      const offsetHeight = node.offsetHeight;
+      const clientHeight = node.clientHeight;
+      const rectHeight = Math.ceil(rect.height);
+
+      // 確保取得包含所有子元素滾動、排版膨脹、陰影與邊界之完整高度，並額外保留底部緩衝
+      const fullHeight = Math.max(scrollHeight, offsetHeight, clientHeight, rectHeight);
+      const exportHeight = fullHeight + 48;
+
+      const scrollWidth = node.scrollWidth;
+      const offsetWidth = node.offsetWidth;
+      const clientWidth = node.clientWidth;
+      const rectWidth = Math.ceil(rect.width);
+      const exportWidth = Math.max(scrollWidth, offsetWidth, clientWidth, rectWidth);
+
+      const dataUrl = await toJpeg(node, {
+        quality: 0.95,
+        backgroundColor: '#f8fafc',
+        width: exportWidth,
+        height: exportHeight,
+        canvasWidth: exportWidth,
+        canvasHeight: exportHeight,
+        pixelRatio: Math.max(window.devicePixelRatio || 1, 2),
+        style: {
+          height: `${exportHeight}px`,
+          maxHeight: 'none',
+          overflow: 'visible',
+          paddingBottom: '32px',
+        },
+        fontEmbedCSS: '',
+      });
+
       const link = document.createElement('a');
       link.download = `MFLE_REPORT_${(plant?.company || 'CO').replace(/\s+/g, '_')}_${(plant?.plantName || 'PL').replace(/\s+/g, '_')}.jpg`;
-      link.href = dataUrl; link.click();
-    } catch (err) { console.error('Failed to export image', err); }
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error('Failed to export image', err);
+      toast({
+        variant: "destructive",
+        title: "Export Failed",
+        description: "Failed to generate JPG image. Please try again."
+      });
+    } finally {
+      setIsExportingJpg(false);
+    }
   };
 
   const handleDownloadExcel = async () => {
@@ -160,7 +207,7 @@ export function Step6Estimation() {
 
   return (
     <div className="space-y-8 pb-20">
-      <div ref={reportRef} className="space-y-8 p-1">
+      <div ref={reportRef} className="space-y-8 p-2 pb-8">
         <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
           <div className="h-2 bg-accent w-full" />
           <CardHeader>
@@ -176,14 +223,28 @@ export function Step6Estimation() {
                   <Button variant="outline" size="sm" onClick={handleDownloadExcel} className="font-bold gap-2 text-xs border-emerald-600 text-emerald-600">
                     <FileSpreadsheet className="w-4 h-4" /> Export to Excel
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleDownloadJpg} className="font-bold gap-2 text-xs border-primary text-primary">
-                    <ImageIcon className="w-4 h-4" /> Export View as JPG
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleDownloadJpg} 
+                    disabled={isExportingJpg}
+                    className="font-bold gap-2 text-xs border-primary text-primary hover:bg-primary/5 transition-all"
+                  >
+                    {isExportingJpg ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="w-4 h-4" /> Export View as JPG
+                      </>
+                    )}
                   </Button>
                 </div>
               )}
             </div>
           </CardHeader>
-          <CardContent className="space-y-10">
+          <CardContent className="space-y-10 pb-16">
             <EstimationInputs 
               fabL10Height={fabL10Height}
               cupL10Height={cupL10Height}
