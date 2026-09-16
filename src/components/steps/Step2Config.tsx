@@ -143,6 +143,33 @@ export function Step2Config() {
         };
       });
 
+      // Also load refinement data so Step 6 Excel exports and simulations have complete context
+      try {
+        const occSnap = await getDoc(doc(db, 'fab_cleanroom_occupancy', selectedPlantId));
+        if (occSnap.exists()) {
+          const occData = occSnap.data();
+          let floorData = occData.floorData;
+          if (!floorData) {
+            const fCol = await getDocs(collection(db, 'fab_cleanroom_occupancy', selectedPlantId, 'floor_ratios'));
+            floorData = {};
+            fCol.docs.forEach(d => {
+              const fd = d.data();
+              floorData[d.id] = {
+                fac: fd.facilityOccupancyRatio ?? 0.5,
+                cr: fd.cleanroomOccupancyRatio ?? 0.5
+              };
+            });
+          }
+          setRefinement({
+            facCrRatio: occData.overallFacilityCleanroomRatio ?? 0.33,
+            toolsCrRatio: occData.overallToolsCleanroomRatio ?? 0.9,
+            floorData: floorData || {}
+          });
+        }
+      } catch (occErr) {
+        console.warn('Fast pass refinement load:', occErr);
+      }
+
       setPlant(plantObj);
       setFinalRatios(mapped);
       setIsValidated(true);

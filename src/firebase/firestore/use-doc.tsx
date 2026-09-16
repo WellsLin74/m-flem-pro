@@ -42,7 +42,7 @@ export function useDoc<T = any>(
   type StateDataType = WithId<T> | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(() => Boolean(memoizedDocRef));
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {

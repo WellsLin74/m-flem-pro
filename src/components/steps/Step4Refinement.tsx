@@ -9,41 +9,35 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Layers from 'lucide-react/dist/esm/icons/layers';
-import Percent from 'lucide-react/dist/esm/icons/percent';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import RefreshCcw from 'lucide-react/dist/esm/icons/refresh-ccw';
 import Lock from 'lucide-react/dist/esm/icons/lock';
 import AlertTriangle from 'lucide-react/dist/esm/icons/alert-triangle';
-import { useState, useEffect, useMemo } from 'react';
-import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import Save from 'lucide-react/dist/esm/icons/save';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useFirestore } from '@/firebase';
+import { doc, collection, getDoc, getDocs, setDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 export function Step4Refinement() {
-  const { plant, setRefinement, setStep, user } = useAppStore();
+  const { plant, refinement, setRefinement, setStep, user } = useAppStore();
   const db = useFirestore();
+  const { toast } = useToast();
   const isReader = user?.role === 'READER';
   
-  const [facCrRatio, setFacCrRatio] = useState(0.33);
-  const [toolsCrRatio, setToolsCrRatio] = useState(0.9);
-  const [floorData, setFloorData] = useState<Record<string, { fac: number; cr: number }>>({});
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [facCrRatio, setFacCrRatio] = useState(refinement?.facCrRatio ?? 0.33);
+  const [toolsCrRatio, setToolsCrRatio] = useState(refinement?.toolsCrRatio ?? 0.9);
+  const [floorData, setFloorData] = useState<Record<string, { fac: number; cr: number }>>(() => {
+    return refinement?.floorData ? { ...refinement.floorData } : {};
+  });
+  const [isHydrated, setIsHydrated] = useState(() => {
+    return Boolean(refinement?.floorData && Object.keys(refinement.floorData).length > 0);
+  });
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoBalance, setAutoBalance] = useState(true);
-
-  const occupancyRef = useMemoFirebase(() => {
-    if (!plant?.id) return null;
-    return doc(db, 'fab_cleanroom_occupancy', plant.id);
-  }, [db, plant?.id]);
-  const { data: remoteOccupancy, isLoading: loadingRemote } = useDoc(occupancyRef);
-
-  const floorRatiosRef = useMemoFirebase(() => {
-    if (!plant?.id) return null;
-    return collection(db, 'fab_cleanroom_occupancy', plant.id, 'floor_ratios');
-  }, [db, plant?.id]);
-  const { data: remoteFloorRatios, isLoading: loadingFloorRatios } = useCollection(floorRatiosRef);
 
   const isBasementFloor = (floor: string) => floor.includes('BL');
 
@@ -66,28 +60,157 @@ export function Step4Refinement() {
     }, 0);
   }, [fabFloors, floorData, fabFloorArea]);
 
-  useEffect(() => {
-    if (!isHydrated && !loadingRemote && !loadingFloorRatios) {
-      const mappedFloors: Record<string, { fac: number; cr: number }> = {};
-      
-      if (remoteOccupancy) {
-        setFacCrRatio(remoteOccupancy.overallFacilityCleanroomRatio ?? 0.33);
-        setToolsCrRatio(remoteOccupancy.overallToolsCleanroomRatio ?? 0.9);
+  const loadSpatialData = useCallback(async (forceRemote = false) => {
+    if (!plant?.id) return;
+
+    if (!forceRemote && refinement && Object.keys(refinement.floorData || {}).length > 0) {
+      setFacCrRatio(refinement.facCrRatio ?? 0.33);
+      setToolsCrRatio(refinement.toolsCrRatio ?? 0.9);
+      setFloorData({ ...refinement.floorData });
+      setIsHydrated(true);
+      return;
+    }
+
+    setIsHydrated(false);
+    try {
+      // 1. Fetch main document from fab_cleanroom_occupancy
+      const mainDocRef = doc(db, 'fab_cleanroom_occupancy', plant.id);
+      const mainSnap = await getDoc(mainDocRef);
+
+      let loadedFacCr = 0.33;
+      let loadedToolsCr = 0.9;
+      let loadedFloors: Record<string, { fac: number; cr: number }> = {};
+      let hasFloorDataInMain = false;
+
+      if (mainSnap.exists()) {
+        const mainData = mainSnap.data();
+        if (mainData.overallFacilityCleanroomRatio !== undefined) {
+          loadedFacCr = mainData.overallFacilityCleanroomRatio;
+        }
+        if (mainData.overallToolsCleanroomRatio !== undefined) {
+          loadedToolsCr = mainData.overallToolsCleanroomRatio;
+        }
+        if (mainData.floorData && typeof mainData.floorData === 'object' && Object.keys(mainData.floorData).length > 0) {
+          loadedFloors = { ...mainData.floorData };
+          hasFloorDataInMain = true;
+        }
       }
 
+      // 2. If floorData was not in main document, read subcollection floor_ratios
+      if (!hasFloorDataInMain) {
+        try {
+          const subColRef = collection(db, 'fab_cleanroom_occupancy', plant.id, 'floor_ratios');
+          const subSnap = await getDocs(subColRef);
+          if (!subSnap.empty) {
+            subSnap.forEach(d => {
+              const data = d.data();
+              const fId = data.floorIdentifier || d.id;
+              if (fId) {
+                loadedFloors[fId] = {
+                  fac: data.facilityOccupancyRatio ?? 0.5,
+                  cr: data.cleanroomOccupancyRatio ?? 0.5
+                };
+              }
+            });
+          }
+        } catch (subErr) {
+          console.warn('Could not read floor_ratios subcollection:', subErr);
+        }
+      }
+
+      // 3. For any floors defined in plant that don't have saved data, fill with standard defaults
       fabFloors.forEach(f => {
-        const remoteData = remoteFloorRatios?.find(r => r.floorIdentifier === f);
-        const isBasement = isBasementFloor(f);
-        mappedFloors[f] = {
-          fac: remoteData?.facilityOccupancyRatio ?? (isBasement ? 1.0 : 0.5),
-          cr: remoteData?.cleanroomOccupancyRatio ?? (isBasement ? 0.0 : 0.5)
-        };
+        if (!loadedFloors[f]) {
+          const isBasement = isBasementFloor(f);
+          loadedFloors[f] = {
+            fac: isBasement ? 1.0 : 0.5,
+            cr: isBasement ? 0.0 : 0.5
+          };
+        }
       });
 
-      setFloorData(mappedFloors);
+      setFacCrRatio(loadedFacCr);
+      setToolsCrRatio(loadedToolsCr);
+      setFloorData(loadedFloors);
+      setRefinement({
+        facCrRatio: loadedFacCr,
+        toolsCrRatio: loadedToolsCr,
+        floorData: loadedFloors
+      });
+      setIsHydrated(true);
+    } catch (err) {
+      console.error('Failed to load spatial data from database:', err);
+      const defaultFloors: Record<string, { fac: number; cr: number }> = {};
+      fabFloors.forEach(f => {
+        const isBasement = isBasementFloor(f);
+        defaultFloors[f] = {
+          fac: isBasement ? 1.0 : 0.5,
+          cr: isBasement ? 0.0 : 0.5
+        };
+      });
+      setFloorData(defaultFloors);
       setIsHydrated(true);
     }
-  }, [loadingRemote, loadingFloorRatios, remoteOccupancy, remoteFloorRatios, fabFloors, isHydrated]);
+  }, [plant?.id, fabFloors, refinement, setRefinement, db]);
+
+  useEffect(() => {
+    loadSpatialData(false);
+  }, [plant?.id]);
+
+  const saveToFirestore = async (
+    targetFloorData = floorData,
+    targetFacCr = facCrRatio,
+    targetToolsCr = toolsCrRatio
+  ) => {
+    if (!plant?.id || isReader) return false;
+    setIsSaving(true);
+    try {
+      // 1. Sync store immediately
+      setRefinement({
+        facCrRatio: targetFacCr,
+        toolsCrRatio: targetToolsCr,
+        floorData: targetFloorData
+      });
+
+      // 2. Save main document with full floorData dictionary (atomic write)
+      const mainRef = doc(db, 'fab_cleanroom_occupancy', plant.id);
+      await setDoc(mainRef, {
+        id: plant.id,
+        companyName: plant.company,
+        plantName: plant.plantName,
+        overallFacilityCleanroomRatio: targetFacCr,
+        overallToolsCleanroomRatio: targetToolsCr,
+        floorData: targetFloorData,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // 3. Save subcollection for complete backwards compatibility
+      const subPromises = Object.entries(targetFloorData).map(([fId, ratios]) => {
+        const fRef = doc(db, 'fab_cleanroom_occupancy', plant.id, 'floor_ratios', fId);
+        return setDoc(fRef, {
+          id: fId,
+          floorIdentifier: fId,
+          facilityOccupancyRatio: ratios.fac,
+          cleanroomOccupancyRatio: ratios.cr,
+          companyName: plant.company,
+          plantName: plant.plantName,
+        }, { merge: true });
+      });
+      await Promise.all(subPromises);
+
+      return true;
+    } catch (err: any) {
+      console.error('Error saving spatial refinement:', err);
+      toast({
+        variant: "destructive",
+        title: "Save Failed",
+        description: err.message || "Failed to persist data to database."
+      });
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleUpdate = (floor: string, type: 'fac' | 'cr', value: string) => {
     if (isReader) return;
@@ -102,15 +225,28 @@ export function Step4Refinement() {
       ? Number((1 - num).toFixed(4)) 
       : (floorData[floor]?.[siblingType] ?? (isBasement ? (siblingType === 'fac' ? 1.0 : 0.0) : 0.5));
 
-    setFloorData(prev => ({
-      ...prev,
+    const updated = {
+      ...floorData,
       [floor]: { 
-        ...prev[floor], 
+        ...floorData[floor], 
         [type]: num,
         [siblingType]: siblingVal
       }
-    }));
+    };
+
+    setFloorData(updated);
+    setRefinement({ facCrRatio, toolsCrRatio, floorData: updated });
     setError(null);
+  };
+
+  const handleFacCrChange = (val: number) => {
+    setFacCrRatio(val);
+    setRefinement({ facCrRatio: val, toolsCrRatio, floorData });
+  };
+
+  const handleToolsCrChange = (val: number) => {
+    setToolsCrRatio(val);
+    setRefinement({ facCrRatio, toolsCrRatio: val, floorData });
   };
 
   const validateMatrix = () => {
@@ -125,7 +261,7 @@ export function Step4Refinement() {
     return null;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const validationError = validateMatrix();
     if (validationError) {
       setError(validationError);
@@ -139,30 +275,23 @@ export function Step4Refinement() {
 
     if (!plant?.id) return;
 
-    setRefinement({ facCrRatio, toolsCrRatio, floorData });
-
-    const mainRef = doc(db, 'fab_cleanroom_occupancy', plant.id);
-    setDocumentNonBlocking(mainRef, {
-      id: plant.id,
-      companyName: plant.company,
-      plantName: plant.plantName,
-      overallFacilityCleanroomRatio: facCrRatio,
-      overallToolsCleanroomRatio: toolsCrRatio,
-    }, { merge: true });
-
-    Object.entries(floorData).forEach(([fId, ratios]) => {
-      const fRef = doc(db, 'fab_cleanroom_occupancy', plant.id, 'floor_ratios', fId);
-      setDocumentNonBlocking(fRef, {
-        id: fId,
-        floorIdentifier: fId,
-        facilityOccupancyRatio: ratios.fac,
-        cleanroomOccupancyRatio: ratios.cr,
-        companyName: plant.company,
-        plantName: plant.plantName,
-      }, { merge: true });
-    });
-
+    const saved = await saveToFirestore();
+    if (saved) {
+      toast({
+        title: "Spatial Intel Saved",
+        description: `Refinement parameters verified and saved for ${plant.plantName}.`
+      });
+    }
     setStep(5);
+  };
+
+  const handleBack = () => {
+    // Retain user edits in Zustand store
+    setRefinement({ facCrRatio, toolsCrRatio, floorData });
+    if (!isReader && plant?.id) {
+      saveToFirestore(floorData, facCrRatio, toolsCrRatio);
+    }
+    setStep(3);
   };
 
   if (!isHydrated) {
@@ -193,14 +322,37 @@ export function Step4Refinement() {
           </div>
           <CardDescription>Define how space is divided between Facility and Cleanroom on each FAB floor for {plant?.plantName}.</CardDescription>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => setIsHydrated(false)}
-          className="gap-2 font-bold text-xs"
-        >
-          <RefreshCcw className="w-3 h-3" /> Force Remote Sync
-        </Button>
+        <div className="flex items-center gap-2">
+          {!isReader && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={async () => {
+                const ok = await saveToFirestore();
+                if (ok) {
+                  toast({
+                    title: "Spatial Data Saved",
+                    description: "Current floor ratios successfully saved to database."
+                  });
+                }
+              }}
+              disabled={isSaving}
+              className="gap-2 font-bold text-xs border-accent/40 text-accent hover:bg-accent/10"
+            >
+              {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+              Save Changes
+            </Button>
+          )}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => loadSpatialData(true)}
+            disabled={isSaving}
+            className="gap-2 font-bold text-xs"
+          >
+            <RefreshCcw className="w-3 h-3" /> Force Remote Sync
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-8 pb-10">
         {error && (
@@ -229,7 +381,7 @@ export function Step4Refinement() {
                 <Input 
                   type="number" step="0.01" 
                   value={facCrRatio} 
-                  onChange={(e) => setFacCrRatio(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => handleFacCrChange(parseFloat(e.target.value) || 0)}
                   disabled={isReader}
                   className="bg-white border-none font-mono font-bold"
                   suppressHydrationWarning
@@ -240,7 +392,7 @@ export function Step4Refinement() {
                 <Input 
                   type="number" step="0.01" 
                   value={toolsCrRatio} 
-                  onChange={(e) => setToolsCrRatio(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => handleToolsCrChange(parseFloat(e.target.value) || 0)}
                   disabled={isReader}
                   className="bg-white border-none font-mono font-bold"
                   suppressHydrationWarning
@@ -350,14 +502,23 @@ export function Step4Refinement() {
         </div>
 
         <div className="flex flex-col-reverse sm:flex-row justify-between gap-4 pt-6 border-t">
-          <Button variant="ghost" onClick={() => setStep(3)} className="w-full sm:w-auto font-bold text-muted-foreground gap-2">
+          <Button variant="ghost" onClick={handleBack} className="w-full sm:w-auto font-bold text-muted-foreground gap-2">
             <ArrowLeft className="w-4 h-4" /> Physical Data
           </Button>
           <Button 
             onClick={handleNext}
+            disabled={isSaving}
             className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white font-black h-auto whitespace-normal py-4 sm:px-12 sm:py-6 text-sm sm:text-lg gap-2 shadow-xl shadow-primary/20 transition-all active:scale-95"
           >
-            {isReader ? 'Next: Validation' : 'Audit & Confirm Spatial Matrix'} <ChevronRight className="w-5 h-5 flex-shrink-0" />
+            {isSaving ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" /> Saving & Validating...
+              </>
+            ) : (
+              <>
+                {isReader ? 'Next: Validation' : 'Audit & Confirm Spatial Matrix'} <ChevronRight className="w-5 h-5 flex-shrink-0" />
+              </>
+            )}
           </Button>
         </div>
       </CardContent>

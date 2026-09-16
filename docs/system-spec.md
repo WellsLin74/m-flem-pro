@@ -46,6 +46,10 @@ M-FLEM Pro 是一套針對半導體與高科技工廠設計的專業級工業水
 - **樓層實質面積推導**：
     - 因部分 Fab 棟地下室（Basement）面積與地上層長寬不同，各樓層實質面積以 `(fac[f] + cr[f]) * fabFloorArea` 計算。
     - 表格即時提供 `Est. Area (m²)` 欄位與全廠加總 `Total Calculated FAB Area (Step 4 Sum)`，精確反映實際空間規模。
+- **資料持久化與載入 (Persistence & Hydration)**：
+    - 輸入資料除同步於 Zustand Store 外，主動寫入 Firestore 之 `fab_cleanroom_occupancy/{plantId}` 主文件（內含 `floorData` 完整字典）與 `floor_ratios` 子集合。
+    - 重新開啟檔案或切換步驟時，自動精確還原使用者自訂之各樓層 Fac/CR 比例，不再因非同步載入競態而退回預設值。
+    - 提供「Save Changes」手動儲存按鈕與「Force Remote Sync」強制自雲端資料庫重新同步功能。
 
 ### Step 5: 資產分配矩陣驗證 (Matrix Validation)
 - **自動化分配 (Audit Mode)**：
