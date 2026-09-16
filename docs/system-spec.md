@@ -41,11 +41,17 @@ M-FLEM Pro 是一套針對半導體與高科技工廠設計的專業級工業水
 - **資產初始價值 (M NTD)**：Building、Facility、Tools、Fixture、Stock。
 
 ### Step 4: 空間價值分佈 (Spatial Refinement)
-- 設定 `Cleanroom (無塵室)` 在不同樓層的佔比（CR%）。
+- 設定 `Cleanroom (無塵室)` 在不同樓層的佔比（CR%）與 `Facility` 佔比。
 - **驗證規則**：每一地上樓層的 `Facility %` + `Cleanroom %` 之和必須精確等於 1.0 (100%)；地下層 (Basement，如 BL10, BL20...) 則不受此限。
+- **樓層實質面積推導**：
+    - 因部分 Fab 棟地下室（Basement）面積與地上層長寬不同，各樓層實質面積以 `(fac[f] + cr[f]) * fabFloorArea` 計算。
+    - 表格即時提供 `Est. Area (m²)` 欄位與全廠加總 `Total Calculated FAB Area (Step 4 Sum)`，精確反映實際空間規模。
 
 ### Step 5: 資產分配矩陣驗證 (Matrix Validation)
-- **自動化分配 (Audit Mode)**：根據 P4 的 CR% 分佈，自動計算每一層的 Facility 和 Tools 目標分配率。
+- **自動化分配 (Audit Mode)**：
+    - 依據 Step 4 各樓層之推算面積與 Cleanroom / Non-Cleanroom 面積比例，自動導出各樓層的 Building、Facility、Tools 建議分配率。
+    - Building 比例精準依照該樓層面積佔全廠建築面積之比率計算。
+    - 具備「Auto-Calculate from Step 4」快捷鍵，一鍵自 Step 4 空間分配自動更新矩陣。
 - **關鍵加總規則**：
     - Building Column Sum = 1.0000
     - Facility Column Sum = 1.0000

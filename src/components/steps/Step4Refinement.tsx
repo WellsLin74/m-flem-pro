@@ -47,6 +47,10 @@ export function Step4Refinement() {
 
   const isBasementFloor = (floor: string) => floor.includes('BL');
 
+  const fabFloorArea = useMemo(() => {
+    return (plant?.fabLength || 0) * (plant?.fabWidth || 0);
+  }, [plant?.fabLength, plant?.fabWidth]);
+
   const fabFloors = useMemo(() => {
     const list: string[] = [];
     if (!plant) return list;
@@ -54,6 +58,13 @@ export function Step4Refinement() {
     for (let j = 1; j <= plant.fabAl; j++) list.push(`FAB-L${j}0`);
     return list;
   }, [plant]);
+
+  const totalCalculatedFabArea = useMemo(() => {
+    return fabFloors.reduce((total, floor) => {
+      const rowSum = (floorData[floor]?.fac ?? 0) + (floorData[floor]?.cr ?? 0);
+      return total + (rowSum * fabFloorArea);
+    }, 0);
+  }, [fabFloors, floorData, fabFloorArea]);
 
   useEffect(() => {
     if (!isHydrated && !loadingRemote && !loadingFloorRatios) {
@@ -248,6 +259,16 @@ export function Step4Refinement() {
                   AUTO-BALANCE (CR = 1 - FAC, ABOVE GROUND)
                 </Label>
               </div>
+              <div className="pt-3 border-t border-primary/10 space-y-1.5">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-muted-foreground font-bold">Standard Single Floor:</span>
+                  <span className="font-mono font-bold text-primary">{Math.round(fabFloorArea).toLocaleString()} m²</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-muted-foreground font-bold">Total FAB Area (Calculated):</span>
+                  <span className="font-mono font-black text-accent">{Math.round(totalCalculatedFabArea).toLocaleString()} m²</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -255,61 +276,75 @@ export function Step4Refinement() {
             <h3 className="font-headline font-bold text-sm text-primary uppercase tracking-widest flex items-center gap-2">
               <Layers className="w-4 h-4" /> FAB Vertical Distribution Matrix
             </h3>
-            <div className="border-2 rounded-2xl bg-white overflow-hidden shadow-2xl h-[450px] overflow-y-auto custom-scrollbar">
-              <Table>
-                <TableHeader className="bg-muted/90 sticky top-0 z-10 shadow-sm border-b-2">
-                  <TableRow>
-                    <TableHead className="text-[10px] font-black uppercase text-primary px-6">Floor Identifier</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-primary text-right px-4">Facility RATIO (0-1)</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-primary text-right px-4">Cleanroom RATIO (0-1)</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-primary text-right px-4">Row Sum</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fabFloors.map(floor => {
-                    const isBasement = isBasementFloor(floor);
-                    const rowSum = (floorData[floor]?.fac ?? 0) + (floorData[floor]?.cr ?? 0);
-                    const isInvalid = !isBasement && Math.abs(rowSum - 1) > 0.0001;
-                    return (
-                      <TableRow key={floor} className={`hover:bg-accent/5 transition-colors ${isInvalid ? 'bg-destructive/5' : ''}`}>
-                        <TableCell className="py-3 px-6">
-                          <Badge variant={isBasement ? 'secondary' : 'default'} className="rounded-md font-mono text-[10px] font-black">
-                            {floor}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="py-2 px-4">
-                          <Input 
-                            type="number" step="0.1" 
-                            min="0" max="1"
-                            value={floorData[floor]?.fac ?? 0}
-                            onChange={(e) => handleUpdate(floor, 'fac', e.target.value)}
-                            disabled={isReader}
-                            className="h-8 border-none bg-muted/30 font-mono text-xs text-right font-black focus-visible:bg-white"
-                            suppressHydrationWarning
-                          />
-                        </TableCell>
-                        <TableCell className="py-2 px-4">
-                          <Input 
-                            type="number" step="0.1" 
-                            min="0" max="1"
-                            value={floorData[floor]?.cr ?? 0}
-                            onChange={(e) => handleUpdate(floor, 'cr', e.target.value)}
-                            disabled={isReader}
-                            className="h-8 border-none bg-muted/30 font-mono text-xs text-right font-black focus-visible:bg-white"
-                            suppressHydrationWarning
-                          />
-                        </TableCell>
-                        <TableCell className={`py-2 px-4 text-right font-mono text-xs font-black ${
-                          isBasement ? 'text-muted-foreground' : isInvalid ? 'text-destructive' : 'text-emerald-600'
-                        }`}>
-                          {rowSum.toFixed(4)}
-                          {isBasement && <span className="text-[10px] ml-1 font-bold text-muted-foreground/70">(Basement)</span>}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+            <div className="border-2 rounded-2xl bg-white overflow-hidden shadow-2xl h-[450px] flex flex-col">
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <Table>
+                  <TableHeader className="bg-muted/90 sticky top-0 z-10 shadow-sm border-b-2">
+                    <TableRow>
+                      <TableHead className="text-[10px] font-black uppercase text-primary px-4">Floor</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase text-primary text-right px-2">Facility RATIO</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase text-primary text-right px-2">Cleanroom RATIO</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase text-primary text-right px-2">Row Sum</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase text-primary text-right px-4">Est. Area (m²)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fabFloors.map(floor => {
+                      const isBasement = isBasementFloor(floor);
+                      const rowSum = (floorData[floor]?.fac ?? 0) + (floorData[floor]?.cr ?? 0);
+                      const isInvalid = !isBasement && Math.abs(rowSum - 1) > 0.0001;
+                      return (
+                        <TableRow key={floor} className={`hover:bg-accent/5 transition-colors ${isInvalid ? 'bg-destructive/5' : ''}`}>
+                          <TableCell className="py-3 px-4">
+                            <Badge variant={isBasement ? 'secondary' : 'default'} className="rounded-md font-mono text-[10px] font-black">
+                              {floor}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="py-2 px-2">
+                            <Input 
+                              type="number" step="0.1" 
+                              min="0" max="1"
+                              value={floorData[floor]?.fac ?? 0}
+                              onChange={(e) => handleUpdate(floor, 'fac', e.target.value)}
+                              disabled={isReader}
+                              className="h-8 border-none bg-muted/30 font-mono text-xs text-right font-black focus-visible:bg-white"
+                              suppressHydrationWarning
+                            />
+                          </TableCell>
+                          <TableCell className="py-2 px-2">
+                            <Input 
+                              type="number" step="0.1" 
+                              min="0" max="1"
+                              value={floorData[floor]?.cr ?? 0}
+                              onChange={(e) => handleUpdate(floor, 'cr', e.target.value)}
+                              disabled={isReader}
+                              className="h-8 border-none bg-muted/30 font-mono text-xs text-right font-black focus-visible:bg-white"
+                              suppressHydrationWarning
+                            />
+                          </TableCell>
+                          <TableCell className={`py-2 px-2 text-right font-mono text-xs font-black ${
+                            isBasement ? 'text-muted-foreground' : isInvalid ? 'text-destructive' : 'text-emerald-600'
+                          }`}>
+                            {rowSum.toFixed(4)}
+                            {isBasement && <span className="text-[9px] ml-1 font-bold text-muted-foreground/70">(BS)</span>}
+                          </TableCell>
+                          <TableCell className="py-2 px-4 text-right font-mono text-xs font-black text-primary">
+                            {Math.round(rowSum * fabFloorArea).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex justify-between items-center px-6 py-3 bg-muted/40 border-t-2">
+                <span className="text-[11px] font-black uppercase tracking-wider text-primary">
+                  Total Calculated FAB Area (Step 4 Sum)
+                </span>
+                <span className="font-mono font-black text-sm text-accent">
+                  {Math.round(totalCalculatedFabArea).toLocaleString()} m²
+                </span>
+              </div>
             </div>
           </div>
         </div>

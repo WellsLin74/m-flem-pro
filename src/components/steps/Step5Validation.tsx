@@ -15,6 +15,7 @@ import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import Info from 'lucide-react/dist/esm/icons/info';
 import Lock from 'lucide-react/dist/esm/icons/lock';
+import Sparkles from 'lucide-react/dist/esm/icons/sparkles';
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
@@ -56,21 +57,22 @@ export function Step5Validation() {
     
     const fabFloorArea = plant.fabLength * plant.fabWidth;
     const cupFloorArea = plant.cupLength * plant.cupWidth;
-    const fabTotalArea = fabFloorArea * (plant.fabAl + plant.fabBl);
-    const cupTotalArea = cupFloorArea * (plant.cupAl + plant.cupBl);
     
     const fabFloorsOnly = allFloors.filter(f => f.startsWith('FAB'));
     const totalFabFloors = fabFloorsOnly.length;
 
-    let sumCrOcc = 0;
-    allFloors.forEach(f => {
-      if (f.startsWith('FAB')) {
-        sumCrOcc += refinement.floorData[f]?.cr ?? 0;
-      }
+    let fabCrTotalArea = 0;
+    let fabNonCrTotalArea = 0;
+
+    fabFloorsOnly.forEach(f => {
+      const cr = refinement.floorData[f]?.cr ?? 0;
+      const fac = refinement.floorData[f]?.fac ?? 0;
+      fabCrTotalArea += cr * fabFloorArea;
+      fabNonCrTotalArea += fac * fabFloorArea;
     });
 
-    const fabCrTotalArea = fabFloorArea * sumCrOcc;
-    const fabNonCrTotalArea = fabTotalArea - fabCrTotalArea;
+    const fabTotalArea = fabCrTotalArea + fabNonCrTotalArea;
+    const cupTotalArea = cupFloorArea * (plant.cupAl + plant.cupBl);
     
     const facCrRatio = refinement.facCrRatio;
     const globalToolsRatio = refinement.toolsCrRatio;
@@ -80,25 +82,28 @@ export function Step5Validation() {
 
     allFloors.forEach(f => {
       const isFab = f.startsWith('FAB');
-      const area = isFab ? fabFloorArea : cupFloorArea;
       const crOcc = isFab ? (refinement.floorData[f]?.cr ?? 0) : 0;
-      const nonCrOcc = 1 - crOcc;
+      const facOcc = isFab ? (refinement.floorData[f]?.fac ?? 0) : 0;
 
-      const facPartA = fabCrTotalArea > 0 ? (facCrRatio * area * crOcc) / fabCrTotalArea : 0;
+      const floorCrArea = isFab ? crOcc * fabFloorArea : 0;
+      const floorNonCrArea = isFab ? facOcc * fabFloorArea : cupFloorArea;
+      const floorArea = floorCrArea + floorNonCrArea;
+
+      const facPartA = fabCrTotalArea > 0 ? (facCrRatio * floorCrArea) / fabCrTotalArea : 0;
       const facPartB = (fabNonCrTotalArea + cupTotalArea) > 0 
-        ? ((1 - facCrRatio) * area * nonCrOcc) / (fabNonCrTotalArea + cupTotalArea) 
+        ? ((1 - facCrRatio) * floorNonCrArea) / (fabNonCrTotalArea + cupTotalArea) 
         : 0;
       const finalFacRatio = facPartA + facPartB;
 
       let finalToolRatio = 0;
       if (isFab) {
-        const toolsPartA = fabCrTotalArea > 0 ? (globalToolsRatio * area * crOcc) / fabCrTotalArea : 0;
-        const toolsPartB = fabNonCrTotalArea > 0 ? ((1 - globalToolsRatio) * area * nonCrOcc) / fabNonCrTotalArea : 0;
+        const toolsPartA = fabCrTotalArea > 0 ? (globalToolsRatio * floorCrArea) / fabCrTotalArea : 0;
+        const toolsPartB = fabNonCrTotalArea > 0 ? ((1 - globalToolsRatio) * floorNonCrArea) / fabNonCrTotalArea : 0;
         finalToolRatio = toolsPartA + toolsPartB;
       }
 
       const finalFixRatio = isFab ? (totalFabFloors > 0 ? 1 / totalFabFloors : 0) : 0;
-      const finalBldgRatio = totalBuildingArea > 0 ? area / totalBuildingArea : 0;
+      const finalBldgRatio = totalBuildingArea > 0 ? floorArea / totalBuildingArea : 0;
 
       suggestions[f] = {
         bldg: finalBldgRatio,
@@ -263,14 +268,31 @@ export function Step5Validation() {
           </div>
           <CardDescription className="font-medium">Verify financial distribution sums across all vertical site segments for {plant?.plantName}.</CardDescription>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => setIsHydrated(false)} 
-          className="gap-2 font-bold border-primary/20 text-primary hover:bg-primary/5"
-        >
-          <RefreshCw className="w-3 h-3" /> Sync Database
-        </Button>
+        <div className="flex items-center gap-2">
+          {!isReader && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                const suggested = generateSuggestions();
+                setLocalRatios(suggested);
+                setFinalRatios(suggested);
+                setIsValidated(false);
+              }} 
+              className="gap-2 font-bold border-accent/40 text-accent hover:bg-accent/10"
+            >
+              <Sparkles className="w-3 h-3" /> Auto-Calculate from Step 4
+            </Button>
+          )}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setIsHydrated(false)} 
+            className="gap-2 font-bold border-primary/20 text-primary hover:bg-primary/5"
+          >
+            <RefreshCw className="w-3 h-3" /> Sync Database
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6 pb-10 mt-6 px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
