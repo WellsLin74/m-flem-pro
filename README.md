@@ -32,8 +32,9 @@ Enterprise industrial flood risk and financial impact modeling system.
 To get started, take a look at `src/app/page.tsx`.
 
 ## Tech Stack
-- **Next.js 15** (App Router)
+- **Next.js 16** (App Router), React 19
 - **Firebase** (Auth/Firestore)
-- **Genkit** (Gemini AI)
+- **Zustand** (state), **xlsx** / **html-to-image** (export)
+- **Genkit** (Gemini AI) — 規劃中，尚未實作
 - **Tailwind CSS**
 - **ShadCN UI**

@@ -2,12 +2,12 @@
 
 ## Core Features:
 
-- User Authentication & Access: Secure sign-in for users and a module for administrators to add new users, assign roles (ADMIN, EDITOR, READER), and associate them with specific companies. Stores user permissions in Supabase.
-- Company & Plant Configuration: Allows users to define the active company and register new plant locations. This setup acts as a unique identifier for all subsequent data entries in Supabase.
-- Initial Plant Data Initialization: Capture core physical data for a plant including geo-location, FAB (Factory Area Building) and CUP (Central Utility Plant) dimensions (Above/Below Ground Levels), and initial estimated asset values for Building, Facility, Tools, Fixtures, and Stock. This data is stored in Supabase.
-- FAB Cleanroom Ratio Refinement: Define overall and floor-specific cleanroom ratios for facilities and tools, accounting for both cleanroom and non-cleanroom portions of the plant across different floors. This complex matrix is saved in Supabase for detailed calculations.
-- Asset Value Ratio Validation: Display calculated asset distribution ratios per floor (Building, Facility, Tools, Fixtures) for user review. System validates these ratios to ensure they sum to 1.0, with an option to manually adjust some, before saving the validated matrix status to Supabase.
-- Flood Loss Estimation & Ratio Suggestion: Calculate estimated flood loss in USD millions based on user-defined flood height and L10 height (elevation data). Automatically suggests impact ratios for Building, Tools, Facility, Fixture, and Stock values, allowing manual adjustments.
+- User Authentication & Access: Secure sign-in for users and a module for administrators to add new users, assign roles (ADMIN, EDITOR, READER), and associate them with specific companies. Stores user permissions in Firebase (Firestore).
+- Company & Plant Configuration: Allows users to define the active company and register new plant locations. This setup acts as a unique identifier for all subsequent data entries in Firebase (Firestore).
+- Initial Plant Data Initialization: Capture core physical data for a plant including geo-location, FAB (Factory Area Building) and CUP (Central Utility Plant) dimensions (Above/Below Ground Levels), and initial estimated asset values for Building, Facility, Tools, Fixtures, and Stock. This data is stored in Firebase (Firestore).
+- FAB Cleanroom Ratio Refinement: Define overall and floor-specific cleanroom ratios for facilities and tools, accounting for both cleanroom and non-cleanroom portions of the plant across different floors. This complex matrix is saved in Firebase (Firestore) for detailed calculations.
+- Asset Value Ratio Validation: Display calculated asset distribution ratios per floor (Building, Facility, Tools, Fixtures) for user review. System validates these ratios to ensure they sum to 1.0, with an option to manually adjust some, before saving the validated matrix status to Firebase (Firestore).
+- Flood Loss Estimation & Ratio Suggestion: Calculate estimated flood loss in M NTD (consistent with system-spec) based on user-defined flood height and L10 height (elevation data). Automatically suggests impact ratios for Building, Tools, Facility, Fixture, and Stock values, allowing manual adjustments.
 - AI-Powered Flood Risk Insights: Utilizes a generative AI tool to provide narrative insights and detailed explanations for the calculated flood loss estimations and suggested ratios, helping users understand the risk factors and implications.
 
 ## Style Guidelines:

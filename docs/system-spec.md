@@ -24,6 +24,12 @@ M-FLEM Pro 是一套針對半導體與高科技工廠設計的專業級工業水
 | **EDITOR** | 所屬公司存取 | 完整編輯 | 完整模擬與報表匯出 |
 | **READER** | 所屬公司存取 | **唯讀** / 自動計算 | **完整模擬**與報表匯出 |
 
+### 權限補充說明
+- **核准流程**：新註冊使用者的 `isApproved` 預設為 false，須由 ADMIN 於 Step 2 核准後方可存取。
+- **超級管理員**：程式內建 `admin@marsh.com` 視為 ADMIN 並免核准（目前為寫死設定，建議改為設定檔或自訂 claim）。
+- **公司資料隔離**：「所屬公司存取」須由 Firestore Security Rules 落實，規則內容尚未記錄於本文件。
+- **匿名登入**：`docs/backend.json` 啟用 `anonymous` provider，與 Step 1 的授權帳號要求不一致，待確認。
+
 ## 4. 核心工作流 (The Wizard Journey)
 
 ### Step 1: 安全身份驗證 (Authentication)
@@ -67,7 +73,7 @@ M-FLEM Pro 是一套針對半導體與高科技工廠設計的專業級工業水
 ### Step 6: 風險模擬與匯出 (Risk Analysis - STEP6)
 - **水災情境模擬**：動態調整洪水高度 (Flood Height AGL)，系統自動對比 FAB/CUP L10 高度基準。
 - **損失計算公式**：`LOSS = 該樓層資產價值 * (該類別損失比例 / 100)`。
-- **AI 智能洞察**：Genkit 結合當前財務模型與風險參數，生成專業的評估敘事。
+- **AI 智能洞察（規劃中／尚未實作）**：預計以 Genkit 結合財務模型與風險參數生成評估敘事。目前專案未安裝 Genkit，程式中亦無 AI 呼叫。
 - **報表匯出系統**：
     - **Excel**：將 P2-P6 的所有原始配置、矩陣分佈、以及「詳細損害計算結果」完整匯出為試算表。
 
@@ -75,8 +81,15 @@ M-FLEM Pro 是一套針對半導體與高科技工廠設計的專業級工業水
 - `plants`: 存儲工廠物理規格與基礎價值。
 - `building_value_ratios`: 核心矩陣分佈數據，包含驗證狀態。
 - `flood_loss_estimations`: 存儲模擬歷史紀錄與匯總損失金額。
-- `user_permissions`: 使用者角色與所屬公司映射。
+- `user_permissions`: 使用者角色、所屬公司與核准狀態 (`isApproved`)。
+- `fab_cleanroom_occupancy/{plantId}`: Step 4 各樓層 Fac/CR 比例（主文件含 `floorData`，另有 `floor_ratios` 子集合）。
+- `building_value_ratios/{plantId}/floor_ratios`: Step 5 各樓層資產分配率子集合。
+
+> 注意：`docs/backend.json` 目前僅定義 `user_permissions` 與 `plants` 的 schema，其餘集合待補。
 
 ---
-*文件更新日期：2026-09-16*
+*文件更新日期：2026-11-09*
 *版本：v11.1 Professional Edition*
+
+## 變更紀錄
+- 2026-11-09：標註 AI 洞察為未實作；補充權限核准流程、超級管理員、資料集合；統一 README／blueprint 技術棧與幣別。
