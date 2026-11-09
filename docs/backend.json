@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "UserPermission": {
@@ -7,13 +6,31 @@
       "type": "object",
       "description": "Represents a user's permissions and assigned company within the M-FLEM Pro system.",
       "properties": {
-        "id": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "role": { "type": "string" },
-        "assignedCompany": { "type": "string" },
-        "isApproved": { "type": "boolean", "description": "Whether the user has been approved by an ADMIN." }
+        "id": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "role": {
+          "type": "string"
+        },
+        "assignedCompany": {
+          "type": "string"
+        },
+        "isApproved": {
+          "type": "boolean",
+          "description": "Whether the user has been approved by an ADMIN."
+        }
       },
-      "required": ["id", "email", "role", "assignedCompany", "isApproved"]
+      "required": [
+        "id",
+        "email",
+        "role",
+        "assignedCompany",
+        "isApproved"
+      ]
     },
     "Plant": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -21,31 +38,269 @@
       "type": "object",
       "description": "Consolidated entity for a plant's physical and financial baseline data.",
       "properties": {
-        "id": { "type": "string" },
-        "companyName": { "type": "string" },
-        "plantName": { "type": "string" },
-        "latitude": { "type": "number" },
-        "longitude": { "type": "number" },
-        "fabAboveLevel": { "type": "number" },
-        "fabBelowLevel": { "type": "number" },
-        "cupAboveLevel": { "type": "number" },
-        "cupBelowLevel": { "type": "number" },
-        "fabLength": { "type": "number" },
-        "fabWidth": { "type": "number" },
-        "cupLength": { "type": "number" },
-        "cupWidth": { "type": "number" },
-        "buildingValue": { "type": "number" },
-        "facilityValue": { "type": "number" },
-        "toolsValue": { "type": "number" },
-        "fixtureValue": { "type": "number" },
-        "stockValue": { "type": "number" },
-        "bi12mValue": { "type": "number" }
+        "id": {
+          "type": "string"
+        },
+        "companyName": {
+          "type": "string"
+        },
+        "plantName": {
+          "type": "string"
+        },
+        "latitude": {
+          "type": "number"
+        },
+        "longitude": {
+          "type": "number"
+        },
+        "fabAboveLevel": {
+          "type": "number"
+        },
+        "fabBelowLevel": {
+          "type": "number"
+        },
+        "cupAboveLevel": {
+          "type": "number"
+        },
+        "cupBelowLevel": {
+          "type": "number"
+        },
+        "fabLength": {
+          "type": "number"
+        },
+        "fabWidth": {
+          "type": "number"
+        },
+        "cupLength": {
+          "type": "number"
+        },
+        "cupWidth": {
+          "type": "number"
+        },
+        "buildingValue": {
+          "type": "number"
+        },
+        "facilityValue": {
+          "type": "number"
+        },
+        "toolsValue": {
+          "type": "number"
+        },
+        "fixtureValue": {
+          "type": "number"
+        },
+        "stockValue": {
+          "type": "number"
+        },
+        "bi12mValue": {
+          "type": "number"
+        },
+        "fabL10Height": {
+          "type": "number"
+        },
+        "cupL10Height": {
+          "type": "number"
+        }
       },
-      "required": ["id", "companyName", "plantName"]
+      "required": [
+        "id",
+        "companyName",
+        "plantName"
+      ]
+    },
+    "BuildingValueRatio": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BuildingValueRatio",
+      "type": "object",
+      "description": "Step 5 matrix validation status for a plant.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "companyName": {
+          "type": "string"
+        },
+        "plantName": {
+          "type": "string"
+        },
+        "validationStatus": {
+          "type": "string",
+          "enum": [
+            "VALIDATED"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "companyName",
+        "plantName"
+      ]
+    },
+    "FloorValueRatio": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FloorValueRatio",
+      "type": "object",
+      "description": "Step 5 per-floor asset distribution ratios (0-1). Column sums: building/facility/tools/fixture = 1 (+-0.001), stock <= 1.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "floorIdentifier": {
+          "type": "string"
+        },
+        "buildingRatio": {
+          "type": "number"
+        },
+        "facilityRatio": {
+          "type": "number"
+        },
+        "toolsRatio": {
+          "type": "number"
+        },
+        "fixtureRatio": {
+          "type": "number"
+        },
+        "stockRatio": {
+          "type": "number"
+        },
+        "companyName": {
+          "type": "string"
+        },
+        "plantName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "floorIdentifier"
+      ]
+    },
+    "FabCleanroomOccupancy": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FabCleanroomOccupancy",
+      "type": "object",
+      "description": "Step 4 spatial refinement; floorData maps floor id to {fac, cr}.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "companyName": {
+          "type": "string"
+        },
+        "plantName": {
+          "type": "string"
+        },
+        "overallFacilityCleanroomRatio": {
+          "type": "number"
+        },
+        "overallToolsCleanroomRatio": {
+          "type": "number"
+        },
+        "floorData": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "fac": {
+                "type": "number"
+              },
+              "cr": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "companyName",
+        "plantName"
+      ]
+    },
+    "FloorOccupancy": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FloorOccupancy",
+      "type": "object",
+      "description": "Step 4 per-floor occupancy ratios (subcollection kept for backward compatibility).",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "floorIdentifier": {
+          "type": "string"
+        },
+        "facilityOccupancyRatio": {
+          "type": "number"
+        },
+        "cleanroomOccupancyRatio": {
+          "type": "number"
+        },
+        "companyName": {
+          "type": "string"
+        },
+        "plantName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "floorIdentifier"
+      ]
+    },
+    "FloodLossEstimation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FloodLossEstimation",
+      "type": "object",
+      "description": "Step 6 simulation history record (loss amounts in M NTD).",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "companyName": {
+          "type": "string"
+        },
+        "plantName": {
+          "type": "string"
+        },
+        "fabL10Height": {
+          "type": "number"
+        },
+        "cupL10Height": {
+          "type": "number"
+        },
+        "floodHeightAgl": {
+          "type": "number"
+        },
+        "estimatedTotalLoss": {
+          "type": "number"
+        },
+        "estimatedFabLoss": {
+          "type": "number"
+        },
+        "estimatedCupLoss": {
+          "type": "number"
+        },
+        "estimationTimestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "plantName",
+        "estimatedTotalLoss"
+      ]
     }
   },
   "auth": {
-    "providers": ["password", "anonymous"]
+    "providers": [
+      "password",
+      "anonymous"
+    ]
   },
   "firestore": {
     "structure": [
@@ -53,7 +308,9 @@
         "path": "/user_permissions/{userId}",
         "definition": {
           "entityName": "UserPermission",
-          "schema": { "$ref": "#/backend/entities/UserPermission" },
+          "schema": {
+            "$ref": "#/backend/entities/UserPermission"
+          },
           "description": "User profile and authorization."
         }
       },
@@ -61,8 +318,60 @@
         "path": "/plants/{plantId}",
         "definition": {
           "entityName": "Plant",
-          "schema": { "$ref": "#/backend/entities/Plant" },
+          "schema": {
+            "$ref": "#/backend/entities/Plant"
+          },
           "description": "Consolidated physical and financial data for a plant."
+        }
+      },
+      {
+        "path": "/building_value_ratios/{plantId}",
+        "definition": {
+          "entityName": "BuildingValueRatio",
+          "schema": {
+            "$ref": "#/backend/entities/BuildingValueRatio"
+          },
+          "description": "Step 5 validation status."
+        }
+      },
+      {
+        "path": "/building_value_ratios/{plantId}/floor_ratios/{floorId}",
+        "definition": {
+          "entityName": "FloorValueRatio",
+          "schema": {
+            "$ref": "#/backend/entities/FloorValueRatio"
+          },
+          "description": "Per-floor asset distribution ratios."
+        }
+      },
+      {
+        "path": "/fab_cleanroom_occupancy/{plantId}",
+        "definition": {
+          "entityName": "FabCleanroomOccupancy",
+          "schema": {
+            "$ref": "#/backend/entities/FabCleanroomOccupancy"
+          },
+          "description": "Step 4 spatial refinement with full floorData."
+        }
+      },
+      {
+        "path": "/fab_cleanroom_occupancy/{plantId}/floor_ratios/{floorId}",
+        "definition": {
+          "entityName": "FloorOccupancy",
+          "schema": {
+            "$ref": "#/backend/entities/FloorOccupancy"
+          },
+          "description": "Per-floor Fac/CR ratios (legacy subcollection)."
+        }
+      },
+      {
+        "path": "/flood_loss_estimations/{estimationId}",
+        "definition": {
+          "entityName": "FloodLossEstimation",
+          "schema": {
+            "$ref": "#/backend/entities/FloodLossEstimation"
+          },
+          "description": "Step 6 simulation history."
         }
       }
     ]

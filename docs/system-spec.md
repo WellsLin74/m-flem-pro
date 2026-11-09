@@ -85,11 +85,11 @@ M-FLEM Pro 是一套針對半導體與高科技工廠設計的專業級工業水
 - `fab_cleanroom_occupancy/{plantId}`: Step 4 各樓層 Fac/CR 比例（主文件含 `floorData`，另有 `floor_ratios` 子集合）。
 - `building_value_ratios/{plantId}/floor_ratios`: Step 5 各樓層資產分配率子集合。
 
-> 注意：`docs/backend.json` 目前僅定義 `user_permissions` 與 `plants` 的 schema，其餘集合待補。
+> 各集合欄位定義見 `docs/backend.json`（依程式實際寫入欄位整理）。
 
 ---
 *文件更新日期：2026-11-09*
 *版本：v11.1 Professional Edition*
 
 ## 變更紀錄
-- 2026-11-09：標註 AI 洞察為未實作；補充權限核准流程、超級管理員、資料集合；統一 README／blueprint 技術棧與幣別。
+- 2026-11-09：`backend.json` 補齊全部集合 schema；標註 AI 洞察為未實作；補充權限核准流程、超級管理員、資料集合；統一 README／blueprint 技術棧與幣別。
